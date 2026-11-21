@@ -145,7 +145,7 @@ function handleVersionCheck(env: Env): Response {
       },
       android: {
         version: latestVersion,
-        download_url: 'https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android-APK.zip',
+        download_url: 'https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk',
         play_store_url: 'https://play.google.com/store/apps/details?id=app.muxis.player',
       },
       ios: {
