@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="placeholderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#7F00FF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#E100FF" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111520"/>
+      <stop offset="100%" stop-color="#090B10"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark Obsidian Card Surface -->
+  <rect width="512" height="512" rx="32" fill="url(#bgGrad)"/>
+  <rect width="510" height="510" x="1" y="1" rx="31" fill="none" stroke="#2B3448" stroke-width="2"/>
+
+  <!-- Concentric Vinyl Grooves -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#191F2D" stroke-width="12"/>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#191F2D" stroke-width="8"/>
+  <circle cx="256" cy="256" r="100" fill="none" stroke="#252D40" stroke-width="6"/>
+
+  <!-- Center Vinyl Label with Prismatic Monogram -->
+  <circle cx="256" cy="256" r="64" fill="url(#placeholderGrad)"/>
+  <circle cx="256" cy="256" r="16" fill="#090B10"/>
+</svg>
