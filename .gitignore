@@ -56,3 +56,5 @@ keystore.properties
 node_modules/
 .wrangler/
 dist/
+release_binaries/
+supabase/.temp/

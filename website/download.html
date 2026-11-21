@@ -46,11 +46,11 @@
     <!-- Release Status Banner -->
     <div style="background: rgba(0, 242, 254, 0.05); border: 1px solid rgba(0, 242, 254, 0.2); border-radius: 12px; padding: 18px 24px; max-width: 1000px; margin: 0 auto 48px; text-align: left; display: flex; align-items: center; justify-content: space-between; flex-wrap: gap; gap: 16px;">
       <div>
-        <strong style="color: var(--cyan); display: block; font-size: 15px; margin-bottom: 4px;">Release Pipelines Active</strong>
-        <span style="color: var(--text-secondary); font-size: 13px;">Official store distribution packages (Microsoft Store, Mac App Store, Google Play) will become available following production signing approval. Development builds are published directly via GitHub Actions.</span>
+        <strong style="color: var(--cyan); display: block; font-size: 15px; margin-bottom: 4px;">MUXIS v1.0.0 Production Release Ready</strong>
+        <span style="color: var(--text-secondary); font-size: 13px;">Direct public binary downloads are available for Windows, macOS, Linux, and Android. Built with 100% offline-first playback and real-time cloud sync.</span>
       </div>
-      <a href="https://github.com/DidarAlif/muxis/actions" class="btn btn-secondary" style="font-size: 13px; white-space: nowrap;">
-        View CI Runs &rarr;
+      <a href="https://github.com/DidarAlif/muxis/releases/tag/v1.0.0" class="btn btn-secondary" style="font-size: 13px; white-space: nowrap;">
+        View Release on GitHub &rarr;
       </a>
     </div>
 
@@ -59,9 +59,9 @@
       <div class="feature-card">
         <div class="feature-icon">🪟</div>
         <h3>Windows x64</h3>
-        <p style="margin-bottom: 20px;">Windows 10 / 11 (64-bit). Direct native Win32/C++ runner with gapless playback engine.</p>
-        <a href="https://github.com/DidarAlif/muxis/actions/workflows/build_all_platforms.yml" class="btn btn-primary" style="width: 100%;">
-          Get Windows Artifacts
+        <p style="margin-bottom: 20px;">Windows 10 / 11 (64-bit). Direct native standalone executable bundle with gapless playback engine.</p>
+        <a href="https://github.com/DidarAlif/muxis/releases/download/v1.0.0/Muxis-Windows-x64.zip" class="btn btn-primary" style="width: 100%; text-align: center;">
+          Download for Windows (.zip)
         </a>
       </div>
 
@@ -70,8 +70,8 @@
         <div class="feature-icon">🍎</div>
         <h3>macOS</h3>
         <p style="margin-bottom: 20px;">macOS 12+ (Monterey or later). Universal binary with native Apple Silicon & Intel optimizations.</p>
-        <a href="https://github.com/DidarAlif/muxis/actions/workflows/build_all_platforms.yml" class="btn btn-secondary" style="width: 100%;">
-          Get macOS Artifacts
+        <a href="https://github.com/DidarAlif/muxis/releases/download/v1.0.0/Muxis-macOS-Universal.zip" class="btn btn-primary" style="width: 100%; text-align: center;">
+          Download for macOS (.zip)
         </a>
       </div>
 
@@ -79,9 +79,9 @@
       <div class="feature-card">
         <div class="feature-icon">🐧</div>
         <h3>Linux</h3>
-        <p style="margin-bottom: 20px;">Ubuntu, Arch, Fedora, Debian. GTK-3 hardware-accelerated desktop bundle & AppImage.</p>
-        <a href="https://github.com/DidarAlif/muxis/actions/workflows/build_all_platforms.yml" class="btn btn-secondary" style="width: 100%;">
-          Get Linux Artifacts
+        <p style="margin-bottom: 20px;">Ubuntu, Arch, Fedora, Debian. GTK-3 hardware-accelerated desktop bundle with ALSA/PulseAudio.</p>
+        <a href="https://github.com/DidarAlif/muxis/releases/download/v1.0.0/Muxis-Linux-x64.tar.gz" class="btn btn-primary" style="width: 100%; text-align: center;">
+          Download for Linux (.tar.gz)
         </a>
       </div>
 
@@ -89,25 +89,32 @@
       <div class="feature-card">
         <div class="feature-icon">🤖</div>
         <h3>Android</h3>
-        <p style="margin-bottom: 20px;">Android 8.0+ (API 26+). Release APK (arm64-v8a / armeabi-v7a) & Play Store App Bundle (AAB).</p>
-        <a href="https://github.com/DidarAlif/muxis/actions/workflows/build_all_platforms.yml" class="btn btn-secondary" style="width: 100%;">
-          Get Android APK / AAB
+        <p style="margin-bottom: 20px;">Android 8.0+ (API 26+). Direct APK installer for universal mobile devices.</p>
+        <a href="https://github.com/DidarAlif/muxis/releases/download/v1.0.0/Muxis-Android.apk" class="btn btn-primary" style="width: 100%; text-align: center;">
+          Download Android APK
         </a>
       </div>
 
       <!-- iOS -->
       <div class="feature-card">
         <div class="feature-icon">📱</div>
-        <h3>iOS (TestFlight)</h3>
-        <p style="margin-bottom: 20px;">iOS 15.0 or later. Public TestFlight beta invitation will open with production release v1.0.0.</p>
-        <a href="documentation.html#ios-deployment" class="btn btn-secondary" style="width: 100%; opacity: 0.8;">
-          View TestFlight Status
+        <h3>iOS (Unsigned / Beta)</h3>
+        <p style="margin-bottom: 20px;">iOS 15.0 or later. Unsigned Runner application for AltStore, Sideloadly, or Xcode deployment.</p>
+        <a href="https://github.com/DidarAlif/muxis/releases/download/v1.0.0/Muxis-iOS-Unsigned.zip" class="btn btn-secondary" style="width: 100%; text-align: center;">
+          Download iOS Bundle (.zip)
         </a>
       </div>
 
       <!-- Source Code -->
       <div class="feature-card">
         <div class="feature-icon">💻</div>
+        <h3>Full Source Code</h3>
+        <p style="margin-bottom: 20px;">GitHub open repository with all features, themes, DSP algorithms, and deployment workflows.</p>
+        <a href="https://github.com/DidarAlif/muxis" class="btn btn-secondary" style="width: 100%; text-align: center;">
+          View on GitHub
+        </a>
+      </div>
+    </div>
         <h3>Build From Source</h3>
         <p style="margin-bottom: 20px;">Build native binaries locally using the Flutter SDK and Visual Studio / Xcode toolchains.</p>
         <a href="documentation.html#building-from-source" class="btn btn-secondary" style="width: 100%;">
