@@ -93,7 +93,7 @@ class MuxisTypography {
 
   // --- Monospace / Timecodes & Technical Badges ---
   static TextStyle timecode({bool isDark = true, bool active = false}) =>
-      GoogleFonts.jetbrainsMono(
+      GoogleFonts.jetBrainsMono(
         fontSize: 12,
         fontWeight: active ? FontWeight.w600 : FontWeight.w400,
         letterSpacing: 0.5,
@@ -105,7 +105,7 @@ class MuxisTypography {
                   : MuxisColors.textSecondaryLight),
       );
 
-  static TextStyle badge({bool isDark = true}) => GoogleFonts.jetbrainsMono(
+  static TextStyle badge({bool isDark = true}) => GoogleFonts.jetBrainsMono(
     fontSize: 10,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.8,

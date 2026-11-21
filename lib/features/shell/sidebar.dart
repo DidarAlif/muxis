@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
+import '../../app/theme/theme_controller.dart';
 import '../../core/auth/supabase_auth_service.dart';
 import '../auth/account_dialog.dart';
 import '../auth/auth_dialog.dart';
