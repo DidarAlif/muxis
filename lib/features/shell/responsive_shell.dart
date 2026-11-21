@@ -50,23 +50,23 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
         HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
 
-    if (event.logicalKey == LogicalKey.space) {
+    if (event.logicalKey == LogicalKeyboardKey.space) {
       audioService.togglePlay();
-    } else if (isControl && event.logicalKey == LogicalKey.arrowRight) {
+    } else if (isControl && event.logicalKey == LogicalKeyboardKey.arrowRight) {
       audioService.playNext();
-    } else if (isControl && event.logicalKey == LogicalKey.arrowLeft) {
+    } else if (isControl && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
       audioService.playPrevious();
-    } else if (isControl && event.logicalKey == LogicalKey.arrowUp) {
+    } else if (isControl && event.logicalKey == LogicalKeyboardKey.arrowUp) {
       final vol = ref.read(playbackServiceProvider).volume;
       audioService.setVolume(vol + 0.05);
-    } else if (isControl && event.logicalKey == LogicalKey.arrowDown) {
+    } else if (isControl && event.logicalKey == LogicalKeyboardKey.arrowDown) {
       final vol = ref.read(playbackServiceProvider).volume;
       audioService.setVolume(vol - 0.05);
     } else if (isControl &&
-        (event.logicalKey == LogicalKey.keyK ||
-            event.logicalKey == LogicalKey.keyF)) {
+        (event.logicalKey == LogicalKeyboardKey.keyK ||
+            event.logicalKey == LogicalKeyboardKey.keyF)) {
       _openCommandPalette();
-    } else if (isControl && event.logicalKey == LogicalKey.keyL) {
+    } else if (isControl && event.logicalKey == LogicalKeyboardKey.keyL) {
       setState(() => _navIndex = 4); // Library
     }
   }

@@ -1,4 +1,5 @@
 import '../shared/models/album.dart';
+import '../shared/models/playlist.dart';
 import '../shared/models/track.dart';
 
 abstract class MusicProvider {
