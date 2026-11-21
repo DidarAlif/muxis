@@ -28,15 +28,14 @@ class Track {
     this.artworkUrl,
     this.localFilePath,
     this.streamUrl,
-    this.source = MusicSource.local,
+    MusicSource? source,
     this.isFavorite = false,
     this.audioFormat = 'FLAC',
     this.trackNumber,
     this.year,
     bool? isLocal,
-  }) : source = isLocal != null
-            ? (isLocal ? MusicSource.local : (source == MusicSource.local ? MusicSource.youtube : source))
-            : source;
+  }) : source = source ??
+            (isLocal == false ? MusicSource.youtube : MusicSource.local);
 
   bool get isLocal => source == MusicSource.local;
 
