@@ -75,13 +75,27 @@ class BottomPlaybackBar extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.music_note_rounded,
-                          color: Colors.black,
-                          size: 28,
-                        ),
-                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: track?.artworkUrl != null &&
+                              track!.artworkUrl!.isNotEmpty
+                          ? Image.network(
+                              track.artworkUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(
+                                  Icons.music_note_rounded,
+                                  color: Colors.black,
+                                  size: 28,
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.music_note_rounded,
+                                color: Colors.black,
+                                size: 28,
+                              ),
+                            ),
                     ),
                   ),
                 ),

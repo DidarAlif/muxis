@@ -1,32 +1,102 @@
 import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
 
+import '../../providers/innertube_music_provider.dart';
+import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import 'playback_state.dart';
 
 final playbackServiceProvider =
     StateNotifierProvider<AudioPlaybackService, PlaybackState>((ref) {
-      return AudioPlaybackService();
-    });
+  return AudioPlaybackService();
+});
 
 class AudioPlaybackService extends StateNotifier<PlaybackState> {
-  Timer? _ticker;
-  double _lastUnmutedVolume = 1.0;
+  final AudioPlayer _player;
+  final InnerTubeMusicProvider _innerTubeProvider;
+  final SpotifyMusicProvider _spotifyProvider;
 
-  AudioPlaybackService() : super(const PlaybackState()) {
-    _initDefaults();
+  StreamSubscription<PlayerState>? _playerStateSub;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<Duration>? _bufferedPositionSub;
+
+  double _lastUnmutedVolume = 1.0;
+  bool _isDisposed = false;
+
+  AudioPlaybackService({
+    AudioPlayer? player,
+    InnerTubeMusicProvider? innerTubeProvider,
+    SpotifyMusicProvider? spotifyProvider,
+  })  : _player = player ?? AudioPlayer(),
+        _innerTubeProvider = innerTubeProvider ?? InnerTubeMusicProvider(),
+        _spotifyProvider = spotifyProvider ?? SpotifyMusicProvider(),
+        super(const PlaybackState()) {
+    _initAudioListeners();
   }
 
-  void _initDefaults() {
-    // Initial clean state: starts empty until tracks are loaded from DatabaseService or LocalLibraryScanner
-    state = const PlaybackState(
-      queue: [],
-      currentIndex: -1,
-      currentTrack: null,
-      duration: Duration.zero,
-      status: PlaybackStatus.idle,
-    );
+  void _initAudioListeners() {
+    _playerStateSub = _player.playerStateStream.listen((playerState) {
+      if (_isDisposed) return;
+
+      final isPlaying = playerState.playing;
+      final procState = playerState.processingState;
+
+      PlaybackStatus status;
+      switch (procState) {
+        case ProcessingState.idle:
+          status = PlaybackStatus.idle;
+          break;
+        case ProcessingState.loading:
+        case ProcessingState.buffering:
+          status = PlaybackStatus.loading;
+          break;
+        case ProcessingState.ready:
+          status = isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused;
+          break;
+        case ProcessingState.completed:
+          status = PlaybackStatus.completed;
+          _handleTrackCompleted();
+          return;
+      }
+
+      state = state.copyWith(status: status);
+    }, onError: (Object err) {
+      if (!_isDisposed) {
+        state = state.copyWith(
+          status: PlaybackStatus.error,
+          errorMessage: 'Audio Engine Error: $err',
+        );
+      }
+    });
+
+    _positionSub = _player.positionStream.listen((pos) {
+      if (!_isDisposed) {
+        state = state.copyWith(position: pos);
+      }
+    });
+
+    _durationSub = _player.durationStream.listen((dur) {
+      if (!_isDisposed && dur != null) {
+        state = state.copyWith(duration: dur);
+      }
+    });
+
+    _bufferedPositionSub = _player.bufferedPositionStream.listen((buf) {
+      if (!_isDisposed) {
+        state = state.copyWith(bufferedPosition: buf);
+      }
+    });
+  }
+
+  void _handleTrackCompleted() {
+    if (state.repeatMode == RepeatMode.one) {
+      seek(Duration.zero);
+      play();
+    } else {
+      playNext();
+    }
   }
 
   void loadInitialTracks(List<Track> tracks) {
@@ -40,9 +110,8 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     );
   }
 
-  void playTrack(Track track, {List<Track>? newQueue}) {
-    final queue =
-        newQueue ??
+  Future<void> playTrack(Track track, {List<Track>? newQueue}) async {
+    final queue = newQueue ??
         (state.queue.contains(track) ? state.queue : [...state.queue, track]);
     final index = queue.indexOf(track);
 
@@ -50,13 +119,67 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       currentTrack: track,
       queue: queue,
       currentIndex: index >= 0 ? index : 0,
-      status: PlaybackStatus.playing,
+      status: PlaybackStatus.loading,
       position: Duration.zero,
       duration: track.duration,
-      bufferedPosition: track.duration * 0.4,
+      bufferedPosition: Duration.zero,
+      errorMessage: null,
     );
 
-    _startPlaybackTicker();
+    try {
+      // 1. Resolve Audio Source
+      String? playUri;
+
+      if (track.localFilePath != null && track.localFilePath!.isNotEmpty) {
+        // Local music playback
+        await _player.setFilePath(track.localFilePath!);
+        await _player.play();
+        return;
+      }
+
+      if (track.streamUrl != null && track.streamUrl!.isNotEmpty) {
+        playUri = track.streamUrl;
+      } else if (track.source == MusicSource.youtube) {
+        playUri = await _innerTubeProvider.resolveAudioStreamUrl(track);
+      } else if (track.source == MusicSource.spotify) {
+        playUri = await _spotifyProvider.resolveAudioStreamUrl(track);
+      } else {
+        playUri = await _innerTubeProvider.resolveAudioStreamUrl(track);
+      }
+
+      if (playUri == null || playUri.isEmpty) {
+        // If stream resolution fails, attempt fallback query
+        final fallbackTracks = await _innerTubeProvider.search('${track.artist} ${track.title}');
+        if (fallbackTracks.isNotEmpty) {
+          playUri = await _innerTubeProvider.resolveAudioStreamUrl(fallbackTracks.first);
+        }
+      }
+
+      if (playUri != null && playUri.isNotEmpty) {
+        // Set up player with iOS headers for highest compatibility and zero ads
+        await _player.setUrl(
+          playUri,
+          headers: {
+            'User-Agent':
+                'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
+            'Accept': '*/*',
+          },
+        );
+        await _player.play();
+      } else {
+        state = state.copyWith(
+          status: PlaybackStatus.error,
+          errorMessage: 'Unable to resolve ad-free stream for: ${track.title}',
+        );
+      }
+    } catch (e) {
+      if (!_isDisposed) {
+        state = state.copyWith(
+          status: PlaybackStatus.error,
+          errorMessage: 'Playback error: $e',
+        );
+      }
+    }
   }
 
   void togglePlay() {
@@ -72,32 +195,32 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       playTrack(state.queue[0]);
       return;
     }
-    state = state.copyWith(status: PlaybackStatus.playing);
-    _startPlaybackTicker();
+    _player.play();
   }
 
   void pause() {
-    state = state.copyWith(status: PlaybackStatus.paused);
-    _ticker?.cancel();
+    _player.pause();
   }
 
   void stop() {
+    _player.stop();
     state = state.copyWith(
       status: PlaybackStatus.idle,
       position: Duration.zero,
     );
-    _ticker?.cancel();
   }
 
   void seek(Duration position) {
     final clamped = position < Duration.zero
         ? Duration.zero
         : (position > state.duration ? state.duration : position);
+    _player.seek(clamped);
     state = state.copyWith(position: clamped);
   }
 
   void setVolume(double volume) {
     final clamped = volume.clamp(0.0, 1.0);
+    _player.setVolume(clamped);
     state = state.copyWith(volume: clamped, isMuted: clamped == 0.0);
     if (clamped > 0.0) {
       _lastUnmutedVolume = clamped;
@@ -156,7 +279,6 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   void playPrevious() {
     if (state.queue.isEmpty) return;
 
-    // If more than 3 seconds in, seek to beginning of current track
     if (state.position.inSeconds > 3) {
       seek(Duration.zero);
       return;
@@ -192,7 +314,6 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     final item = newQueue.removeAt(oldIndex);
     newQueue.insert(newIndex, item);
 
-    // Update currentIndex if affected
     int newCurrentIndex = state.currentIndex;
     if (state.currentIndex == oldIndex) {
       newCurrentIndex = newIndex;
@@ -221,9 +342,8 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         state = state.copyWith(queue: [], currentTrack: null, currentIndex: -1);
         return;
       }
-      newCurrentIndex = newCurrentIndex >= newQueue.length
-          ? 0
-          : newCurrentIndex;
+      newCurrentIndex =
+          newCurrentIndex >= newQueue.length ? 0 : newCurrentIndex;
       playTrack(newQueue[newCurrentIndex], newQueue: newQueue);
       return;
     }
@@ -247,33 +367,14 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     state = state.copyWith(currentTrack: updated, queue: updatedQueue);
   }
 
-  void _startPlaybackTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(milliseconds: 250), (timer) {
-      if (!state.isPlaying) {
-        timer.cancel();
-        return;
-      }
-
-      final newPos = state.position + const Duration(milliseconds: 250);
-      if (newPos >= state.duration) {
-        playNext();
-      } else {
-        // Expand buffer gradually
-        final targetBuffer = state.duration;
-        final currentBuffer = state.bufferedPosition;
-        final newBuffer = currentBuffer < targetBuffer
-            ? currentBuffer + const Duration(milliseconds: 500)
-            : targetBuffer;
-
-        state = state.copyWith(position: newPos, bufferedPosition: newBuffer);
-      }
-    });
-  }
-
   @override
   void dispose() {
-    _ticker?.cancel();
+    _isDisposed = true;
+    _playerStateSub?.cancel();
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _bufferedPositionSub?.cancel();
+    _player.dispose();
     super.dispose();
   }
 }

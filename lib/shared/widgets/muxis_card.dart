@@ -13,16 +13,17 @@ class MuxisCard extends StatefulWidget {
   final bool isCircular; // For artists
   final double width;
 
-  const MuxisCard({
+  MuxisCard({
     super.key,
     required this.title,
     required this.subtitle,
-    this.imageUrl,
+    String? imageUrl,
+    String? artworkUrl,
     required this.onTap,
     this.onPlayTap,
     this.isCircular = false,
     this.width = 180,
-  });
+  }) : imageUrl = imageUrl ?? artworkUrl;
 
   @override
   State<MuxisCard> createState() => _MuxisCardState();
@@ -94,15 +95,14 @@ class _MuxisCardState extends State<MuxisCard> {
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: Icon(
-                        widget.isCircular
-                            ? Icons.person_rounded
-                            : Icons.album_rounded,
-                        size: 48,
-                        color: Colors.white.withOpacity(0.85),
-                      ),
-                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
+                        ? Image.network(
+                            widget.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildFallbackIcon(),
+                          )
+                        : _buildFallbackIcon(),
                   ),
 
                   // Quick Play Button Overlay on Hover
@@ -177,6 +177,16 @@ class _MuxisCardState extends State<MuxisCard> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackIcon() {
+    return Center(
+      child: Icon(
+        widget.isCircular ? Icons.person_rounded : Icons.album_rounded,
+        size: 48,
+        color: Colors.white.withOpacity(0.85),
       ),
     );
   }

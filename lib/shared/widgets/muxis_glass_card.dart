@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/muxis_colors.dart';
@@ -13,7 +14,7 @@ class MuxisGlassCard extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
-    this.borderRadius = 16,
+    this.borderRadius = 18,
     this.onTap,
   });
 
@@ -21,41 +22,61 @@ class MuxisGlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final content = Container(
+    final cardContent = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: isDark
-            ? MuxisColors.elevatedSurface.withOpacity(0.85)
-            : MuxisColors.whiteSurface.withOpacity(0.92),
+            ? MuxisColors.elevatedSurface.withOpacity(0.65)
+            : MuxisColors.whiteSurface.withOpacity(0.75),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: isDark
-              ? MuxisColors.subtleBorderDark
-              : MuxisColors.subtleBorderLight,
-          width: 1,
+              ? Colors.white.withOpacity(0.14)
+              : Colors.white.withOpacity(0.65),
+          width: 1.2,
         ),
-        gradient: isDark
-            ? MuxisGradients.glassSurfaceDark
-            : MuxisGradients.glassSurfaceLight,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  Colors.white.withOpacity(0.08),
+                  MuxisColors.elevatedSurface.withOpacity(0.5),
+                  Colors.black.withOpacity(0.4),
+                ]
+              : [
+                  Colors.white.withOpacity(0.85),
+                  MuxisColors.whiteSurface.withOpacity(0.65),
+                  Colors.white.withOpacity(0.4),
+                ],
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.35 : 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(isDark ? 0.45 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: child,
     );
 
+    final glassWrapper = ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: cardContent,
+      ),
+    );
+
     if (onTap != null) {
       return MouseRegion(
         cursor: SystemMouseCursors.click,
-        child: GestureDetector(onTap: onTap, child: content),
+        child: GestureDetector(onTap: onTap, child: glassWrapper),
       );
     }
 
-    return content;
+    return glassWrapper;
   }
 }
 
@@ -88,9 +109,12 @@ class MuxisEmptyState extends StatelessWidget {
               height: 72,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isDark
-                    ? MuxisColors.elevatedSurface
-                    : MuxisColors.secondarySurface,
+                gradient: LinearGradient(
+                  colors: [
+                    MuxisColors.electricCyan.withOpacity(0.2),
+                    MuxisColors.velvetViolet.withOpacity(0.2),
+                  ],
+                ),
                 border: Border.all(
                   color: isDark
                       ? MuxisColors.subtleBorderDark
@@ -102,12 +126,12 @@ class MuxisEmptyState extends StatelessWidget {
                   icon,
                   size: 32,
                   color: isDark
-                      ? MuxisColors.textMutedDark
-                      : MuxisColors.textMutedLight,
+                      ? MuxisColors.textSecondaryDark
+                      : MuxisColors.textSecondaryLight,
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             Text(
               title,
               style: TextStyle(
@@ -120,7 +144,7 @@ class MuxisEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
+              constraints: const BoxConstraints(maxWidth: 340),
               child: Text(
                 message,
                 textAlign: TextAlign.center,
@@ -133,7 +157,10 @@ class MuxisEmptyState extends StatelessWidget {
                 ),
               ),
             ),
-            if (action != null) ...[const SizedBox(height: 20), action!],
+            if (action != null) ...[
+              const SizedBox(height: 20),
+              action!,
+            ],
           ],
         ),
       ),

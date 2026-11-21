@@ -6,14 +6,17 @@ class LyricsLine {
   final String? romanization;
   final List<WordTimestamp>? words;
 
+  Duration get timestamp => startTime;
+
   const LyricsLine({
-    required this.startTime,
+    Duration? startTime,
+    Duration? timestamp,
     this.endTime,
     required this.text,
     this.translation,
     this.romanization,
     this.words,
-  });
+  }) : startTime = startTime ?? timestamp ?? Duration.zero;
 }
 
 class WordTimestamp {

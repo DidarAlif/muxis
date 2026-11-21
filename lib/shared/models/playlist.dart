@@ -8,18 +8,23 @@ class Playlist {
   final bool isCustom;
   final List<Track> tracks;
   final DateTime? createdAt;
+  final int? _explicitTrackCount;
 
   const Playlist({
     required this.id,
     required this.title,
     this.description,
-    this.coverUrl,
+    String? coverUrl,
+    String? artworkUrl,
     this.isCustom = true,
     this.tracks = const [],
     this.createdAt,
-  });
+    int? trackCount,
+  })  : coverUrl = coverUrl ?? artworkUrl,
+        _explicitTrackCount = trackCount;
 
-  int get trackCount => tracks.length;
+  String? get artworkUrl => coverUrl;
+  int get trackCount => _explicitTrackCount ?? tracks.length;
 
   Duration get totalDuration =>
       tracks.fold(Duration.zero, (prev, t) => prev + t.duration);

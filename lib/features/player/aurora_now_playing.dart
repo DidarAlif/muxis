@@ -151,20 +151,35 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                     boxShadow: [
                                       BoxShadow(
                                         color: MuxisColors.velvetViolet
-                                            .withOpacity(0.35),
-                                        blurRadius: 36,
-                                        spreadRadius: 2,
-                                        offset: const Offset(0, 12),
+                                            .withOpacity(0.40),
+                                        blurRadius: 42,
+                                        spreadRadius: 4,
+                                        offset: const Offset(0, 14),
                                       ),
                                     ],
                                   ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.music_note_rounded,
-                                      size: 110,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: track?.artworkUrl != null &&
+                                          track!.artworkUrl!.isNotEmpty
+                                      ? Image.network(
+                                          track.artworkUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Center(
+                                            child: Icon(
+                                              Icons.music_note_rounded,
+                                              size: 110,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : const Center(
+                                          child: Icon(
+                                            Icons.music_note_rounded,
+                                            size: 110,
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                 ),
                                 const SizedBox(height: 28),
 

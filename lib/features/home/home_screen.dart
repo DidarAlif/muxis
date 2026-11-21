@@ -5,18 +5,48 @@ import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../providers/innertube_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_card.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int> onNavigate;
 
   const HomeScreen({super.key, required this.onNavigate});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final InnerTubeMusicProvider _ytProvider = InnerTubeMusicProvider();
+  List<Track> _trendingTracks = [];
+  bool _loadingTrending = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrending();
+  }
+
+  Future<void> _loadTrending() async {
+    try {
+      final tracks = await _ytProvider.getFeaturedTracks();
+      if (mounted) {
+        setState(() {
+          _trendingTracks = tracks;
+          _loadingTrending = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingTrending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final playback = ref.watch(playbackServiceProvider);
     final audioService = ref.read(playbackServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -78,7 +108,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Immerse in high-fidelity 96kHz/24-bit lossless frequency synthesis by Aura Collective.',
+                      'Instant ad-free streaming with YouTube Music InnerTube & Spotify audio bridge.',
                       maxLines: 2,
                       style: TextStyle(fontSize: 13, color: Colors.white70),
                     ),
@@ -96,15 +126,17 @@ class HomeScreen extends ConsumerWidget {
                           onPressed: () {
                             if (playback.queue.isNotEmpty) {
                               audioService.playTrack(playback.queue[0]);
+                            } else if (_trendingTracks.isNotEmpty) {
+                              audioService.playTrack(_trendingTracks[0], newQueue: _trendingTracks);
                             }
                           },
                         ),
                         const SizedBox(width: 12),
                         MuxisButton(
-                          label: 'Explore Album',
-                          variant: MuxisButtonVariant.secondary,
+                          label: 'Search Catalog',
+                          variant: MuxisButtonVariant.liquidGlass,
                           height: 38,
-                          onPressed: () => onNavigate(1), // Explore
+                          onPressed: () => widget.onNavigate(2), // Search
                         ),
                       ],
                     ),
@@ -138,16 +170,71 @@ class HomeScreen extends ConsumerWidget {
 
         const SizedBox(height: 36),
 
-        // --- 2. RECENTLY PLAYED SHELF ---
-        Text(
-          'Recently Played',
-          style: MuxisTypography.sectionHeading(isDark: isDark),
+        // --- 2. TRENDING WORLDWIDE HITS SHELF ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Trending Worldwide (Ad-Free Streaming)',
+              style: MuxisTypography.sectionHeading(isDark: isDark),
+            ),
+            TextButton(
+              onPressed: () => widget.onNavigate(1), // Explore
+              child: const Text(
+                'Explore All Stations',
+                style: TextStyle(color: MuxisColors.electricCyan),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
 
+        if (_loadingTrending)
+          const Center(child: CircularProgressIndicator())
+        else
+          SizedBox(
+            height: 230,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _trendingTracks.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, i) {
+                final track = _trendingTracks[i];
+                return MuxisCard(
+                  title: track.title,
+                  subtitle: track.artist,
+                  artworkUrl: track.artworkUrl,
+                  onTap: () => audioService.playTrack(track, newQueue: _trendingTracks),
+                  onPlayTap: () => audioService.playTrack(track, newQueue: _trendingTracks),
+                );
+              },
+            ),
+          ),
+
+        const SizedBox(height: 36),
+
+        // --- 3. QUEUED TRACKS LIST ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Active Audio Queue',
+              style: MuxisTypography.sectionHeading(isDark: isDark),
+            ),
+            TextButton(
+              onPressed: () => widget.onNavigate(4), // Library
+              child: const Text(
+                'View Local Library',
+                style: TextStyle(color: MuxisColors.electricCyan),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
         if (playback.queue.isEmpty)
           Container(
-            height: 140,
+            height: 120,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: isDark
@@ -163,7 +250,7 @@ class HomeScreen extends ConsumerWidget {
             child: Row(
               children: [
                 const Icon(
-                  Icons.history_rounded,
+                  Icons.playlist_play_rounded,
                   size: 36,
                   color: MuxisColors.electricCyan,
                 ),
@@ -174,12 +261,12 @@ class HomeScreen extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'No Recent Tracks Yet',
+                        'Queue is Ready',
                         style: MuxisTypography.cardTitle(isDark: isDark),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Your playback history will appear here once you play local tracks or stream audio.',
+                        'Tap any Trending track above or search to begin streaming instantly.',
                         style: TextStyle(
                           fontSize: 12,
                           color: MuxisColors.textSecondaryDark,
@@ -189,62 +276,16 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 MuxisButton(
-                  label: 'Go to Library',
-                  variant: MuxisButtonVariant.secondary,
+                  label: 'Play Trending',
+                  variant: MuxisButtonVariant.primary,
                   height: 36,
-                  onPressed: () => onNavigate(4),
+                  onPressed: () {
+                    if (_trendingTracks.isNotEmpty) {
+                      audioService.playTrack(_trendingTracks[0], newQueue: _trendingTracks);
+                    }
+                  },
                 ),
               ],
-            ),
-          )
-        else
-          SizedBox(
-            height: 230,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: playback.queue.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (context, i) {
-                final track = playback.queue[i];
-                return MuxisCard(
-                  title: track.title,
-                  subtitle: track.artist,
-                  onTap: () => audioService.playTrack(track),
-                  onPlayTap: () => audioService.playTrack(track),
-                );
-              },
-            ),
-          ),
-
-        const SizedBox(height: 36),
-
-        // --- 3. RECOMMENDED TRACKS LIST ---
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Tracks in Queue',
-              style: MuxisTypography.sectionHeading(isDark: isDark),
-            ),
-            TextButton(
-              onPressed: () => onNavigate(4), // Library
-              child: const Text(
-                'View All Library',
-                style: TextStyle(color: MuxisColors.electricCyan),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        if (playback.queue.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No tracks queued. Open your Library or Explore to queue audio.',
-                style: MuxisTypography.caption(isDark: isDark),
-              ),
             ),
           )
         else

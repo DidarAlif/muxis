@@ -33,7 +33,12 @@ class Track {
     this.audioFormat = 'FLAC',
     this.trackNumber,
     this.year,
-  });
+    bool? isLocal,
+  }) : source = isLocal != null
+            ? (isLocal ? MusicSource.local : (source == MusicSource.local ? MusicSource.youtube : source))
+            : source;
+
+  bool get isLocal => source == MusicSource.local;
 
   Track copyWith({
     String? id,
@@ -84,6 +89,7 @@ class Track {
       'localFilePath': localFilePath,
       'streamUrl': streamUrl,
       'source': source.name,
+      'isLocal': isLocal,
       'isFavorite': isFavorite ? 1 : 0,
       'audioFormat': audioFormat,
       'trackNumber': trackNumber,
@@ -108,6 +114,7 @@ class Track {
         orElse: () => MusicSource.local,
       ),
       isFavorite: (map['isFavorite'] as int? ?? 0) == 1,
+      isLocal: map['isLocal'] is bool ? map['isLocal'] as bool : (map['source'] == 'local'),
       audioFormat: map['audioFormat'] as String? ?? 'FLAC',
       trackNumber: map['trackNumber'] as int?,
       year: map['year'] as int?,

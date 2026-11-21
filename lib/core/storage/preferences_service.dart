@@ -11,6 +11,58 @@ class PreferencesService {
   static const String _keyRepeatMode = 'muxis_repeat_mode';
   static const String _keyAudioQuality = 'muxis_audio_quality';
   static const String _keyLastScannedDir = 'muxis_last_scanned_dir';
+  static const String _keyYtCookie = 'muxis_yt_cookie';
+  static const String _keyYtSapisid = 'muxis_yt_sapisid';
+  static const String _keySpotifyClientId = 'muxis_spotify_client_id';
+  static const String _keySpotifyClientSecret = 'muxis_spotify_client_secret';
+
+  Future<void> saveYtCookie(String cookie) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyYtCookie, cookie);
+  }
+
+  Future<String?> getYtCookie() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyYtCookie);
+  }
+
+  Future<void> saveYtSapisid(String sapisid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyYtSapisid, sapisid);
+  }
+
+  Future<String?> getYtSapisid() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyYtSapisid);
+  }
+
+  Future<void> saveSpotifyClientId(String clientId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySpotifyClientId, clientId);
+  }
+
+  Future<String?> getSpotifyClientId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySpotifyClientId);
+  }
+
+  Future<void> saveSpotifyClientSecret(String secret) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySpotifyClientSecret, secret);
+  }
+
+  Future<String?> getSpotifyClientSecret() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySpotifyClientSecret);
+  }
+
+  Future<void> clearStreamingCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyYtCookie);
+    await prefs.remove(_keyYtSapisid);
+    await prefs.remove(_keySpotifyClientId);
+    await prefs.remove(_keySpotifyClientSecret);
+  }
 
   Future<void> saveVolume(double volume) async {
     final prefs = await SharedPreferences.getInstance();
