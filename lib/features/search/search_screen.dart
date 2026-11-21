@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../core/storage/preferences_service.dart';
 import '../../providers/innertube_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
@@ -28,6 +29,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Track> _results = [];
   bool _isSearching = false;
   String _lastQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(preferencesServiceProvider).getActiveSource().then((source) {
+      if (mounted) {
+        if (source == 'youtube') setState(() => _filterSource = SearchFilterSource.youtube);
+        if (source == 'spotify') setState(() => _filterSource = SearchFilterSource.spotify);
+      }
+    });
+  }
 
   void _onSearch(String query) async {
     final trimmed = query.trim();

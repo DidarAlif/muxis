@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app.dart';
 import 'core/config/app_config.dart';
+import 'core/database/database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,5 +29,16 @@ void main() async {
     }
   }
 
-  runApp(const ProviderScope(child: MuxisApp()));
+  // 3. Initialize Local Offline Database
+  final databaseService = DatabaseService();
+  await databaseService.init();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        databaseServiceProvider.overrideWithValue(databaseService),
+      ],
+      child: const MuxisApp(),
+    ),
+  );
 }

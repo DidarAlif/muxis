@@ -1,4 +1,4 @@
-name: Deploy Website to Cloudflare Pages
+name: Deploy Website
 
 on:
   push:
@@ -10,11 +10,36 @@ on:
 
 permissions:
   contents: read
-  deployments: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
 
 jobs:
-  deploy-pages:
+  deploy-github-pages:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'website/'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-cloudflare:
     name: Deploy to Cloudflare Pages
+    if: "${{ secrets.CLOUDFLARE_API_TOKEN != '' }}"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

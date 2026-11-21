@@ -90,6 +90,45 @@ class DatabaseService {
 
   List<Track> getAllTracks() => List.unmodifiable(_tracks);
 
+  Future<void> removeTrack(String trackId) async {
+    _tracks.removeWhere((t) => t.id == trackId);
+    _favoriteIds.remove(trackId);
+    _historyIds.remove(trackId);
+    for (final list in _playlists.values) {
+      list.remove(trackId);
+    }
+    await _persist();
+  }
+
+  Future<void> clearAllTracks() async {
+    _tracks.clear();
+    await _persist();
+  }
+
+  Future<void> clearHistory() async {
+    _historyIds.clear();
+    await _persist();
+  }
+
+  Future<int> getStorageUsageBytes() async {
+    try {
+      if (_dataFile != null && await _dataFile!.exists()) {
+        return await _dataFile!.length();
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  Future<void> clearCache() async {
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${docDir.path}/Muxis/cache');
+      if (await cacheDir.exists()) {
+        await cacheDir.delete(recursive: true);
+      }
+    } catch (_) {}
+  }
+
   Future<void> toggleFavorite(String trackId) async {
     if (_favoriteIds.contains(trackId)) {
       _favoriteIds.remove(trackId);

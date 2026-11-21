@@ -92,6 +92,35 @@ class LocalLibraryScanner {
     );
   }
 
+  /// Scans an explicit list of individual audio files (e.g. from file picker or drag & drop)
+  Future<ScannedAudioResult> scanFiles(List<File> files) async {
+    final stopwatch = Stopwatch()..start();
+    final tracks = <Track>[];
+    final errors = <String>[];
+
+    for (final file in files) {
+      if (!await file.exists()) continue;
+      final ext = _getExtension(file.path);
+      if (supportedAudioExtensions.contains(ext)) {
+        try {
+          final track = await _parseFileMetadata(file, ext);
+          tracks.add(track);
+        } catch (e) {
+          errors.add('Failed to parse ${file.path}: $e');
+        }
+      }
+    }
+
+    stopwatch.stop();
+    return ScannedAudioResult(
+      tracks: tracks,
+      totalFilesScanned: files.length,
+      validAudioFilesFound: tracks.length,
+      scanDuration: stopwatch.elapsed,
+      errors: errors,
+    );
+  }
+
   String _getExtension(String path) {
     final dotIndex = path.lastIndexOf('.');
     if (dotIndex == -1) return '';

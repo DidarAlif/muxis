@@ -5,17 +5,20 @@ import 'package:just_audio/just_audio.dart';
 import '../../providers/innertube_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
+import '../database/database_service.dart';
 import 'playback_state.dart';
 
 final playbackServiceProvider =
     StateNotifierProvider<AudioPlaybackService, PlaybackState>((ref) {
-  return AudioPlaybackService();
+  final db = ref.watch(databaseServiceProvider);
+  return AudioPlaybackService(databaseService: db);
 });
 
 class AudioPlaybackService extends StateNotifier<PlaybackState> {
   final AudioPlayer _player;
   final InnerTubeMusicProvider _innerTubeProvider;
   final SpotifyMusicProvider _spotifyProvider;
+  final DatabaseService? _databaseService;
 
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<Duration>? _positionSub;
@@ -29,11 +32,19 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     AudioPlayer? player,
     InnerTubeMusicProvider? innerTubeProvider,
     SpotifyMusicProvider? spotifyProvider,
+    DatabaseService? databaseService,
   })  : _player = player ?? AudioPlayer(),
         _innerTubeProvider = innerTubeProvider ?? InnerTubeMusicProvider(),
         _spotifyProvider = spotifyProvider ?? SpotifyMusicProvider(),
+        _databaseService = databaseService,
         super(const PlaybackState()) {
     _initAudioListeners();
+    if (_databaseService != null) {
+      final saved = _databaseService!.getAllTracks();
+      if (saved.isNotEmpty) {
+        loadInitialTracks(saved);
+      }
+    }
   }
 
   void _initAudioListeners() {
@@ -134,6 +145,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         // Local music playback
         await _player.setFilePath(track.localFilePath!);
         await _player.play();
+        _databaseService?.recordHistory(track.id);
         return;
       }
 
@@ -166,6 +178,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
           },
         );
         await _player.play();
+        _databaseService?.recordHistory(track.id);
       } else {
         state = state.copyWith(
           status: PlaybackStatus.error,
@@ -360,6 +373,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     final track = state.currentTrack;
     if (track == null) return;
 
+    _databaseService?.toggleFavorite(track.id);
     final updated = track.copyWith(isFavorite: !track.isFavorite);
     final updatedQueue = state.queue
         .map((t) => t.id == track.id ? updated : t)

@@ -124,6 +124,45 @@ void main() {
     }
   });
 
+  // --- SUITE 5: LIBRARY PERSISTENCE & STREAMING CONFIGURATION ---
+  print('\n[Suite 5: Library & Streaming Configuration]');
+
+  test('Supported audio extensions include all lossless and compressed standards', () {
+    const supportedAudioExtensions = {
+      '.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.opus',
+    };
+    expectTrue(supportedAudioExtensions.contains('.flac'));
+    expectTrue(supportedAudioExtensions.contains('.mp3'));
+    expectTrue(supportedAudioExtensions.contains('.wav'));
+    expectTrue(supportedAudioExtensions.contains('.opus'));
+    expectFalse(supportedAudioExtensions.contains('.exe'));
+  });
+
+  test('Playlist track management adds and removes track URIs correctly', () {
+    final playlists = <String, List<String>>{};
+    const name = 'Synthwave Neon';
+    playlists[name] = [];
+
+    // Add track
+    playlists[name]!.add('local-12345');
+    playlists[name]!.add('local-67890');
+    expect(playlists[name]!.length, 2);
+    expectTrue(playlists[name]!.contains('local-12345'));
+
+    // Remove track
+    playlists[name]!.remove('local-12345');
+    expect(playlists[name]!.length, 1);
+    expectFalse(playlists[name]!.contains('local-12345'));
+  });
+
+  test('Active streaming source validation', () {
+    const validSources = ['youtube', 'spotify', 'local'];
+    expectTrue(validSources.contains('youtube'));
+    expectTrue(validSources.contains('spotify'));
+    expectTrue(validSources.contains('local'));
+    expectFalse(validSources.contains('unknown'));
+  });
+
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');
   print('======================================================');

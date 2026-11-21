@@ -54,20 +54,52 @@ function initAudioVisualizerAnimation() {
 }
 
 /**
- * Fetches latest version from the Cloudflare Worker API
+ * Fetches latest release version and assets directly from GitHub API
  */
 async function initReleaseVersionFetch() {
+  const heroBadge = document.getElementById('hero-version-badge');
+  const releaseTitle = document.getElementById('release-version-title');
   const versionTags = document.querySelectorAll('.dynamic-version-tag');
-  if (!versionTags || versionTags.length === 0) return;
 
   try {
-    const res = await fetch('/api/version');
+    const res = await fetch('https://api.github.com/repos/DidarAlif/muxis/releases/latest');
     if (!res.ok) return;
     const data = await res.json();
-    if (data && data.latest_version) {
+    
+    if (data && data.tag_name) {
+      const versionTag = data.tag_name;
+      
+      if (heroBadge) {
+        heroBadge.textContent = `PRISMATIC AURA AUDIO ${versionTag}`;
+      }
+      if (releaseTitle) {
+        releaseTitle.textContent = `MUXIS ${versionTag} — Ad-Free YouTube Music & Spotify Streaming`;
+      }
       versionTags.forEach((el) => {
-        el.textContent = `v${data.latest_version}`;
+        el.textContent = versionTag;
       });
+
+      // Map dynamic asset download URLs if assets exist
+      if (data.assets && Array.isArray(data.assets)) {
+        data.assets.forEach((asset) => {
+          const name = asset.name.toLowerCase();
+          const downloadUrl = asset.browser_download_url;
+
+          if (name.includes('windows') && name.endsWith('.zip')) {
+            const btn = document.querySelector('a[href*="Windows-x64"]');
+            if (btn) btn.href = downloadUrl;
+          } else if (name.includes('macos') && name.endsWith('.zip')) {
+            const btn = document.querySelector('a[href*="macOS-Universal"]');
+            if (btn) btn.href = downloadUrl;
+          } else if (name.includes('linux') && (name.endsWith('.tar.gz') || name.endsWith('.zip'))) {
+            const btn = document.querySelector('a[href*="Linux-x64"]');
+            if (btn) btn.href = downloadUrl;
+          } else if (name.includes('android') && name.endsWith('.apk')) {
+            const btn = document.querySelector('a[href*="Android.apk"]');
+            if (btn) btn.href = downloadUrl;
+          }
+        });
+      }
     }
   } catch {
     // Graceful offline fallback: keeps hardcoded default version

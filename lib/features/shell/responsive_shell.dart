@@ -96,13 +96,17 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
       case 3:
         return const ExploreScreen(); // Radio
       case 4:
-        return const LibraryScreen();
+        return const LibraryScreen(initialTabIndex: 0); // All Tracks
       case 5:
+        return const LibraryScreen(initialTabIndex: 1); // Playlists
       case 6:
+        return const LibraryScreen(initialTabIndex: 2); // Albums
       case 7:
+        return const LibraryScreen(initialTabIndex: 3); // Artists
       case 8:
+        return const LibraryScreen(initialTabIndex: 4); // Favorites
       case 9:
-        return const LibraryScreen(); // Sub-library screens
+        return const LibraryScreen(initialTabIndex: 5); // Recently Played
       case 10:
         return const SettingsScreen();
       default:
