@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'assets/**'
       - 'pubspec.yaml'
       - '.github/workflows/build_all_platforms.yml'
 
