@@ -7,11 +7,7 @@ on:
     paths:
       - 'lib/**'
       - 'pubspec.yaml'
-      - 'windows/**'
-      - 'macos/**'
-      - 'linux/**'
-      - 'android/**'
-      - 'ios/**'
+      - '.github/workflows/build_all_platforms.yml'
 
 permissions:
   contents: read
@@ -33,6 +29,9 @@ jobs:
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
+
+      - name: Generate Windows Scaffolding
+        run: flutter create --platforms=windows --org app.muxis .
 
       - name: Install dependencies
         run: flutter pub get
@@ -69,6 +68,9 @@ jobs:
       - name: Enable macOS Desktop
         run: flutter config --enable-macos-desktop
 
+      - name: Generate macOS Scaffolding
+        run: flutter create --platforms=macos --org app.muxis .
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -78,7 +80,7 @@ jobs:
       - name: Package macOS App
         run: |
           cd build/macos/Build/Products/Release
-          zip -r -y ../../../../../Muxis-macOS-Universal.zip muxis_player.app
+          zip -r -y ../../../../../Muxis-macOS-Universal.zip muxis.app || zip -r -y ../../../../../Muxis-macOS-Universal.zip *.app
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
@@ -108,6 +110,9 @@ jobs:
 
       - name: Enable Linux Desktop
         run: flutter config --enable-linux-desktop
+
+      - name: Generate Linux Scaffolding
+        run: flutter create --platforms=linux --org app.muxis .
 
       - name: Install dependencies
         run: flutter pub get
@@ -147,6 +152,9 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Generate Android Scaffolding
+        run: flutter create --platforms=android --org app.muxis .
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -184,6 +192,9 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Generate iOS Scaffolding
+        run: flutter create --platforms=ios --org app.muxis .
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -193,7 +204,7 @@ jobs:
       - name: Package iOS App
         run: |
           cd build/ios/iphoneos
-          zip -r -y ../../../Muxis-iOS-Unsigned.zip Runner.app
+          zip -r -y ../../../Muxis-iOS-Unsigned.zip Runner.app || zip -r -y ../../../Muxis-iOS-Unsigned.zip *.app
 
       - name: Upload iOS Artifact
         uses: actions/upload-artifact@v4

@@ -10,7 +10,7 @@
  */
 
 export interface Env {
-  MUXIS_STORAGE: R2Bucket;
+  MUXIS_STORAGE?: R2Bucket;
   ENVIRONMENT?: string;
   LATEST_VERSION?: string;
   MIN_SUPPORTED_VERSION?: string;
@@ -234,6 +234,9 @@ async function handleCreateUploadTicket(request: Request, env: Env): Promise<Res
  * Handles direct streaming upload into the Cloudflare R2 bucket binding.
  */
 async function handleDirectUpload(path: string, request: Request, env: Env): Promise<Response> {
+  if (!env.MUXIS_STORAGE) {
+    return errorResponse('R2 object storage pending activation in Cloudflare dashboard', 503);
+  }
   // Path format: /api/storage/upload/(avatars|playlist_covers)/userId/filename.ext
   const storageKey = path.replace('/api/storage/upload/', '');
   if (!storageKey || storageKey.includes('..')) {
@@ -285,6 +288,9 @@ async function handleDirectUpload(path: string, request: Request, env: Env): Pro
  * Streams public avatars or playlist covers from R2 with edge caching.
  */
 async function handleGetFile(path: string, request: Request, env: Env): Promise<Response> {
+  if (!env.MUXIS_STORAGE) {
+    return errorResponse('R2 object storage pending activation in Cloudflare dashboard', 503);
+  }
   const storageKey = path.replace('/api/storage/file/', '');
   if (!storageKey || storageKey.includes('..')) {
     return errorResponse('Invalid storage key path', 400);

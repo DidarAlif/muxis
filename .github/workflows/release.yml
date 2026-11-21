@@ -59,6 +59,9 @@ jobs:
           flutter config --enable-macos-desktop
           flutter config --enable-linux-desktop
 
+      - name: Generate Platform Scaffolding
+        run: flutter create --platforms=${{ matrix.platform.target }} --org app.muxis .
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -76,7 +79,7 @@ jobs:
         run: |
           flutter build macos --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           cd build/macos/Build/Products/Release
-          zip -r -y ../../../../../Muxis-macOS-Universal-${{ github.ref_name }}.zip muxis_player.app
+          zip -r -y ../../../../../Muxis-macOS-Universal-${{ github.ref_name }}.zip muxis.app || zip -r -y ../../../../../Muxis-macOS-Universal-${{ github.ref_name }}.zip *.app
 
       # Build Linux
       - name: Build Linux
