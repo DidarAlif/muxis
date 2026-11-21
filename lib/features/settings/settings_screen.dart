@@ -930,6 +930,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required Color activeColor,
     required String subtitle,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _activeSource == id;
     return Expanded(
       child: InkWell(
