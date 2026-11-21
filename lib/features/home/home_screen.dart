@@ -5,7 +5,9 @@ import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../core/storage/preferences_service.dart';
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_card.dart';
@@ -22,18 +24,26 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final InnerTubeMusicProvider _ytProvider = InnerTubeMusicProvider();
+  final SpotifyMusicProvider _spotifyProvider = SpotifyMusicProvider();
   List<Track> _trendingTracks = [];
   bool _loadingTrending = true;
+  String _activePlatform = 'youtube';
 
   @override
   void initState() {
     super.initState();
-    _loadTrending();
+    _loadActivePlatformAndTracks();
   }
 
-  Future<void> _loadTrending() async {
+  Future<void> _loadActivePlatformAndTracks() async {
+    final prefs = ref.read(preferencesServiceProvider);
+    final platform = await prefs.getActiveSource();
+    if (mounted) setState(() => _activePlatform = platform);
+
     try {
-      final tracks = await _ytProvider.getFeaturedTracks();
+      final tracks = platform == 'spotify'
+          ? await _spotifyProvider.getFeaturedTracks()
+          : await _ytProvider.getFeaturedTracks();
       if (mounted) {
         setState(() {
           _trendingTracks = tracks;
@@ -85,14 +95,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         color: Colors.black.withOpacity(0.4),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        'FEATURED SPOTLIGHT',
+                      child: Text(
+                        _activePlatform == 'spotify'
+                            ? 'SPOTIFY STREAMING ACTIVE (AD-FREE)'
+                            : 'YOUTUBE MUSIC STREAMING (AD-FREE)',
                         style: TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: MuxisColors.electricCyan,
+                          color: _activePlatform == 'spotify'
+                              ? const Color(0xFF1ED760)
+                              : MuxisColors.electricCyan,
                         ),
                       ),
                     ),

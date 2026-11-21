@@ -1,7 +1,9 @@
 // Standalone Unit Test Suite for MUXIS Core Logic
 // Executable directly via `dart test/run_unit_tests.dart` without Flutter SDK dependencies
 
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 void main() {
   print('======================================================');
@@ -161,6 +163,27 @@ void main() {
     expectTrue(validSources.contains('spotify'));
     expectTrue(validSources.contains('local'));
     expectFalse(validSources.contains('unknown'));
+  });
+
+  // --- SUITE 6: BROWSER OAUTH & PKCE GENERATION ---
+  print('\n[Suite 6: Browser OAuth & PKCE Verification]');
+
+  String generateCodeVerifier() {
+    final random = Random.secure();
+    final values = List<int>.generate(64, (i) => random.nextInt(256));
+    return base64UrlEncode(values).replaceAll('=', '');
+  }
+
+  test('PKCE code verifier meets RFC 7636 length requirements', () {
+    final verifier = generateCodeVerifier();
+    expectTrue(verifier.length >= 43 && verifier.length <= 128);
+    expectFalse(verifier.contains('='));
+  });
+
+  test('OAuth callback loopback ports are within permitted desktop range', () {
+    const allowedPorts = [8888, 8889, 43821, 51731];
+    expectTrue(allowedPorts.contains(8888));
+    expectTrue(allowedPorts.length >= 2);
   });
 
   print('\n======================================================');

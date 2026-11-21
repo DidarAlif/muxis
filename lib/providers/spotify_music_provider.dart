@@ -30,8 +30,14 @@ class SpotifyMusicProvider implements MusicProvider {
   @override
   MusicSource get source => MusicSource.spotify;
 
-  /// Retrieves or refreshes Spotify access token using Client Credentials Flow
+  /// Retrieves or refreshes Spotify access token using Browser OAuth or Client Credentials Flow
   Future<String?> _getAccessToken() async {
+    // 1. Prioritize user token from Browser OAuth SSO
+    final userToken = await _prefs.getSpotifyAccessToken();
+    if (userToken != null && userToken.isNotEmpty) {
+      return userToken;
+    }
+
     if (_accessToken != null &&
         _tokenExpiry != null &&
         DateTime.now().isBefore(_tokenExpiry!)) {
