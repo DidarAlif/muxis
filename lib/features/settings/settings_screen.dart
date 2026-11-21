@@ -29,6 +29,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _spotifyUserName;
   String? _spotifyUserAvatar;
   String? _spotifyProduct;
+  String? _googleClientId;
+  String? _googleClientSecret;
   String _activeSource = 'youtube';
   String _audioQuality = 'FLAC 24-bit Lossless';
   int _dbSizeBytes = 0;
@@ -54,6 +56,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final spName = await prefs.getSpotifyUserName();
     final spAvatar = await prefs.getSpotifyUserAvatar();
     final spProd = await prefs.getSpotifyProduct();
+    final gId = await prefs.getGoogleClientId();
+    final gSec = await prefs.getGoogleClientSecret();
     final active = await prefs.getActiveSource();
     final quality = await prefs.getAudioQuality();
     final dbBytes = await db.getStorageUsageBytes();
@@ -69,6 +73,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _spotifyUserName = spName;
         _spotifyUserAvatar = spAvatar;
         _spotifyProduct = spProd;
+        _googleClientId = gId;
+        _googleClientSecret = gSec;
         _activeSource = active;
         _audioQuality = quality;
         _dbSizeBytes = dbBytes;
@@ -84,8 +90,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Opening your web browser for Spotify sign-in... Please approve the connection in the browser.'),
-          backgroundColor: MuxisColors.electricCyan,
+          content: Text('Opening your web browser for Spotify sign-in... Please approve the connection in the browser.', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+          backgroundColor: MuxisColors.neonAccent,
           duration: Duration(seconds: 4),
           behavior: SnackBarBehavior.floating,
         ),
@@ -126,8 +132,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Opening your web browser for Google/YouTube Music sign-in... Please approve the connection in the browser.'),
-          backgroundColor: MuxisColors.electricCyan,
+          content: Text('Opening your web browser for Google/YouTube Music sign-in... Please approve the connection in the browser.', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+          backgroundColor: MuxisColors.neonAccent,
           duration: Duration(seconds: 4),
           behavior: SnackBarBehavior.floating,
         ),
@@ -164,143 +170,295 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showYouTubeSignInDialog() {
     final cookieCtrl = TextEditingController(text: _ytCookie);
     final sapisidCtrl = TextEditingController(text: _ytSapisid);
+    final googleIdCtrl = TextEditingController(text: _googleClientId);
+    final googleSecCtrl = TextEditingController(text: _googleClientSecret);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final oauth = ref.read(streamingOAuthServiceProvider);
 
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: isDark ? MuxisColors.elevatedSurface : MuxisColors.whiteSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight,
-            ),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  gradient: MuxisGradients.prismaticPrimary,
-                  shape: BoxShape.circle,
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? MuxisColors.elevatedSurface : MuxisColors.whiteSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight,
                 ),
-                child: const Icon(Icons.smart_display_rounded, size: 20, color: Colors.black),
               ),
-              const SizedBox(width: 12),
-              const Text('YouTube Music Sign-In', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              title: Row(
                 children: [
-                  const Text(
-                    'Authenticate through your browser to import your YouTube Music playlists, subscriptions, and stream completely ad-free.',
-                    style: TextStyle(fontSize: 13, height: 1.4, color: MuxisColors.textSecondaryDark),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // PRIMARY OPTION: Browser OAuth SSO
-                  Center(
-                    child: MuxisButton(
-                      label: 'Sign In with Browser (Recommended)',
-                      icon: const Icon(Icons.open_in_browser_rounded, size: 20),
-                      variant: MuxisButtonVariant.primary,
-                      height: 44,
-                      width: double.infinity,
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _startYouTubeBrowserSignIn();
-                      },
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: MuxisGradients.prismaticPrimary,
+                      shape: BoxShape.circle,
                     ),
+                    child: const Icon(Icons.smart_display_rounded, size: 20, color: Colors.black),
                   ),
-                  const SizedBox(height: 20),
-
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'OR USE SESSION COOKIE',
-                          style: TextStyle(fontSize: 10, fontFamily: 'JetBrains Mono', color: isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight),
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextField(
-                    controller: cookieCtrl,
-                    maxLines: 2,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11),
-                    decoration: InputDecoration(
-                      labelText: 'YouTube Music Cookie String',
-                      hintText: 'Paste cookie string (SAPISID=...; __Secure-3PAPISID=...)',
-                      hintStyle: const TextStyle(fontSize: 11),
-                      filled: true,
-                      fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onChanged: (text) {
-                      if (text.contains('SAPISID=') && sapisidCtrl.text.isEmpty) {
-                        final match = RegExp(r'SAPISID=([^;]+)').firstMatch(text);
-                        if (match != null) {
-                          sapisidCtrl.text = match.group(1)!.trim();
-                        }
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: sapisidCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    decoration: InputDecoration(
-                      labelText: 'SAPISID (Optional)',
-                      hintText: 'Auto-extracted or enter manually',
-                      filled: true,
-                      fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'YouTube Music Connect',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            MuxisButton(
-              label: 'Save Session',
-              variant: MuxisButtonVariant.secondary,
-              height: 36,
-              onPressed: () async {
-                final prefs = ref.read(preferencesServiceProvider);
-                final cookie = cookieCtrl.text.trim();
-                final sapisid = sapisidCtrl.text.trim();
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // RECOMMENDED METHOD: Session Cookie (SAPISID)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0x1500FF88) : const Color(0x1000B86B),
+                          border: Border.all(
+                            color: isDark ? const Color(0x4000FF88) : const Color(0x3000B86B),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.verified_rounded, size: 16, color: MuxisColors.neonAccent),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'METHOD 1: DIRECT SESSION (RECOMMENDED)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                    color: isDark ? MuxisColors.neonAccent : const Color(0xFF008744),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Instant, unlimited ad-free streaming with zero Google Cloud API quotas or developer approval required.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: isDark ? MuxisColors.textSecondaryDark : MuxisColors.textSecondaryLight,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: () => oauth.launchBrowserUrl('https://music.youtube.com'),
+                              icon: const Icon(Icons.open_in_browser_rounded, size: 16),
+                              label: const Text('1. Open music.youtube.com in Browser'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? MuxisColors.neonAccent : const Color(0xFF008744),
+                                side: BorderSide(
+                                  color: isDark ? const Color(0x6000FF88) : const Color(0x4000B86B),
+                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '2. Press F12 -> Application tab -> Cookies -> https://music.youtube.com\n3. Copy the SAPISID cookie value and paste below:',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontFamily: 'JetBrains Mono',
+                                height: 1.4,
+                                color: isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
-                await prefs.saveYtCookie(cookie);
-                await prefs.saveYtSapisid(sapisid);
+                      TextField(
+                        controller: sapisidCtrl,
+                        style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'SAPISID Cookie Value',
+                          hintText: 'e.g. 1a2b3c4d5e6f...',
+                          prefixIcon: const Icon(Icons.key_rounded, size: 18),
+                          filled: true,
+                          fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: cookieCtrl,
+                        maxLines: 2,
+                        style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10),
+                        decoration: InputDecoration(
+                          labelText: 'Full Cookie String (Optional - auto-extracts SAPISID)',
+                          hintText: 'Paste full cookie header if copied from network tab',
+                          filled: true,
+                          fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (text) {
+                          if (text.contains('SAPISID=')) {
+                            final match = RegExp(r'SAPISID=([^;]+)').firstMatch(text);
+                            if (match != null) {
+                              sapisidCtrl.text = match.group(1)!.trim();
+                            }
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
 
-                final provider = InnerTubeMusicProvider(prefs: prefs);
-                await provider.search('test');
+                      MuxisButton(
+                        label: 'Connect YouTube Music (Session)',
+                        icon: const Icon(Icons.check_circle_rounded, size: 18),
+                        variant: MuxisButtonVariant.primary,
+                        height: 40,
+                        width: double.infinity,
+                        onPressed: () async {
+                          final prefs = ref.read(preferencesServiceProvider);
+                          final cookie = cookieCtrl.text.trim();
+                          final sapisid = sapisidCtrl.text.trim();
 
-                await prefs.saveYtUserProfile('Connected Account (Session Active)', null);
-                await prefs.saveActiveSource('youtube');
+                          if (cookie.isEmpty && sapisid.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter your SAPISID cookie from music.youtube.com.'),
+                                backgroundColor: MuxisColors.error,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
 
-                Navigator.of(ctx).pop();
-                _loadSettings();
-              },
-            ),
-          ],
+                          await prefs.saveYtCookie(cookie);
+                          await prefs.saveYtSapisid(sapisid);
+
+                          final provider = InnerTubeMusicProvider(prefs: prefs);
+                          await provider.search('test');
+
+                          await prefs.saveYtUserProfile('YouTube Music Listener (Connected)', null);
+                          await prefs.saveActiveSource('youtube');
+
+                          Navigator.of(ctx).pop();
+                          _loadSettings();
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('YouTube Music connected successfully! Ad-free streaming is ready.'),
+                                backgroundColor: MuxisColors.neonAccent,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // METHOD 2: GOOGLE CLOUD OAUTH
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'OR METHOD 2: GOOGLE CLOUD OAUTH',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'JetBrains Mono',
+                                color: isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      Text(
+                        'Requires a Google Cloud Console OAuth Client ID with redirect URI: http://127.0.0.1:8888/callback',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      TextField(
+                        controller: googleIdCtrl,
+                        style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Google OAuth Client ID',
+                          hintText: 'e.g. 123456789.apps.googleusercontent.com',
+                          filled: true,
+                          fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      TextField(
+                        controller: googleSecCtrl,
+                        obscureText: true,
+                        style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Google Client Secret (Optional)',
+                          filled: true,
+                          fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      MuxisButton(
+                        label: 'Sign In via Google OAuth Browser',
+                        icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                        variant: MuxisButtonVariant.secondary,
+                        height: 40,
+                        width: double.infinity,
+                        onPressed: () async {
+                          final gId = googleIdCtrl.text.trim();
+                          if (gId.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter your Google OAuth Client ID first, or use Method 1 above.'),
+                                backgroundColor: MuxisColors.error,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+
+                          final prefs = ref.read(preferencesServiceProvider);
+                          await prefs.saveGoogleClientId(gId);
+                          await prefs.saveGoogleClientSecret(googleSecCtrl.text.trim());
+
+                          Navigator.of(ctx).pop();
+                          _startYouTubeBrowserSignIn();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -310,133 +468,215 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final clientCtrl = TextEditingController(text: _spotifyClientId);
     final secretCtrl = TextEditingController(text: _spotifyClientSecret);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final oauth = ref.read(streamingOAuthServiceProvider);
 
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: isDark ? MuxisColors.elevatedSurface : MuxisColors.whiteSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight,
-            ),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1DB954),
-                  shape: BoxShape.circle,
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? MuxisColors.elevatedSurface : MuxisColors.whiteSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight,
                 ),
-                child: const Icon(Icons.graphic_eq_rounded, size: 20, color: Colors.black),
               ),
-              const SizedBox(width: 12),
-              const Text('Sign In to Spotify', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              title: Row(
                 children: [
-                  const Text(
-                    'Log in with your existing Spotify account in your browser to instantly load all your playlists, saved tracks, and stream them ad-free in MUXIS.',
-                    style: TextStyle(fontSize: 13, height: 1.4, color: MuxisColors.textSecondaryDark),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // PRIMARY OPTION: Browser OAuth SSO
-                  Center(
-                    child: MuxisButton(
-                      label: 'Sign In with Browser (Recommended)',
-                      icon: const Icon(Icons.open_in_browser_rounded, size: 20),
-                      variant: MuxisButtonVariant.primary,
-                      height: 44,
-                      width: double.infinity,
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _startSpotifyBrowserSignIn();
-                      },
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1DB954),
+                      shape: BoxShape.circle,
                     ),
+                    child: const Icon(Icons.graphic_eq_rounded, size: 20, color: Colors.black),
                   ),
-                  const SizedBox(height: 20),
-
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'OR CUSTOM API KEYS',
-                          style: TextStyle(fontSize: 10, fontFamily: 'JetBrains Mono', color: isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight),
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextField(
-                    controller: clientCtrl,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    decoration: InputDecoration(
-                      labelText: 'Spotify Client ID (Optional custom)',
-                      hintText: 'Leave empty for default built-in client',
-                      filled: true,
-                      fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: secretCtrl,
-                    obscureText: true,
-                    style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
-                    decoration: InputDecoration(
-                      labelText: 'Spotify Client Secret (Optional)',
-                      hintText: 'Client Secret if using custom client',
-                      filled: true,
-                      fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Sign In to Spotify',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            MuxisButton(
-              label: 'Save Custom Keys',
-              variant: MuxisButtonVariant.secondary,
-              height: 36,
-              onPressed: () async {
-                final prefs = ref.read(preferencesServiceProvider);
-                final id = clientCtrl.text.trim();
-                final sec = secretCtrl.text.trim();
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0x151DB954) : const Color(0x101DB954),
+                          border: Border.all(
+                            color: isDark ? const Color(0x401DB954) : const Color(0x301DB954),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF1DB954)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'SPOTIFY DEVELOPER APP SETUP',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                    color: isDark ? const Color(0xFF1DB954) : const Color(0xFF107C36),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Spotify requires a free Client ID to authorize desktop apps. You can create one in 30 seconds:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: isDark ? MuxisColors.textSecondaryDark : MuxisColors.textSecondaryLight,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: () => oauth.launchBrowserUrl('https://developer.spotify.com/dashboard'),
+                              icon: const Icon(Icons.open_in_browser_rounded, size: 16),
+                              label: const Text('1. Open Spotify Developer Dashboard'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF1DB954),
+                                side: const BorderSide(color: Color(0x601DB954)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '2. Click "Create app" -> App Name: MUXIS\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. Copy your Client ID and paste below:',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontFamily: 'JetBrains Mono',
+                                height: 1.4,
+                                color: isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
-                await prefs.saveSpotifyClientId(id);
-                await prefs.saveSpotifyClientSecret(sec);
+                      TextField(
+                        controller: clientCtrl,
+                        style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Spotify Client ID (Required)',
+                          hintText: 'e.g. 65b32785a9744c68832a84e03b22cf0c',
+                          prefixIcon: const Icon(Icons.key_rounded, size: 18),
+                          filled: true,
+                          fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
 
-                final spotifyProvider = SpotifyMusicProvider(prefs: prefs);
-                await spotifyProvider.search('Queen');
+                      TextField(
+                        controller: secretCtrl,
+                        obscureText: true,
+                        style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Spotify Client Secret (Optional)',
+                          hintText: 'Required if using API keys without browser SSO',
+                          filled: true,
+                          fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
 
-                await prefs.saveSpotifyUserProfile('Spotify Connected Account', null, 'Active');
-                await prefs.saveActiveSource('spotify');
+                      MuxisButton(
+                        label: 'Sign In with Browser (Spotify SSO)',
+                        icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                        variant: MuxisButtonVariant.primary,
+                        height: 44,
+                        width: double.infinity,
+                        onPressed: () async {
+                          final id = clientCtrl.text.trim();
+                          if (id.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter your Spotify Client ID from developer.spotify.com/dashboard.'),
+                                backgroundColor: MuxisColors.error,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
 
-                Navigator.of(ctx).pop();
-                _loadSettings();
-              },
-            ),
-          ],
+                          final prefs = ref.read(preferencesServiceProvider);
+                          await prefs.saveSpotifyClientId(id);
+                          await prefs.saveSpotifyClientSecret(secretCtrl.text.trim());
+
+                          Navigator.of(ctx).pop();
+                          _startSpotifyBrowserSignIn();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final id = clientCtrl.text.trim();
+                            final sec = secretCtrl.text.trim();
+                            if (id.isEmpty || sec.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Both Client ID and Client Secret are required to save custom keys.'),
+                                  backgroundColor: MuxisColors.error,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final prefs = ref.read(preferencesServiceProvider);
+                            await prefs.saveSpotifyClientId(id);
+                            await prefs.saveSpotifyClientSecret(sec);
+
+                            final spotifyProvider = SpotifyMusicProvider(prefs: prefs);
+                            await spotifyProvider.search('Queen');
+
+                            await prefs.saveSpotifyUserProfile('Spotify Connected Account', null, 'Active');
+                            await prefs.saveActiveSource('spotify');
+
+                            Navigator.of(ctx).pop();
+                            _loadSettings();
+                          },
+                          icon: const Icon(Icons.save_rounded, size: 16),
+                          label: const Text('Save Custom Keys Only (No Browser SSO)'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

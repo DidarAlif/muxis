@@ -22,6 +22,8 @@ class PreferencesService {
   static const String _keySpotifyUserName = 'muxis_spotify_user_name';
   static const String _keySpotifyUserAvatar = 'muxis_spotify_user_avatar';
   static const String _keySpotifyProduct = 'muxis_spotify_product';
+  static const String _keyGoogleClientId = 'muxis_google_client_id';
+  static const String _keyGoogleClientSecret = 'muxis_google_client_secret';
 
   Future<void> saveActiveSource(String source) async {
     final prefs = await SharedPreferences.getInstance();
@@ -103,6 +105,26 @@ class PreferencesService {
     return prefs.getString(_keySpotifyAccessToken);
   }
 
+  Future<void> saveGoogleClientId(String clientId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyGoogleClientId, clientId);
+  }
+
+  Future<String?> getGoogleClientId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyGoogleClientId);
+  }
+
+  Future<void> saveGoogleClientSecret(String secret) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyGoogleClientSecret, secret);
+  }
+
+  Future<String?> getGoogleClientSecret() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyGoogleClientSecret);
+  }
+
   Future<void> saveSpotifyUserProfile(String name, String? avatarUrl, String product) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySpotifyUserName, name);
@@ -141,6 +163,8 @@ class PreferencesService {
     await prefs.remove(_keySpotifyUserName);
     await prefs.remove(_keySpotifyUserAvatar);
     await prefs.remove(_keySpotifyProduct);
+    await prefs.remove(_keyGoogleClientId);
+    await prefs.remove(_keyGoogleClientSecret);
   }
 
   Future<void> saveVolume(double volume) async {

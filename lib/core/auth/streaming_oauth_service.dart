@@ -55,9 +55,9 @@ class StreamingOAuthService {
         _db = db,
         _dio = dio ?? Dio();
 
-  // Default public OAuth clients
-  static const String _defaultSpotifyClientId = '65b32785a9744c68832a84e03b22cf0c';
-  static const String _defaultGoogleClientId = '861556708465-950n0k54ql2c161g0fvd7f7f91753736.apps.googleusercontent.com';
+  // Default public OAuth clients (optional fallback)
+  static const String _defaultSpotifyClientId = '';
+  static const String _defaultGoogleClientId = '';
 
   static const List<int> _allowedPorts = [8888, 8889, 43821, 51731];
 
@@ -154,9 +154,17 @@ class StreamingOAuthService {
   /// Interactive Browser SSO Flow for Spotify
   Future<StreamingAuthResult> signInWithSpotifyBrowser() async {
     final configuredId = await _prefs.getSpotifyClientId();
-    final clientId = (configuredId != null && configuredId.isNotEmpty)
-        ? configuredId
+    final clientId = (configuredId != null && configuredId.trim().isNotEmpty)
+        ? configuredId.trim()
         : _defaultSpotifyClientId;
+
+    if (clientId.isEmpty) {
+      return const StreamingAuthResult(
+        isSuccess: false,
+        platform: 'Spotify',
+        errorMessage: 'Spotify Client ID is required. Please enter your Client ID in Settings (create one in 30s at developer.spotify.com/dashboard with redirect: http://127.0.0.1:8888/callback).',
+      );
+    }
 
     final verifier = _generateCodeVerifier();
     final challenge = _generateCodeChallenge(verifier);
@@ -362,11 +370,25 @@ class StreamingOAuthService {
 
   /// Interactive Browser SSO Flow for YouTube Music
   Future<StreamingAuthResult> signInWithYouTubeBrowser() async {
+    final configuredId = await _prefs.getGoogleClientId();
+    final clientId = (configuredId != null && configuredId.trim().isNotEmpty)
+        ? configuredId.trim()
+        : _defaultGoogleClientId;
+
+    if (clientId.isEmpty) {
+      return const StreamingAuthResult(
+        isSuccess: false,
+        platform: 'YouTube Music',
+        errorMessage: 'Google OAuth Client ID is required for Google SSO. Alternatively, use the instant 1-click Session Cookie / SAPISID option in Settings.',
+      );
+    }
+
+    final clientSecret = await _prefs.getGoogleClientSecret();
     const port = 8888;
     final redirectUri = 'http://127.0.0.1:$port/callback';
 
     final authUrl = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
-      'client_id': _defaultGoogleClientId,
+      'client_id': clientId,
       'redirect_uri': redirectUri,
       'response_type': 'code',
       'scope': 'https://www.googleapis.com/auth/youtube.readonly email profile',
@@ -413,14 +435,19 @@ class StreamingOAuthService {
 
     // 3. Exchange code for Google Access Token
     try {
+      final tokenBody = <String, dynamic>{
+        'code': code,
+        'client_id': clientId,
+        'redirect_uri': redirectUri,
+        'grant_type': 'authorization_code',
+      };
+      if (clientSecret != null && clientSecret.isNotEmpty) {
+        tokenBody['client_secret'] = clientSecret;
+      }
+
       final tokenRes = await _dio.post(
         'https://oauth2.googleapis.com/token',
-        data: {
-          'code': code,
-          'client_id': _defaultGoogleClientId,
-          'redirect_uri': redirectUri,
-          'grant_type': 'authorization_code',
-        },
+        data: tokenBody,
         options: Options(
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         ),
