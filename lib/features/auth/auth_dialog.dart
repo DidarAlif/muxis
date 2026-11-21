@@ -185,7 +185,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
     bool isDark,
   ) {
     return Column(
-      crossAxisAlignment: CrossAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildTextField(
           _loginEmailCtrl,
@@ -280,7 +280,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
     bool isDark,
   ) {
     return Column(
-      crossAxisAlignment: CrossAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildTextField(
           _regNameCtrl,

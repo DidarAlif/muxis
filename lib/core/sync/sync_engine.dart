@@ -230,6 +230,8 @@ class SyncEngine extends StateNotifier<SyncStatus> {
   }
 
   Future<void> _replayOfflineMutations() async {
+    final uid = _userId;
+    if (uid == null) return;
     final mutations = _db.getOfflineMutations();
     if (mutations.isEmpty) return;
 
@@ -244,7 +246,7 @@ class SyncEngine extends StateNotifier<SyncStatus> {
           await _client!
               .from('favorites')
               .update({'is_deleted': true})
-              .eq('user_id', _userId)
+              .eq('user_id', uid)
               .eq('track_uri', trackUri);
         }
       } else if (entity == 'playlist' && action == 'delete') {
@@ -253,7 +255,7 @@ class SyncEngine extends StateNotifier<SyncStatus> {
           await _client!
               .from('playlists')
               .update({'is_deleted': true})
-              .eq('user_id', _userId)
+              .eq('user_id', uid)
               .eq('title', title);
         }
       }

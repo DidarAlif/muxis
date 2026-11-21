@@ -88,7 +88,7 @@ class AccountDialog extends ConsumerWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           user?.displayName ?? 'Audiophile',
@@ -154,7 +154,7 @@ class AccountDialog extends ConsumerWidget {
                         _buildSyncIcon(syncStatus),
                         const SizedBox(width: 10),
                         Column(
-                          crossAxisAlignment: CrossAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               'Cloud Sync',
