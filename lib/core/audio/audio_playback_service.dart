@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -6,12 +7,28 @@ import '../../providers/innertube_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../database/database_service.dart';
+import 'dsp/equalizer_node.dart';
+import 'dsp/vocal_remover.dart';
 import 'playback_state.dart';
 
 final playbackServiceProvider =
     StateNotifierProvider<AudioPlaybackService, PlaybackState>((ref) {
   final db = ref.watch(databaseServiceProvider);
-  return AudioPlaybackService(databaseService: db);
+  final service = AudioPlaybackService(databaseService: db);
+
+  // Dynamically wire equalizer and studio listeners to the audio engine
+  ref.listen<EqualizerState>(equalizerProvider, (previous, next) {
+    service.updateEqualizer(next);
+  });
+  ref.listen<AudioStudioState>(audioStudioProvider, (previous, next) {
+    service.updateAudioStudio(next);
+  });
+
+  // Apply initial DSP states
+  service.updateEqualizer(ref.read(equalizerProvider));
+  service.updateAudioStudio(ref.read(audioStudioProvider));
+
+  return service;
 });
 
 class AudioPlaybackService extends StateNotifier<PlaybackState> {
@@ -27,6 +44,9 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
 
   double _lastUnmutedVolume = 1.0;
   bool _isDisposed = false;
+
+  EqualizerState _currentEq = EqualizerState.initial();
+  AudioStudioState _currentStudio = const AudioStudioState();
 
   AudioPlaybackService({
     AudioPlayer? player,
@@ -45,6 +65,29 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         loadInitialTracks(saved);
       }
     }
+  }
+
+  void updateEqualizer(EqualizerState eq) {
+    _currentEq = eq;
+    _applyAcousticVolumeAndDsp();
+  }
+
+  void updateAudioStudio(AudioStudioState studio) {
+    _currentStudio = studio;
+    try {
+      _player.setSpeed(studio.playbackSpeed);
+      final pitchFactor = pow(2.0, studio.pitchShiftSemitones / 12.0).toDouble();
+      _player.setPitch(pitchFactor);
+    } catch (_) {}
+  }
+
+  void _applyAcousticVolumeAndDsp() {
+    try {
+      final baseVolume = state.isMuted ? 0.0 : state.volume;
+      final acousticMultiplier = _currentEq.computeAcousticGainMultiplier();
+      final effectiveVolume = (baseVolume * acousticMultiplier).clamp(0.0, 1.0);
+      _player.setVolume(effectiveVolume);
+    } catch (_) {}
   }
 
   void _initAudioListeners() {
@@ -233,11 +276,11 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
 
   void setVolume(double volume) {
     final clamped = volume.clamp(0.0, 1.0);
-    _player.setVolume(clamped);
     state = state.copyWith(volume: clamped, isMuted: clamped == 0.0);
     if (clamped > 0.0) {
       _lastUnmutedVolume = clamped;
     }
+    _applyAcousticVolumeAndDsp();
   }
 
   void toggleMute() {

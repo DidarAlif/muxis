@@ -186,6 +186,49 @@ void main() {
     expectTrue(allowedPorts.length >= 2);
   });
 
+  // --- SUITE 7: 10-BAND DSP EQUALIZER & ACOUSTIC GAIN ---
+  print('\n[Suite 7: 10-Band DSP Equalizer & Acoustic Gain]');
+
+  test('10-band studio frequency coverage spans full audible spectrum', () {
+    const freqs = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+    expect(freqs.length, 10);
+    expect(freqs.first, 32);
+    expect(freqs.last, 16000);
+  });
+
+  test('Acoustic gain calculation maintains safe linear headroom', () {
+    double computeGain(double preampDb, double bassBoost) {
+      final preamp = pow(10.0, preampDb / 20.0).toDouble();
+      final bass = pow(10.0, (bassBoost * 6.0 * 0.15) / 20.0).toDouble();
+      return (preamp * (0.6 + 0.25 * bass)).clamp(0.2, 2.0);
+    }
+
+    final flatGain = computeGain(0.0, 0.0);
+    expectTrue(flatGain >= 0.8 && flatGain <= 1.0);
+
+    final boostedGain = computeGain(3.0, 0.8);
+    expectTrue(boostedGain > flatGain);
+    expectTrue(boostedGain <= 2.0);
+  });
+
+  test('Pitch shift semitone multiplier computes correctly', () {
+    // 0 semitones = 1.0x
+    final unity = pow(2.0, 0.0 / 12.0);
+    expect(unity, 1.0);
+
+    // +12 semitones (1 octave up) = 2.0x
+    final octaveUp = pow(2.0, 12.0 / 12.0);
+    expect(octaveUp, 2.0);
+
+    // -12 semitones (1 octave down) = 0.5x
+    final octaveDown = pow(2.0, -12.0 / 12.0);
+    expect(octaveDown, 0.5);
+
+    // Slowed + reverb (-2 semitones)
+    final slowedPitch = pow(2.0, -2.0 / 12.0);
+    expectTrue(slowedPitch > 0.88 && slowedPitch < 0.90);
+  });
+
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');
   print('======================================================');

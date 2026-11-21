@@ -3,29 +3,29 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'muxis_colors.dart';
 
-/// Complete ThemeData configurations for Muxis (Prismatic Aura)
+/// Complete ThemeData configurations for Muxis (Prismatic Aura Neon Green Specification)
 class MuxisTheme {
   MuxisTheme._();
 
-  /// Dark Theme (Aura Obsidian)
+  /// Dark Theme (Aura Obsidian with Neon Green Energy)
   static ThemeData darkTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: MuxisColors.obsidian,
-      primaryColor: MuxisColors.electricCyan,
+      primaryColor: MuxisColors.neonGreen,
       canvasColor: MuxisColors.deepSpace,
       cardColor: MuxisColors.elevatedSurface,
       dividerColor: MuxisColors.subtleBorderDark,
 
       colorScheme: const ColorScheme.dark(
-        primary: MuxisColors.electricCyan,
-        secondary: MuxisColors.velvetViolet,
-        tertiary: MuxisColors.prismaticBlue,
+        primary: MuxisColors.neonGreen,
+        secondary: MuxisColors.neonMint,
+        tertiary: MuxisColors.emeraldAccent,
         surface: MuxisColors.elevatedSurface,
         error: MuxisColors.error,
         onPrimary: Colors.black,
-        onSecondary: Colors.white,
+        onSecondary: Colors.black,
         onSurface: MuxisColors.textPrimaryDark,
       ),
 
@@ -37,10 +37,10 @@ class MuxisTheme {
               ),
 
       sliderTheme: SliderThemeData(
-        activeTrackColor: MuxisColors.electricCyan,
+        activeTrackColor: MuxisColors.neonGreen,
         inactiveTrackColor: MuxisColors.subtleBorderDark,
-        thumbColor: MuxisColors.electricCyan,
-        overlayColor: MuxisColors.electricCyan.withOpacity(0.2),
+        thumbColor: MuxisColors.neonGreen,
+        overlayColor: MuxisColors.neonGreen.withOpacity(0.2),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
@@ -48,6 +48,21 @@ class MuxisTheme {
       iconTheme: const IconThemeData(
         color: MuxisColors.textSecondaryDark,
         size: 20,
+      ),
+
+      dialogTheme: DialogTheme(
+        backgroundColor: MuxisColors.elevatedSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: MuxisColors.subtleBorderDark),
+        ),
+      ),
+
+      chipTheme: ChipThemeData(
+        backgroundColor: MuxisColors.deepSpace,
+        selectedColor: MuxisColors.neonGreen.withOpacity(0.2),
+        side: const BorderSide(color: MuxisColors.subtleBorderDark),
+        labelStyle: const TextStyle(color: MuxisColors.textPrimaryDark),
       ),
 
       tooltipTheme: TooltipThemeData(
@@ -64,21 +79,21 @@ class MuxisTheme {
     );
   }
 
-  /// Light Theme (Prismatic Porcelain)
+  /// Light Theme (Vastly Improved Apple-Inspired Porcelain & Emerald)
   static ThemeData lightTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: MuxisColors.porcelain,
-      primaryColor: MuxisColors.velvetViolet,
+      primaryColor: MuxisColors.neonGreenLight,
       canvasColor: MuxisColors.secondarySurface,
       cardColor: MuxisColors.whiteSurface,
       dividerColor: MuxisColors.subtleBorderLight,
 
       colorScheme: const ColorScheme.light(
-        primary: MuxisColors.velvetViolet,
-        secondary: MuxisColors.electricCyan,
-        tertiary: MuxisColors.prismaticBlue,
+        primary: MuxisColors.neonGreenLight,
+        secondary: MuxisColors.emeraldAccent,
+        tertiary: MuxisColors.neonMint,
         surface: MuxisColors.whiteSurface,
         error: MuxisColors.error,
         onPrimary: Colors.white,
@@ -94,10 +109,10 @@ class MuxisTheme {
               ),
 
       sliderTheme: SliderThemeData(
-        activeTrackColor: MuxisColors.velvetViolet,
+        activeTrackColor: MuxisColors.neonGreenLight,
         inactiveTrackColor: MuxisColors.subtleBorderLight,
-        thumbColor: MuxisColors.velvetViolet,
-        overlayColor: MuxisColors.velvetViolet.withOpacity(0.15),
+        thumbColor: MuxisColors.neonGreenLight,
+        overlayColor: MuxisColors.neonGreenLight.withOpacity(0.15),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
@@ -105,6 +120,21 @@ class MuxisTheme {
       iconTheme: const IconThemeData(
         color: MuxisColors.textSecondaryLight,
         size: 20,
+      ),
+
+      dialogTheme: DialogTheme(
+        backgroundColor: MuxisColors.whiteSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: MuxisColors.subtleBorderLight),
+        ),
+      ),
+
+      chipTheme: ChipThemeData(
+        backgroundColor: MuxisColors.secondarySurface,
+        selectedColor: MuxisColors.neonGreenLight.withOpacity(0.15),
+        side: const BorderSide(color: MuxisColors.subtleBorderLight),
+        labelStyle: const TextStyle(color: MuxisColors.textPrimaryLight),
       ),
 
       tooltipTheme: TooltipThemeData(

@@ -92,21 +92,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         _activePlatform == 'spotify'
                             ? 'SPOTIFY STREAMING ACTIVE (AD-FREE)'
                             : 'YOUTUBE MUSIC STREAMING (AD-FREE)',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 1.2,
-                          color: _activePlatform == 'spotify'
-                              ? const Color(0xFF1ED760)
-                              : MuxisColors.electricCyan,
+                          color: Colors.black,
                         ),
                       ),
                     ),
@@ -116,7 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                        color: Colors.black,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -124,7 +122,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const Text(
                       'Instant ad-free streaming with YouTube Music InnerTube & Spotify audio bridge.',
                       maxLines: 2,
-                      style: TextStyle(fontSize: 13, color: Colors.white70),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xCC000000),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -133,9 +135,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           label: 'Play Spotlight',
                           icon: const Icon(
                             Icons.play_arrow_rounded,
-                            color: Colors.black,
+                            color: Colors.white,
                           ),
-                          variant: MuxisButtonVariant.primary,
+                          variant: MuxisButtonVariant.secondary,
                           height: 38,
                           onPressed: () {
                             if (playback.queue.isNotEmpty) {
@@ -164,9 +166,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 height: 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.black.withOpacity(0.25),
+                  color: Colors.black.withOpacity(0.12),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.black.withOpacity(0.25),
                     width: 2,
                   ),
                 ),
@@ -174,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Icon(
                     Icons.graphic_eq_rounded,
                     size: 64,
-                    color: Colors.white,
+                    color: Colors.black,
                   ),
                 ),
               ),

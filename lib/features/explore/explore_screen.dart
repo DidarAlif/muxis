@@ -87,9 +87,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           style: MuxisTypography.pageTitle(isDark: isDark),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Browse curated genre stations, new lossless releases, and atmospheric soundscapes.',
-          style: TextStyle(fontSize: 14, color: MuxisColors.textSecondaryDark),
+          style: TextStyle(fontSize: 14, color: MuxisColors.textSecondary(isDark)),
         ),
         const SizedBox(height: 28),
 
@@ -127,12 +127,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [color.withOpacity(0.35), color.withOpacity(0.1)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: color.withOpacity(0.4), width: 1),
+                  color: isDark ? color.withOpacity(0.18) : color.withOpacity(0.12),
+                  border: Border.all(color: color.withOpacity(isDark ? 0.4 : 0.6), width: 1),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,10 +136,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   children: [
                     Text(
                       mood['title'] as String,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: isDark ? Colors.white : MuxisColors.textPrimaryLight,
                       ),
                     ),
                     Row(
@@ -151,9 +147,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       children: [
                         Text(
                           mood['subtitle'] as String,
-                          style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : MuxisColors.textSecondaryLight,
+                          ),
                         ),
-                        const Icon(Icons.play_circle_fill, size: 20, color: Colors.white),
+                        Icon(
+                          Icons.play_circle_fill,
+                          size: 20,
+                          color: isDark ? Colors.white : color,
+                        ),
                       ],
                     ),
                   ],

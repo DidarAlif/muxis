@@ -1,50 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Dark obsidian metallic background -->
+    <!-- Deep obsidian titanium squircle base -->
     <linearGradient id="iconBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#161C28"/>
-      <stop offset="45%" stop-color="#0E121B"/>
-      <stop offset="100%" stop-color="#05060A"/>
+      <stop offset="0%" stop-color="#121824"/>
+      <stop offset="45%" stop-color="#090D14"/>
+      <stop offset="100%" stop-color="#040609"/>
     </linearGradient>
 
-    <!-- Chromatic iridescent border gradient -->
-    <linearGradient id="iconBorderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00F2FE" stop-opacity="0.9"/>
-      <stop offset="35%" stop-color="#4FACFE" stop-opacity="0.5"/>
-      <stop offset="70%" stop-color="#7F00FF" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#E100FF" stop-opacity="0.95"/>
+    <!-- Electric Neon Green rim border gradient -->
+    <linearGradient id="neonBorderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FF88" stop-opacity="0.95"/>
+      <stop offset="35%" stop-color="#10FFA0" stop-opacity="0.6"/>
+      <stop offset="70%" stop-color="#00E676" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#05DF72" stop-opacity="0.9"/>
     </linearGradient>
 
-    <!-- Unified Prismatic Aura Brand Gradient -->
-    <linearGradient id="brandMuxisGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00F2FE"/>
-      <stop offset="35%" stop-color="#4FACFE"/>
-      <stop offset="70%" stop-color="#7F00FF"/>
-      <stop offset="100%" stop-color="#E100FF"/>
+    <!-- Vibrant Brand Neon Green Monogram Gradient -->
+    <linearGradient id="brandNeonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FF88"/>
+      <stop offset="40%" stop-color="#10FFA0"/>
+      <stop offset="80%" stop-color="#00E676"/>
+      <stop offset="100%" stop-color="#05DF72"/>
     </linearGradient>
 
-    <!-- Specular glass top reflection -->
+    <!-- Apple-inspired liquid glass specular reflection -->
     <linearGradient id="glassReflection" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
-      <stop offset="30%" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="35%" stop-color="#FFFFFF" stop-opacity="0.05"/>
       <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Deep atmospheric inner glow pool -->
+    <!-- Ambient audio neon green light pool -->
     <radialGradient id="auraRadial" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#7F00FF" stop-opacity="0.35"/>
-      <stop offset="50%" stop-color="#00F2FE" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#05060A" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#00FF88" stop-opacity="0.32"/>
+      <stop offset="50%" stop-color="#00E676" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#040609" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Prismatic drop shadow -->
+    <!-- Heavy icon drop shadow -->
     <filter id="iconDropShadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.8"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.85"/>
     </filter>
 
     <!-- Core neon bloom glow -->
     <filter id="monogramBloom" x="-25%" y="-25%" width="150%" height="150%">
-      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feGaussianBlur stdDeviation="14" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -52,8 +52,8 @@
     </filter>
   </defs>
 
-  <!-- iOS / macOS Squircle Base -->
-  <rect x="28" y="28" width="456" height="456" rx="112" fill="url(#iconBgGrad)" stroke="url(#iconBorderGrad)" stroke-width="3.5" filter="url(#iconDropShadow)"/>
+  <!-- iOS / macOS / Windows Squircle Base -->
+  <rect x="28" y="28" width="456" height="456" rx="112" fill="url(#iconBgGrad)" stroke="url(#neonBorderGrad)" stroke-width="3.5" filter="url(#iconDropShadow)"/>
 
   <!-- Liquid glass specular sheen overlay -->
   <rect x="30" y="30" width="452" height="226" rx="110" fill="url(#glassReflection)"/>
@@ -61,35 +61,45 @@
   <!-- Ambient audio light pool -->
   <circle cx="256" cy="256" r="185" fill="url(#auraRadial)"/>
 
-  <!-- EXACT MATCH UNIFIED MUXIS MONOGRAM (Scaled and centered) -->
+  <!-- EXACT MATCH KINETIC MUXIS MONOGRAM (Scaled and centered) -->
   <g transform="translate(64, 64) scale(0.75)" filter="url(#monogramBloom)">
-    <!-- Left outer frequency pillar -->
-    <rect x="76" y="112" width="52" height="288" rx="26" fill="url(#brandMuxisGrad)"/>
+    <!-- Left outer harmonic beam -->
+    <path d="M 88 128
+             C 88 106, 118 106, 118 128
+             L 118 384
+             C 118 406, 88 406, 88 384
+             Z"
+          fill="url(#brandNeonGrad)"/>
 
-    <!-- Harmonic M frequency chevron -->
-    <path d="M 160 190 
-             C 160 176, 178 168, 189 177 
-             L 242 222 
-             C 250 229, 262 229, 270 222 
-             L 323 177 
-             C 334 168, 352 176, 352 190 
-             L 352 240 
-             C 352 248, 347 256, 340 262 
-             L 272 318 
-             C 263 325, 249 325, 240 318 
-             L 172 262 
-             C 165 256, 160 248, 160 240 
-             Z" 
-          fill="url(#brandMuxisGrad)"/>
+    <!-- Right outer harmonic beam -->
+    <path d="M 394 128
+             C 394 106, 424 106, 424 128
+             L 424 384
+             C 424 406, 394 406, 394 384
+             Z"
+          fill="url(#brandNeonGrad)"/>
 
-    <!-- Right outer frequency pillar -->
-    <rect x="384" y="112" width="52" height="288" rx="26" fill="url(#brandMuxisGrad)"/>
+    <!-- Continuous central acoustic crest ('M') -->
+    <path d="M 148 190
+             C 148 168, 172 156, 190 170
+             L 244 214
+             C 251 220, 261 220, 268 214
+             L 322 170
+             C 340 156, 364 168, 364 190
+             L 364 260
+             C 364 274, 356 288, 344 296
+             L 270 348
+             C 261 354, 251 354, 242 348
+             L 168 296
+             C 156 288, 148 274, 148 260
+             Z"
+          fill="url(#brandNeonGrad)"/>
 
-    <!-- Dynamic Central Frequency Pulse -->
-    <rect x="232" y="348" width="48" height="52" rx="24" fill="url(#brandMuxisGrad)"/>
+    <!-- Dynamic Central Core Frequency Node -->
+    <circle cx="256" cy="154" r="14" fill="#00FF88"/>
+    <circle cx="256" cy="154" r="6" fill="#FFFFFF"/>
 
-    <!-- Optical Apex Frequency Spark -->
-    <circle cx="256" cy="156" r="14" fill="#00F2FE"/>
-    <circle cx="256" cy="156" r="6" fill="#FFFFFF"/>
+    <!-- Sub-Bass Pulse Anchor Bar -->
+    <rect x="236" y="376" width="40" height="12" rx="6" fill="#00FF88"/>
   </g>
 </svg>

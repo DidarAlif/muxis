@@ -1,28 +1,37 @@
 import 'package:flutter/material.dart';
 
-/// Centralized Muxis Brand & Surface Colors (Prismatic Aura Specification)
+/// Centralized Muxis Brand & Surface Colors (Prismatic Aura Neon Green Specification)
 class MuxisColors {
   MuxisColors._();
 
-  // --- Primary Brand Accents ---
-  static const Color electricCyan = Color(0xFF00F2FE);
-  static const Color prismaticBlue = Color(0xFF4FACFE);
-  static const Color velvetViolet = Color(0xFF7F00FF);
-  static const Color neonMagenta = Color(0xFFE100FF);
+  // --- Primary Brand Accents (Vibrant Electric Neon Green) ---
+  static const Color neonGreen = Color(0xFF00FF88);
+  static const Color neonMint = Color(0xFF10FFA0);
+  static const Color emeraldAccent = Color(0xFF00E676);
+  static const Color cyberLime = Color(0xFF76FF03);
+  static const Color neonGreenLight = Color(0xFF00A859); // High-contrast for light theme
 
-  // --- Dark Theme Surfaces (Aura Obsidian) ---
-  static const Color obsidian = Color(0xFF090B10);
-  static const Color deepSpace = Color(0xFF111520);
-  static const Color elevatedSurface = Color(0xFF191F2D);
-  static const Color hoverSurface = Color(0xFF252D40);
-  static const Color subtleBorderDark = Color(0xFF2B3448);
+  // Backwards-compatible aliases mapped to Neon Green family
+  static const Color electricCyan = neonGreen;
+  static const Color prismaticBlue = neonMint;
+  static const Color velvetViolet = Color(0xFF05DF72);
+  static const Color neonMagenta = neonGreen;
 
-  // --- Light Theme Surfaces (Prismatic Porcelain) ---
-  static const Color porcelain = Color(0xFFF7F8FC);
+  // --- Dark Theme Surfaces (Aura Obsidian with Emerald Depth) ---
+  static const Color obsidian = Color(0xFF07090E);
+  static const Color deepSpace = Color(0xFF0D1219);
+  static const Color elevatedSurface = Color(0xFF131A24);
+  static const Color hoverSurface = Color(0xFF1B2433);
+  static const Color subtleBorderDark = Color(0xFF232D3F);
+  static const Color neonBorderDark = Color(0x3300FF88);
+
+  // --- Light Theme Surfaces (Vastly Improved Apple-Inspired Porcelain & Zinc) ---
+  static const Color porcelain = Color(0xFFF8FAFC);
   static const Color whiteSurface = Color(0xFFFFFFFF);
-  static const Color secondarySurface = Color(0xFFEEF1F8);
-  static const Color hoverSurfaceLight = Color(0xFFE7EBF5);
-  static const Color subtleBorderLight = Color(0xFFDCE2EF);
+  static const Color secondarySurface = Color(0xFFF1F5F9);
+  static const Color hoverSurfaceLight = Color(0xFFE2E8F0);
+  static const Color subtleBorderLight = Color(0xFFE2E8F0);
+  static const Color neonBorderLight = Color(0x3300A859);
 
   // --- Dark Text & Icon Colors ---
   static const Color textPrimaryDark = Color(0xFFF8FAFC);
@@ -30,19 +39,29 @@ class MuxisColors {
   static const Color textMutedDark = Color(0xFF64748B);
   static const Color textDisabledDark = Color(0xFF475569);
 
-  // --- Light Text & Icon Colors ---
+  // --- Light Text & Icon Colors (Razor-Sharp Legibility) ---
   static const Color textPrimaryLight = Color(0xFF0F172A);
-  static const Color textSecondaryLight = Color(0xFF475569);
+  static const Color textSecondaryLight = Color(0xFF334155);
   static const Color textMutedLight = Color(0xFF64748B);
   static const Color textDisabledLight = Color(0xFF94A3B8);
 
   // --- Status & Feedback Tokens ---
-  static const Color success = Color(0xFF10B981);
+  static const Color success = Color(0xFF00FF88);
   static const Color warning = Color(0xFFF59E0B);
   static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF10FFA0);
 
-  // --- Interactive Highlight ---
-  static const Color activeGreen = Color(0xFF10B981);
-  static const Color heartActive = Color(0xFFE100FF);
+  // --- Interactive Highlights ---
+  static const Color activeGreen = Color(0xFF00FF88);
+  static const Color heartActive = Color(0xFF00FF88);
+
+  // --- Contextual Adapters ---
+  static Color surface(bool isDark) => isDark ? elevatedSurface : whiteSurface;
+  static Color background(bool isDark) => isDark ? obsidian : porcelain;
+  static Color secondaryBg(bool isDark) => isDark ? deepSpace : secondarySurface;
+  static Color border(bool isDark) => isDark ? subtleBorderDark : subtleBorderLight;
+  static Color textPrimary(bool isDark) => isDark ? textPrimaryDark : textPrimaryLight;
+  static Color textSecondary(bool isDark) => isDark ? textSecondaryDark : textSecondaryLight;
+  static Color textMuted(bool isDark) => isDark ? textMutedDark : textMutedLight;
+  static Color accent(bool isDark) => isDark ? neonGreen : neonGreenLight;
 }

@@ -44,19 +44,24 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
     final playback = ref.watch(playbackServiceProvider);
     final audioService = ref.read(playbackServiceProvider.notifier);
     final track = playback.currentTrack;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: MuxisColors.obsidian,
+      backgroundColor: isDark ? MuxisColors.obsidian : MuxisColors.porcelain,
       body: Stack(
         children: [
           // Dynamic Atmospheric Aurora Light Pool
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                gradient: MuxisGradients.auroraAuraRadial(
-                  dominantColor: MuxisColors.velvetViolet,
-                  secondaryColor: MuxisColors.electricCyan,
-                ),
+                gradient: isDark
+                    ? MuxisGradients.auroraAuraRadial(
+                        dominantColor: MuxisColors.neonGreen,
+                        secondaryColor: MuxisColors.neonMint,
+                      )
+                    : MuxisGradients.auroraAuraRadialLight(
+                        dominantColor: MuxisColors.neonGreenLight,
+                      ),
               ),
             ),
           ),

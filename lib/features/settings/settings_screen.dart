@@ -961,7 +961,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: isSelected ? Colors.white : MuxisColors.textSecondaryDark,
+                      color: isSelected
+                          ? (isDark ? Colors.white : MuxisColors.textPrimaryLight)
+                          : (isDark ? MuxisColors.textSecondaryDark : MuxisColors.textSecondaryLight),
                     ),
                   ),
                 ],

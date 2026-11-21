@@ -119,7 +119,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
                       style: MuxisTypography.trackTitle(isDark: isDark)
                           .copyWith(
                             color: widget.isPlaying
-                                ? MuxisColors.electricCyan
+                                ? MuxisColors.accent(isDark)
                                 : (isDark
                                       ? MuxisColors.textPrimaryDark
                                       : MuxisColors.textPrimaryLight),

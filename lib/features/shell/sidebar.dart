@@ -244,9 +244,7 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                   icon: Icon(
                     isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
                     size: 18,
-                    color: isDark
-                        ? MuxisColors.electricCyan
-                        : MuxisColors.velvetViolet,
+                    color: MuxisColors.accent(isDark),
                   ),
                   tooltip: isDark
                       ? 'Switch to Light Theme'
@@ -303,12 +301,12 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
               color: isSelected
                   ? (isDark
                         ? MuxisColors.elevatedSurface
-                        : MuxisColors.secondarySurface)
+                        : const Color(0xFFEBF8F2))
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               border: isSelected
                   ? Border.all(
-                      color: MuxisColors.electricCyan.withOpacity(0.4),
+                      color: MuxisColors.accent(isDark).withOpacity(0.35),
                       width: 1,
                     )
                   : null,
@@ -322,7 +320,7 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                   icon,
                   size: 20,
                   color: isSelected
-                      ? MuxisColors.electricCyan
+                      ? MuxisColors.accent(isDark)
                       : (isDark
                             ? MuxisColors.textSecondaryDark
                             : MuxisColors.textSecondaryLight),

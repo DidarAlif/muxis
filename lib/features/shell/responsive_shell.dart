@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
+import '../../app/theme/muxis_gradients.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../command_palette/command_palette_dialog.dart';
 import '../explore/explore_screen.dart';
@@ -131,52 +132,55 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor: isDark ? MuxisColors.obsidian : MuxisColors.porcelain,
-        body: Column(
-          children: [
-            // Top Main Workspace Area (Sidebar + Active Screen + Optional Right Panel)
-            Expanded(
-              child: Row(
-                children: [
-                  // Navigation Sidebar (Desktop only)
-                  if (isDesktop)
-                    MuxisSidebar(
-                      selectedIndex: _navIndex,
-                      onDestinationSelected: (i) =>
-                          setState(() => _navIndex = i),
-                      onOpenAudioStudio: _openAudioStudio,
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: isDark
+              ? MuxisGradients.darkAmbientBackground()
+              : MuxisGradients.lightAmbientBackground(),
+          child: Column(
+            children: [
+              // Top Main Workspace Area (Sidebar + Active Screen + Optional Right Panel)
+              Expanded(
+                child: Row(
+                  children: [
+                    // Navigation Sidebar (Desktop only)
+                    if (isDesktop)
+                      MuxisSidebar(
+                        selectedIndex: _navIndex,
+                        onDestinationSelected: (i) =>
+                            setState(() => _navIndex = i),
+                        onOpenAudioStudio: _openAudioStudio,
+                      ),
+
+                    // Main Screen Workspace
+                    Expanded(
+                      child: Container(
+                        color: Colors.transparent,
+                        child: _buildScreen(_navIndex),
+                      ),
                     ),
 
-                  // Main Screen Workspace
-                  Expanded(
-                    child: Container(
-                      color: isDark
-                          ? MuxisColors.obsidian
-                          : MuxisColors.porcelain,
-                      child: _buildScreen(_navIndex),
-                    ),
-                  ),
-
-                  // Collapsible Right Drawer Panel (Queue & Synced Lyrics)
-                  if (isDesktop && _isRightDrawerOpen)
-                    RightDrawerPanel(
-                      onClose: () => setState(() => _isRightDrawerOpen = false),
-                    ),
-                ],
+                    // Collapsible Right Drawer Panel (Queue & Synced Lyrics)
+                    if (isDesktop && _isRightDrawerOpen)
+                      RightDrawerPanel(
+                        onClose: () => setState(() => _isRightDrawerOpen = false),
+                      ),
+                  ],
+                ),
               ),
-            ),
 
-            // Bottom Playback Bar
-            BottomPlaybackBar(
-              onExpandNowPlaying: () =>
-                  setState(() => _isNowPlayingExpanded = true),
-              onToggleRightDrawer: () =>
-                  setState(() => _isRightDrawerOpen = !_isRightDrawerOpen),
-              onOpenAudioStudio: _openAudioStudio,
-              isLyricsActive: _isRightDrawerOpen,
-              isQueueActive: _isRightDrawerOpen,
-            ),
-          ],
+              // Bottom Playback Bar
+              BottomPlaybackBar(
+                onExpandNowPlaying: () =>
+                    setState(() => _isNowPlayingExpanded = true),
+                onToggleRightDrawer: () =>
+                    setState(() => _isRightDrawerOpen = !_isRightDrawerOpen),
+                onOpenAudioStudio: _openAudioStudio,
+                isLyricsActive: _isRightDrawerOpen,
+                isQueueActive: _isRightDrawerOpen,
+              ),
+            ],
+          ),
         ),
 
         // Mobile Bottom Navigation Bar (< 768px)
