@@ -37,19 +37,20 @@ class MuxisShortcuts {
   MuxisShortcuts._();
 
   static final Map<ShortcutActivator, Intent> desktopShortcuts = {
-    const SingleActivator(LogicalKey.space): const PlayPauseIntent(),
-    const SingleActivator(LogicalKey.arrowRight, control: true):
+    const SingleActivator(LogicalKeyboardKey.space): const PlayPauseIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowRight, control: true):
         const NextTrackIntent(),
-    const SingleActivator(LogicalKey.arrowLeft, control: true):
+    const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true):
         const PreviousTrackIntent(),
-    const SingleActivator(LogicalKey.arrowUp, control: true):
+    const SingleActivator(LogicalKeyboardKey.arrowUp, control: true):
         const VolumeUpIntent(),
-    const SingleActivator(LogicalKey.arrowDown, control: true):
+    const SingleActivator(LogicalKeyboardKey.arrowDown, control: true):
         const VolumeDownIntent(),
-    const SingleActivator(LogicalKey.keyK, control: true):
+    const SingleActivator(LogicalKeyboardKey.keyK, control: true):
         const CommandPaletteIntent(),
-    const SingleActivator(LogicalKey.keyF, control: true): const SearchIntent(),
-    const SingleActivator(LogicalKey.keyL, control: true):
+    const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+        const SearchIntent(),
+    const SingleActivator(LogicalKeyboardKey.keyL, control: true):
         const OpenLibraryIntent(),
   };
 }

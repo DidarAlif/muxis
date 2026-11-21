@@ -41,7 +41,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
         // Playlist Header
         Row(
-          crossAxisAlignment: CrossAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             // Cover Art
             Container(
@@ -71,7 +71,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
             // Metadata
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'PLAYLIST',

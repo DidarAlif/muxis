@@ -87,7 +87,7 @@ class ExploreScreen extends ConsumerWidget {
                 border: Border.all(color: color.withOpacity(0.4), width: 1),
               ),
               child: Column(
-                crossAxisAlignment: CrossAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(

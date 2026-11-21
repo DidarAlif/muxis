@@ -133,7 +133,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Large Artwork with Vinyl Depth
                         Flexible(
@@ -206,7 +206,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                           children: [
                             Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     track?.title ?? 'No track',
@@ -380,7 +380,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
           duration: const Duration(milliseconds: 200),
           padding: EdgeInsets.symmetric(vertical: isActive ? 12.0 : 8.0),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 line.text,

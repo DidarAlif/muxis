@@ -17,7 +17,7 @@ jobs:
       matrix:
         platform:
           - name: Windows
-            os: windows-latest
+            os: windows-2022
             target: windows
           - name: macOS
             os: macos-latest
@@ -70,6 +70,7 @@ jobs:
         if: matrix.platform.target == 'windows'
         shell: pwsh
         run: |
+          echo "CMAKE_GENERATOR=Visual Studio 17 2022" >> $env:GITHUB_ENV
           flutter build windows --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Muxis-Windows-x64-${{ github.ref_name }}.zip -Force
 

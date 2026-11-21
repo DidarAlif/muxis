@@ -36,7 +36,7 @@ class AudioStudioSheet extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
               Row(
@@ -61,7 +61,7 @@ class AudioStudioSheet extends ConsumerWidget {
                       ),
                       const SizedBox(width: 14),
                       Column(
-                        crossAxisAlignment: CrossAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'AUDIO STUDIO & DSP',

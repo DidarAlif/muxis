@@ -43,7 +43,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Select or enter the folder path containing your audio files (FLAC, MP3, WAV, AAC, OGG):',
@@ -163,7 +163,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Column(
-              crossAxisAlignment: CrossAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Your Library',

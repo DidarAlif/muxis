@@ -93,7 +93,7 @@ class _AudioVisualizerState extends State<AudioVisualizer>
       height: widget.height,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(widget.barCount, (i) {
           final hFraction = _heights[i].clamp(0.08, 1.0);
           final barHeight = hFraction * widget.height;

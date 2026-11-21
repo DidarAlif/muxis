@@ -67,8 +67,8 @@ class _MuxisCardState extends State<MuxisCard> {
           ),
           child: Column(
             crossAxisAlignment: widget.isCircular
-                ? CrossAlignment.center
-                : CrossAlignment.start,
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               // Artwork / Cover Surface

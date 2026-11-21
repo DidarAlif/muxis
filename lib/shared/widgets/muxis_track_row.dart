@@ -109,7 +109,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
               Expanded(
                 flex: 4,
                 child: Column(
-                  crossAxisAlignment: CrossAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
@@ -239,7 +239,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
   Widget _buildEqualizerIndicator() {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         _eqBar(14),
         const SizedBox(width: 2),

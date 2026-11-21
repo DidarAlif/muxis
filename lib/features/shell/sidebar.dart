@@ -48,7 +48,7 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header: Brand Logo & Collapse Toggle
           Container(

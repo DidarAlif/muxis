@@ -228,7 +228,7 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
                     // Track Info
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             track.title,
@@ -296,7 +296,7 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
         return Padding(
           padding: EdgeInsets.symmetric(vertical: isActive ? 10 : 6),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 line.text,
