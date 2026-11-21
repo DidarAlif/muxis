@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation — MUXIS Music Player</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand"><span>MUXIS</span></a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 60px 24px; max-width: 900px;">
+    <span class="badge">DEVELOPER & USER DOCUMENTATION</span>
+    <h1 style="font-size: 38px; font-weight: 800; margin-bottom: 24px;">Muxis Documentation</h1>
+
+    <div class="feature-card" style="margin-bottom: 32px;">
+      <h2 style="font-size: 22px; margin-bottom: 12px; color: var(--cyan);">1. Architecture & Data Boundary</h2>
+      <p style="margin-bottom: 12px;">
+        Muxis enforces a strict boundary between <strong>Local Audio Files</strong> and <strong>Cloud Metadata</strong>:
+      </p>
+      <ul style="padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+        <li><strong>Local Files Never Uploaded:</strong> Your FLAC, MP3, WAV, and audio files reside exclusively on your local storage device. No local audio is transmitted to cloud servers.</li>
+        <li><strong>Portable Cloud References:</strong> Cloud playlists store canonical track metadata (ISRC, title, artist, album, duration) rather than absolute file paths, allowing playlists to sync across different devices without path collisions.</li>
+        <li><strong>Offline-First Resilience:</strong> All playback, library scanning, equalizer, and queue controls operate completely offline. When internet is restored, changes sync asynchronously via Supabase PostgreSQL.</li>
+      </ul>
+    </div>
+
+    <div class="feature-card" style="margin-bottom: 32px;">
+      <h2 style="font-size: 22px; margin-bottom: 12px; color: var(--cyan);">2. Audio Studio & DSP Engine</h2>
+      <p style="margin-bottom: 12px;">
+        Muxis features a built-in digital signal processing suite:
+      </p>
+      <ul style="padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+        <li><strong>5-Band Master Equalizer:</strong> 60Hz (sub-bass), 230Hz (bass), 910Hz (midrange), 3.6kHz (upper mids), and 14kHz (high treble) with ±12dB parametric curve.</li>
+        <li><strong>Karaoke Vocal Isolation:</strong> Employs center-channel phase cancellation <code>(Left - Right)</code> to attenuate center-panned lead vocals while preserving ambient instrumentation.</li>
+        <li><strong>Pitch & Tempo Stretching:</strong> Real-time pitch shifting and playback speed modulation (0.5x to 2.0x) with a single-tap <em>Slowed + Reverb</em> preset.</li>
+      </ul>
+    </div>
+
+    <div class="feature-card" style="margin-bottom: 32px;">
+      <h2 style="font-size: 22px; margin-bottom: 12px; color: var(--cyan);">3. Desktop Keyboard Shortcuts</h2>
+      <table style="width: 100%; border-collapse: collapse; color: var(--text-secondary); font-size: 14px;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-primary);">
+            <th style="padding: 10px 0;">Shortcut</th>
+            <th style="padding: 10px 0;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Space</td><td>Play / Pause</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Right</td><td>Next Track</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Left</td><td>Previous Track</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Up</td><td>Increase Volume (+5%)</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Down</td><td>Decrease Volume (-5%)</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + K</td><td>Open Command Palette</td></tr>
+          <tr><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + L</td><td>Jump to Music Library</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <p>&copy; 2026 MUXIS Project. Released under GPL-3.0.</p>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

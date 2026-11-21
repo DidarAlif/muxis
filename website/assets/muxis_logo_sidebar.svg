@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 56" width="220" height="56">
+  <defs>
+    <linearGradient id="sidebarBrandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE"/>
+      <stop offset="50%" stop-color="#4FACFE"/>
+      <stop offset="85%" stop-color="#7F00FF"/>
+      <stop offset="100%" stop-color="#E100FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Compact Monogram (36x36 at 10,10) -->
+  <g transform="translate(10, 10) scale(0.07)">
+    <rect x="76" y="112" width="52" height="288" rx="26" fill="url(#sidebarBrandGrad)"/>
+    <path d="M 160 190 C 160 176, 178 168, 189 177 L 242 222 C 250 229, 262 229, 270 222 L 323 177 C 334 168, 352 176, 352 190 L 352 240 C 352 248, 347 256, 340 262 L 272 318 C 263 325, 249 325, 240 318 L 172 262 C 165 256, 160 248, 160 240 Z" fill="url(#sidebarBrandGrad)"/>
+    <rect x="384" y="112" width="52" height="288" rx="26" fill="url(#sidebarBrandGrad)"/>
+    <rect x="232" y="348" width="48" height="52" rx="24" fill="url(#sidebarBrandGrad)"/>
+    <circle cx="256" cy="156" r="14" fill="#00F2FE"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="56" y="36" 
+        font-family="'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif" 
+        font-size="22" 
+        font-weight="800" 
+        letter-spacing="4" 
+        fill="#FFFFFF">MUXIS</text>
+
+  <!-- Accent tag -->
+  <rect x="162" y="22" width="38" height="16" rx="8" fill="#191F2D" stroke="#00F2FE" stroke-opacity="0.4" stroke-width="1"/>
+  <text x="169" y="33" 
+        font-family="'JetBrains Mono', monospace" 
+        font-size="8" 
+        font-weight="700" 
+        fill="#00F2FE">PRO</text>
+</svg>

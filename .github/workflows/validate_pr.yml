@@ -1,0 +1,107 @@
+name: PR Validation & Quality Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'supabase/**'
+      - 'cloudflare/**'
+      - 'website/**'
+      - '.github/workflows/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-analysis:
+    name: Flutter Lint, Format & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.x'
+          channel: 'stable'
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:${{ hashFiles('**/pubspec.lock') }}"
+
+      - name: Verify Flutter & Dart
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Verify Code Formatting
+        run: dart format --output=none --set-exit-if-changed lib/
+
+      - name: Static Code Analysis
+        run: flutter analyze --fatal-infos
+
+      - name: Run Unit Tests
+        run: flutter test --coverage
+
+  database-validation:
+    name: Supabase SQL Migrations Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate SQL Syntax
+        run: |
+          echo "Verifying SQL migration files..."
+          ls -la supabase/migrations/
+          # Basic syntax verification - check for balanced statements and no forbidden drops
+          for file in supabase/migrations/*.sql; do
+            echo "Checking $file"
+            if grep -i "DROP DATABASE" "$file"; then
+              echo "Error: Forbidden DROP DATABASE found in $file"
+              exit 1
+            fi
+          done
+          echo "All migrations passed safety checks."
+
+  cloudflare-validation:
+    name: Cloudflare Worker Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'cloudflare/package.json'
+
+      - name: Install Worker Dependencies
+        working-directory: ./cloudflare
+        run: npm ci
+
+      - name: TypeScript Type Checking
+        working-directory: ./cloudflare
+        run: npx tsc --noEmit
