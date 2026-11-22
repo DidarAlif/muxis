@@ -40,17 +40,25 @@ class InnerTubeMusicProvider implements MusicProvider {
       'Referer': '$_youtubeMusicOrigin/',
     };
 
-    final cookie = await _prefs.getYtCookie();
-    final sapisid = await _prefs.getYtSapisid();
+    final rawCookie = await _prefs.getYtCookie();
+    final rawSapisid = await _prefs.getYtSapisid();
 
-    if (cookie != null && cookie.isNotEmpty) {
-      headers['Cookie'] = cookie;
-      if (sapisid != null && sapisid.isNotEmpty) {
-        final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
-        final raw = '$timestamp $sapisid $_youtubeMusicOrigin';
-        final hash = sha1.convert(utf8.encode(raw)).toString();
-        headers['Authorization'] = 'SAPISIDHASH ${timestamp}_$hash';
+    final cookie = rawCookie?.replaceAll(RegExp(r'[\r\n]'), ' ').trim();
+    final sapisid = rawSapisid?.replaceAll(RegExp(r'[\r\n]'), ' ').trim();
+
+    if (sapisid != null && sapisid.isNotEmpty) {
+      final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+      final raw = '$timestamp $sapisid $_youtubeMusicOrigin';
+      final hash = sha1.convert(utf8.encode(raw)).toString();
+      headers['Authorization'] = 'SAPISIDHASH ${timestamp}_$hash';
+
+      if (cookie != null && cookie.isNotEmpty) {
+        headers['Cookie'] = cookie;
+      } else {
+        headers['Cookie'] = 'SAPISID=$sapisid; __Secure-3PAPISID=$sapisid;';
       }
+    } else if (cookie != null && cookie.isNotEmpty) {
+      headers['Cookie'] = cookie;
     }
 
     return headers;

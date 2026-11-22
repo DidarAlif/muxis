@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -211,15 +212,24 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       }
 
       if (playUri != null && playUri.isNotEmpty) {
-        // Set up player with iOS headers for highest compatibility and zero ads
-        await _player.setUrl(
-          playUri,
-          headers: {
-            'User-Agent':
-                'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
-            'Accept': '*/*',
-          },
-        );
+        // Stop any active Windows Media Foundation threads safely before attaching new source
+        try {
+          await _player.stop();
+        } catch (_) {}
+
+        if (Platform.isWindows) {
+          // just_audio_windows crashes with 0xc0000005 if custom headers are passed to WinRT MediaPlayer
+          await _player.setUrl(playUri);
+        } else {
+          await _player.setUrl(
+            playUri,
+            headers: {
+              'User-Agent':
+                  'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
+              'Accept': '*/*',
+            },
+          );
+        }
         await _player.play();
         _databaseService?.recordHistory(track.id);
       } else {

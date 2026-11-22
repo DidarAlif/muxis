@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,6 +30,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Track> _results = [];
   bool _isSearching = false;
   String _lastQuery = '';
+  Timer? _debounceTimer;
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -41,7 +49,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
   }
 
-  void _onSearch(String query) async {
+  void _onSearch(String query) {
+    _debounceTimer?.cancel();
     final trimmed = query.trim();
     _lastQuery = trimmed;
 
@@ -55,45 +64,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     setState(() => _isSearching = true);
 
-    try {
-      List<Track> searchResults = [];
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      try {
+        List<Track> searchResults = [];
 
-      switch (_filterSource) {
-        case SearchFilterSource.youtube:
-          searchResults = await _ytProvider.search(trimmed);
-          break;
-        case SearchFilterSource.spotify:
-          searchResults = await _spotifyProvider.search(trimmed);
-          break;
-        case SearchFilterSource.all:
-          final ytFuture = _ytProvider.search(trimmed);
-          final spFuture = _spotifyProvider.search(trimmed);
-          final res = await Future.wait([ytFuture, spFuture]);
-          // Merge results: YouTube Music + Spotify
-          final ytTracks = res[0];
-          final spTracks = res[1];
-          final seen = <String>{};
-          for (final t in [...ytTracks, ...spTracks]) {
-            final key = '${t.title.toLowerCase()}_${t.artist.toLowerCase()}';
-            if (!seen.contains(key)) {
-              seen.add(key);
-              searchResults.add(t);
+        switch (_filterSource) {
+          case SearchFilterSource.youtube:
+            searchResults = await _ytProvider.search(trimmed);
+            break;
+          case SearchFilterSource.spotify:
+            searchResults = await _spotifyProvider.search(trimmed);
+            break;
+          case SearchFilterSource.all:
+            final ytFuture = _ytProvider.search(trimmed);
+            final spFuture = _spotifyProvider.search(trimmed);
+            final res = await Future.wait([ytFuture, spFuture]);
+            final ytTracks = res[0];
+            final spTracks = res[1];
+            final seen = <String>{};
+            for (final t in [...ytTracks, ...spTracks]) {
+              final key = '${t.title.toLowerCase()}_${t.artist.toLowerCase()}';
+              if (!seen.contains(key)) {
+                seen.add(key);
+                searchResults.add(t);
+              }
             }
-          }
-          break;
-      }
+            break;
+        }
 
-      if (mounted && _lastQuery == trimmed) {
-        setState(() {
-          _results = searchResults;
-          _isSearching = false;
-        });
+        if (mounted && _lastQuery == trimmed) {
+          setState(() {
+            _results = searchResults;
+            _isSearching = false;
+          });
+        }
+      } catch (_) {
+        if (mounted && _lastQuery == trimmed) {
+          setState(() => _isSearching = false);
+        }
       }
-    } catch (_) {
-      if (mounted && _lastQuery == trimmed) {
-        setState(() => _isSearching = false);
-      }
-    }
+    });
   }
 
   @override
