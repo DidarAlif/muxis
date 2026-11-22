@@ -12,6 +12,7 @@ class MuxisColors {
   static const Color neonGreenLight = Color(0xFF00A859); // High-contrast for light theme
 
   // Backwards-compatible aliases mapped to Neon Green family
+  static const Color neonAccent = neonGreen;
   static const Color electricCyan = neonGreen;
   static const Color prismaticBlue = neonMint;
   static const Color velvetViolet = Color(0xFF05DF72);
