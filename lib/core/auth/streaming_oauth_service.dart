@@ -66,14 +66,18 @@ class StreamingOAuthService {
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
-        return await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (ok) return true;
       }
     } catch (_) {}
 
     // Desktop process fallback
     try {
       if (Platform.isWindows) {
-        await Process.run('cmd', ['/c', 'start', '', url]);
+        // rundll32 url.dll,FileProtocolHandler reliably opens any URL in default Windows browser
+        final res = await Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
+        if (res.exitCode == 0) return true;
+        await Process.run('powershell', ['-NoProfile', '-Command', 'Start-Process', '"$url"']);
         return true;
       } else if (Platform.isMacOS) {
         await Process.run('open', [url]);

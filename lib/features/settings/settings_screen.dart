@@ -84,6 +84,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _startSpotifyBrowserSignIn() async {
+    final prefs = ref.read(preferencesServiceProvider);
+    final configuredId = await prefs.getSpotifyClientId();
+    if (configuredId == null || configuredId.trim().isEmpty) {
+      _showSpotifySignInDialog();
+      return;
+    }
+
     setState(() => _isBrowserAuthRunning = true);
     final oauth = ref.read(streamingOAuthServiceProvider);
 
@@ -126,6 +133,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _startYouTubeBrowserSignIn() async {
+    final prefs = ref.read(preferencesServiceProvider);
+    final configuredId = await prefs.getGoogleClientId();
+    if (configuredId == null || configuredId.trim().isEmpty) {
+      _showYouTubeSignInDialog();
+      return;
+    }
+
     setState(() => _isBrowserAuthRunning = true);
     final oauth = ref.read(streamingOAuthServiceProvider);
 
@@ -831,11 +845,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                         MuxisButton(
-                          label: hasYtCredentials ? 'Connected' : 'Sign In with Browser',
+                          label: hasYtCredentials ? 'Connected' : 'Connect / Sign In',
                           variant: hasYtCredentials ? MuxisButtonVariant.secondary : MuxisButtonVariant.primary,
                           height: 36,
                           isLoading: _isBrowserAuthRunning,
-                          onPressed: hasYtCredentials ? _showYouTubeSignInDialog : _startYouTubeBrowserSignIn,
+                          onPressed: _showYouTubeSignInDialog,
                         ),
                       ],
                     ),
@@ -922,11 +936,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                         MuxisButton(
-                          label: hasSpotifyCredentials ? 'Connected' : 'Sign In with Browser',
+                          label: hasSpotifyCredentials ? 'Connected' : 'Connect / Sign In',
                           variant: hasSpotifyCredentials ? MuxisButtonVariant.secondary : MuxisButtonVariant.primary,
                           height: 36,
                           isLoading: _isBrowserAuthRunning,
-                          onPressed: hasSpotifyCredentials ? _showSpotifySignInDialog : _startSpotifyBrowserSignIn,
+                          onPressed: _showSpotifySignInDialog,
                         ),
                       ],
                     ),
