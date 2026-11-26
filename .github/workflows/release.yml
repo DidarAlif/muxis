@@ -68,6 +68,16 @@ jobs:
         run: |
           Copy-Item assets/brand/app_icon.ico windows/runner/resources/app_icon.ico -Force
 
+      - name: Upgrade Android Gradle Plugin for WebView AAR
+        if: matrix.platform.target == 'android'
+        run: |
+          if [ -f android/settings.gradle ]; then
+            sed -i 's/8\.1\.0/8.1.4/g' android/settings.gradle
+          fi
+          if [ -f android/settings.gradle.kts ]; then
+            sed -i 's/8\.1\.0/8.1.4/g' android/settings.gradle.kts
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 

@@ -166,6 +166,15 @@ jobs:
       - name: Generate Android Scaffolding
         run: flutter create --platforms=android --org app.muxis .
 
+      - name: Upgrade Android Gradle Plugin for WebView AAR
+        run: |
+          if [ -f android/settings.gradle ]; then
+            sed -i 's/8\.1\.0/8.1.4/g' android/settings.gradle
+          fi
+          if [ -f android/settings.gradle.kts ]; then
+            sed -i 's/8\.1\.0/8.1.4/g' android/settings.gradle.kts
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
