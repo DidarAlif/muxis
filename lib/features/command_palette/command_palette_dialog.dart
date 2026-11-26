@@ -174,11 +174,11 @@ class _CommandPaletteDialogState extends ConsumerState<CommandPaletteDialog> {
                             ? MuxisColors.textPrimaryDark
                             : MuxisColors.textPrimaryLight,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Type a command, screen, or action...',
                         hintStyle: TextStyle(
                           fontSize: 14,
-                          color: MuxisColors.textMutedDark,
+                          color: MuxisColors.textMuted(isDark),
                         ),
                         border: InputBorder.none,
                       ),
@@ -239,9 +239,9 @@ class _CommandPaletteDialogState extends ConsumerState<CommandPaletteDialog> {
                     ),
                     trailing: Text(
                       item['category'] as String,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: MuxisColors.textMutedDark,
+                        color: MuxisColors.textMuted(isDark),
                       ),
                     ),
                     onTap: () => _execute(item['action'] as String),

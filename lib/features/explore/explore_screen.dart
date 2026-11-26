@@ -127,8 +127,26 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: isDark ? color.withOpacity(0.18) : color.withOpacity(0.12),
-                  border: Border.all(color: color.withOpacity(isDark ? 0.4 : 0.6), width: 1),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [color.withOpacity(0.22), color.withOpacity(0.08)]
+                        : [color.withOpacity(0.22), Colors.white.withOpacity(0.75)],
+                  ),
+                  border: Border.all(
+                    color: color.withOpacity(isDark ? 0.45 : 0.65),
+                    width: 1.2,
+                  ),
+                  boxShadow: isDark
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: color.withOpacity(0.16),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,11 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'muxis_colors.dart';
 
-/// Complete ThemeData configurations for Muxis (Prismatic Aura Neon Green Specification)
+/// Complete ThemeData configurations for Muxis (Aligned Dark Obsidian & Light Botanical Aurora)
 class MuxisTheme {
   MuxisTheme._();
 
-  /// Dark Theme (Aura Obsidian with Neon Green Energy)
+  /// Dark Theme (Aura Obsidian with Neon Green, Cyber Teal & Violet Energy)
   static ThemeData darkTheme() {
     return ThemeData(
       useMaterial3: true,
@@ -20,8 +20,8 @@ class MuxisTheme {
 
       colorScheme: const ColorScheme.dark(
         primary: MuxisColors.neonGreen,
-        secondary: MuxisColors.neonMint,
-        tertiary: MuxisColors.emeraldAccent,
+        secondary: MuxisColors.cyberTeal,
+        tertiary: MuxisColors.auroraViolet,
         surface: MuxisColors.elevatedSurface,
         error: MuxisColors.error,
         onPrimary: Colors.black,
@@ -79,7 +79,7 @@ class MuxisTheme {
     );
   }
 
-  /// Light Theme (Vastly Improved Apple-Inspired Porcelain & Emerald)
+  /// Light Theme (Luminous Aurora Daylight with Multi-Tone Liquid Glass)
   static ThemeData lightTheme() {
     return ThemeData(
       useMaterial3: true,
@@ -92,12 +92,12 @@ class MuxisTheme {
 
       colorScheme: const ColorScheme.light(
         primary: MuxisColors.neonGreenLight,
-        secondary: MuxisColors.emeraldAccent,
-        tertiary: MuxisColors.neonMint,
+        secondary: MuxisColors.cyberTealLight,
+        tertiary: MuxisColors.auroraVioletLight,
         surface: MuxisColors.whiteSurface,
         error: MuxisColors.error,
         onPrimary: Colors.white,
-        onSecondary: Colors.black,
+        onSecondary: Colors.white,
         onSurface: MuxisColors.textPrimaryLight,
       ),
 
@@ -112,7 +112,7 @@ class MuxisTheme {
         activeTrackColor: MuxisColors.neonGreenLight,
         inactiveTrackColor: MuxisColors.subtleBorderLight,
         thumbColor: MuxisColors.neonGreenLight,
-        overlayColor: MuxisColors.neonGreenLight.withOpacity(0.15),
+        overlayColor: MuxisColors.neonGreenLight.withOpacity(0.18),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
@@ -123,7 +123,7 @@ class MuxisTheme {
       ),
 
       dialogTheme: DialogTheme(
-        backgroundColor: MuxisColors.whiteSurface,
+        backgroundColor: const Color(0xF5FFFFFF),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: MuxisColors.subtleBorderLight),
@@ -131,8 +131,8 @@ class MuxisTheme {
       ),
 
       chipTheme: ChipThemeData(
-        backgroundColor: MuxisColors.secondarySurface,
-        selectedColor: MuxisColors.neonGreenLight.withOpacity(0.15),
+        backgroundColor: MuxisColors.whiteSurface.withOpacity(0.85),
+        selectedColor: MuxisColors.neonGreenLight.withOpacity(0.16),
         side: const BorderSide(color: MuxisColors.subtleBorderLight),
         labelStyle: const TextStyle(color: MuxisColors.textPrimaryLight),
       ),
@@ -144,7 +144,7 @@ class MuxisTheme {
           border: Border.all(color: MuxisColors.subtleBorderLight),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x14000000),
+              color: Color(0x18000000),
               offset: Offset(0, 4),
               blurRadius: 12,
             ),

@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
-import '../../app/theme/muxis_gradients.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../shared/models/track.dart';
+import '../../shared/widgets/muxis_ambient_backdrop.dart';
 import '../command_palette/command_palette_dialog.dart';
 import '../explore/explore_screen.dart';
 import '../home/home_screen.dart';
 import '../library/library_screen.dart';
+import '../platforms/platform_stream_screen.dart';
 import '../player/aurora_now_playing.dart';
 import '../player/bottom_playback_bar.dart';
 import '../player/right_drawer_panel.dart';
@@ -40,7 +42,6 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return;
 
-    // Guard: Do not intercept global shortcuts when user is typing in a text field
     final primaryFocus = FocusManager.instance.primaryFocus;
     if (primaryFocus != null && primaryFocus.context?.widget is EditableText) {
       return;
@@ -68,7 +69,7 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
             event.logicalKey == LogicalKeyboardKey.keyF)) {
       _openCommandPalette();
     } else if (isControl && event.logicalKey == LogicalKeyboardKey.keyL) {
-      setState(() => _navIndex = 4); // Library
+      setState(() => _navIndex = 4);
     }
   }
 
@@ -95,21 +96,25 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
       case 2:
         return const SearchScreen();
       case 3:
-        return const ExploreScreen(); // Radio
+        return const ExploreScreen();
       case 4:
-        return const LibraryScreen(initialTabIndex: 0); // All Tracks
+        return const LibraryScreen(initialTabIndex: 0);
       case 5:
-        return const LibraryScreen(initialTabIndex: 1); // Playlists
+        return const LibraryScreen(initialTabIndex: 1);
       case 6:
-        return const LibraryScreen(initialTabIndex: 2); // Albums
+        return const LibraryScreen(initialTabIndex: 2);
       case 7:
-        return const LibraryScreen(initialTabIndex: 3); // Artists
+        return const LibraryScreen(initialTabIndex: 3);
       case 8:
-        return const LibraryScreen(initialTabIndex: 4); // Favorites
+        return const LibraryScreen(initialTabIndex: 4);
       case 9:
-        return const LibraryScreen(initialTabIndex: 5); // Recently Played
+        return const LibraryScreen(initialTabIndex: 5);
       case 10:
         return const SettingsScreen();
+      case 11:
+        return const PlatformStreamScreen(platform: MusicSource.youtube);
+      case 12:
+        return const PlatformStreamScreen(platform: MusicSource.spotify);
       default:
         return HomeScreen(onNavigate: (i) => setState(() => _navIndex = i));
     }
@@ -127,23 +132,28 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
       );
     }
 
+    final mobileNavIdx = _navIndex == 10
+        ? 4
+        : (_navIndex == 4 || (_navIndex >= 5 && _navIndex <= 9)
+            ? 3
+            : _navIndex.clamp(0, 2));
+
     return KeyboardListener(
       focusNode: _keyboardFocusNode,
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: isDark
-              ? MuxisGradients.darkAmbientBackground()
-              : MuxisGradients.lightAmbientBackground(),
+        body: MuxisAmbientBackdrop(
+          primaryTint: _navIndex == 12
+              ? MuxisColors.spotifyGreen
+              : (_navIndex == 11 ? MuxisColors.youtubeRed : null),
           child: Column(
             children: [
-              // Top Main Workspace Area (Sidebar + Active Screen + Optional Right Panel)
+              // Top Main Workspace Area
               Expanded(
                 child: Row(
                   children: [
-                    // Navigation Sidebar (Desktop only)
                     if (isDesktop)
                       MuxisSidebar(
                         selectedIndex: _navIndex,
@@ -152,7 +162,6 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
                         onOpenAudioStudio: _openAudioStudio,
                       ),
 
-                    // Main Screen Workspace
                     Expanded(
                       child: Container(
                         color: Colors.transparent,
@@ -160,16 +169,15 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
                       ),
                     ),
 
-                    // Collapsible Right Drawer Panel (Queue & Synced Lyrics)
                     if (isDesktop && _isRightDrawerOpen)
                       RightDrawerPanel(
-                        onClose: () => setState(() => _isRightDrawerOpen = false),
+                        onClose: () =>
+                            setState(() => _isRightDrawerOpen = false),
                       ),
                   ],
                 ),
               ),
 
-              // Bottom Playback Bar
               BottomPlaybackBar(
                 onExpandNowPlaying: () =>
                     setState(() => _isNowPlayingExpanded = true),
@@ -182,19 +190,23 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
             ],
           ),
         ),
-
-        // Mobile Bottom Navigation Bar (< 768px)
         bottomNavigationBar: !isDesktop
             ? BottomNavigationBar(
-                currentIndex: _navIndex.clamp(0, 4),
-                onTap: (i) => setState(() => _navIndex = i),
+                currentIndex: mobileNavIdx,
+                onTap: (i) {
+                  if (i == 3) {
+                    setState(() => _navIndex = 4);
+                  } else if (i == 4) {
+                    setState(() => _navIndex = 10);
+                  } else {
+                    setState(() => _navIndex = i);
+                  }
+                },
                 backgroundColor: isDark
                     ? MuxisColors.obsidian
-                    : MuxisColors.whiteSurface,
-                selectedItemColor: MuxisColors.electricCyan,
-                unselectedItemColor: isDark
-                    ? MuxisColors.textMutedDark
-                    : MuxisColors.textMutedLight,
+                    : Colors.white.withOpacity(0.95),
+                selectedItemColor: MuxisColors.accent(isDark),
+                unselectedItemColor: MuxisColors.textMuted(isDark),
                 type: BottomNavigationBarType.fixed,
                 items: const [
                   BottomNavigationBarItem(

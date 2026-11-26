@@ -50,21 +50,23 @@ class _MuxisCardState extends State<MuxisCard> {
           decoration: BoxDecoration(
             color: _isHovered
                 ? (isDark
-                      ? MuxisColors.hoverSurface
-                      : MuxisColors.hoverSurfaceLight)
+                      ? MuxisColors.hoverSurface.withOpacity(0.88)
+                      : Colors.white.withOpacity(0.92))
                 : (isDark
-                      ? MuxisColors.elevatedSurface
-                      : MuxisColors.whiteSurface),
+                      ? MuxisColors.elevatedSurface.withOpacity(0.74)
+                      : Colors.white.withOpacity(0.72)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _isHovered
-                  ? MuxisColors.electricCyan.withOpacity(0.4)
+                  ? MuxisColors.accent(isDark).withOpacity(0.55)
                   : (isDark
-                        ? MuxisColors.subtleBorderDark
-                        : MuxisColors.subtleBorderLight),
-              width: 1,
+                        ? Colors.white.withOpacity(0.10)
+                        : Colors.white.withOpacity(0.90)),
+              width: 1.2,
             ),
-            boxShadow: _isHovered ? MuxisShadows.cardHover : MuxisShadows.card,
+            boxShadow: _isHovered
+                ? (isDark ? MuxisShadows.cardHover : MuxisShadows.cardHoverLight)
+                : (isDark ? MuxisShadows.card : MuxisShadows.cardLight),
           ),
           child: Column(
             crossAxisAlignment: widget.isCircular

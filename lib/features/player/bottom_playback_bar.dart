@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,24 +35,29 @@ class BottomPlaybackBar extends ConsumerWidget {
 
     final track = playback.currentTrack;
 
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? MuxisColors.obsidian : MuxisColors.whiteSurface,
-        border: Border(
-          top: BorderSide(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          height: 92,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: BoxDecoration(
             color: isDark
-                ? MuxisColors.subtleBorderDark
-                : MuxisColors.subtleBorderLight,
-            width: 1,
+                ? MuxisColors.obsidian.withOpacity(0.76)
+                : Colors.white.withOpacity(0.76),
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? Colors.white.withOpacity(0.10)
+                    : Colors.white.withOpacity(0.92),
+                width: 1,
+              ),
+            ),
+            boxShadow: isDark
+                ? MuxisShadows.playbackBarDark
+                : MuxisShadows.playbackBarLight,
           ),
-        ),
-        boxShadow: isDark
-            ? MuxisShadows.playbackBarDark
-            : MuxisShadows.playbackBarLight,
-      ),
-      child: Row(
+          child: Row(
         children: [
           // Left: Current Track Details & Artwork
           Expanded(
@@ -382,6 +389,8 @@ class BottomPlaybackBar extends ConsumerWidget {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 

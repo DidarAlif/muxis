@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
-import '../../app/theme/muxis_typography.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/auth/supabase_auth_service.dart';
 import '../../shared/widgets/muxis_button.dart';
@@ -95,7 +94,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2.0,
-                          color: MuxisColors.electricCyan,
+                          color: MuxisColors.accent(isDark),
                         ),
                       ),
                     ],
@@ -111,11 +110,11 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
               // Tabs (Sign In / Register)
               TabBar(
                 controller: _tabController,
-                indicatorColor: MuxisColors.electricCyan,
+                indicatorColor: MuxisColors.accent(isDark),
                 labelColor: isDark
                     ? Colors.white
                     : MuxisColors.textPrimaryLight,
-                unselectedLabelColor: MuxisColors.textMutedDark,
+                unselectedLabelColor: MuxisColors.textMuted(isDark),
                 tabs: const [
                   Tab(text: 'Sign In'),
                   Tab(text: 'Create Account'),
@@ -234,11 +233,11 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                   );
                 }
               },
-              child: const Text(
+              child: Text(
                 'Forgot Password?',
                 style: TextStyle(
                   fontSize: 12,
-                  color: MuxisColors.textMutedDark,
+                  color: MuxisColors.textMuted(isDark),
                 ),
               ),
             ),
@@ -322,12 +321,12 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
         ),
 
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'By signing up, your playlists and preferences will sync securely across your devices. Your local music library files are never uploaded.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 11,
-            color: MuxisColors.textMutedDark,
+            color: MuxisColors.textMuted(isDark),
             height: 1.3,
           ),
         ),
@@ -351,11 +350,11 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontSize: 12,
-          color: MuxisColors.textMutedDark,
+          color: MuxisColors.textMuted(isDark),
         ),
-        prefixIcon: Icon(icon, size: 18, color: MuxisColors.electricCyan),
+        prefixIcon: Icon(icon, size: 18, color: MuxisColors.accent(isDark)),
         filled: true,
         fillColor: isDark
             ? MuxisColors.deepSpace
@@ -378,7 +377,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: MuxisColors.electricCyan),
+          borderSide: BorderSide(color: MuxisColors.accent(isDark)),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,

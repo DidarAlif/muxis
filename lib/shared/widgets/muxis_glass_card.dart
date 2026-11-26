@@ -26,13 +26,13 @@ class MuxisGlassCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: isDark
-            ? MuxisColors.elevatedSurface.withOpacity(0.65)
-            : MuxisColors.whiteSurface.withOpacity(0.75),
+            ? MuxisColors.elevatedSurface.withOpacity(0.55)
+            : Colors.white.withOpacity(0.68),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: isDark
               ? Colors.white.withOpacity(0.14)
-              : Colors.white.withOpacity(0.65),
+              : Colors.white.withOpacity(0.92),
           width: 1.2,
         ),
         gradient: LinearGradient(
@@ -41,21 +41,29 @@ class MuxisGlassCard extends StatelessWidget {
           colors: isDark
               ? [
                   Colors.white.withOpacity(0.08),
-                  MuxisColors.elevatedSurface.withOpacity(0.5),
-                  Colors.black.withOpacity(0.4),
+                  MuxisColors.elevatedSurface.withOpacity(0.55),
+                  MuxisColors.neonGreen.withOpacity(0.04),
                 ]
               : [
-                  Colors.white.withOpacity(0.85),
-                  MuxisColors.whiteSurface.withOpacity(0.65),
-                  Colors.white.withOpacity(0.4),
+                  Colors.white.withOpacity(0.88),
+                  const Color(0xCCF2FDFB),
+                  const Color(0xB8F3EEFF),
                 ],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.45 : 0.08),
+            color: isDark
+                ? Colors.black.withOpacity(0.45)
+                : const Color(0x140F172A),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
+          if (!isDark)
+            BoxShadow(
+              color: MuxisColors.neonGreenLight.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
       child: child,

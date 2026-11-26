@@ -412,7 +412,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       const SizedBox(height: 4),
                       Text(
                         '${allTracks.length} Saved Tracks • ${playlists.length} Playlists • Offline-First Engine',
-                        style: const TextStyle(fontSize: 13, color: MuxisColors.textSecondaryDark),
+                        style: TextStyle(fontSize: 13, color: MuxisColors.textSecondary(isDark)),
                       ),
                     ],
                   ),
@@ -433,7 +433,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       const SizedBox(width: 12),
                       MuxisButton(
                         label: 'Play All',
-                        icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                        icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
                         variant: MuxisButtonVariant.primary,
                         onPressed: () {
                           if (allTracks.isNotEmpty) {
@@ -448,19 +448,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               const SizedBox(height: 24),
 
               // Filter Tabs (All Tracks, Playlists, Albums, Artists, Favorites, Recently Played)
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _buildTabChip(0, 'All Tracks (${allTracks.length})', Icons.music_note_rounded),
-                  const SizedBox(width: 8),
-                  _buildTabChip(1, 'Playlists (${playlists.length})', Icons.playlist_play_rounded),
-                  const SizedBox(width: 8),
-                  _buildTabChip(2, 'Albums', Icons.album_rounded),
-                  const SizedBox(width: 8),
-                  _buildTabChip(3, 'Artists', Icons.mic_rounded),
-                  const SizedBox(width: 8),
-                  _buildTabChip(4, 'Favorites (${favoriteTracks.length})', Icons.favorite_rounded),
-                  const SizedBox(width: 8),
-                  _buildTabChip(5, 'Recently Played', Icons.history_rounded),
+                  _buildTabChip(0, 'All Tracks (${allTracks.length})', Icons.music_note_rounded, isDark),
+                  _buildTabChip(1, 'Playlists (${playlists.length})', Icons.playlist_play_rounded, isDark),
+                  _buildTabChip(2, 'Albums', Icons.album_rounded, isDark),
+                  _buildTabChip(3, 'Artists', Icons.mic_rounded, isDark),
+                  _buildTabChip(4, 'Favorites (${favoriteTracks.length})', Icons.favorite_rounded, isDark),
+                  _buildTabChip(5, 'Recently Played', Icons.history_rounded, isDark),
                 ],
               ),
               const SizedBox(height: 20),
@@ -468,15 +465,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               // Search Filter Bar (for tracks view)
               if (_tabIndex == 0) ...[
                 TextField(
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13),
+                  style: TextStyle(color: MuxisColors.textPrimary(isDark), fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Filter your library by title, artist, or album...',
-                    hintStyle: const TextStyle(color: MuxisColors.textMutedDark, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18, color: MuxisColors.electricCyan),
+                    hintStyle: TextStyle(color: MuxisColors.textMuted(isDark), fontSize: 13),
+                    prefixIcon: Icon(Icons.search_rounded, size: 18, color: MuxisColors.accent(isDark)),
                     filled: true,
-                    fillColor: isDark ? MuxisColors.deepSpace : MuxisColors.secondarySurface,
+                    fillColor: isDark
+                        ? MuxisColors.elevatedSurface.withOpacity(0.75)
+                        : Colors.white.withOpacity(0.8),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: MuxisColors.border(isDark)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: MuxisColors.border(isDark)),
+                    ),
                   ),
                   onChanged: (val) => setState(() => _searchFilter = val.trim().toLowerCase()),
                 ),
@@ -542,8 +548,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _buildTabChip(int index, String label, IconData icon) {
+  Widget _buildTabChip(int index, String label, IconData icon, bool isDark) {
     final isSelected = _tabIndex == index;
+    final accent = MuxisColors.accent(isDark);
     return InkWell(
       onTap: () => setState(() {
         _tabIndex = index;
@@ -556,10 +563,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? MuxisColors.electricCyan.withOpacity(0.18) : Colors.transparent,
+          color: isSelected
+              ? accent.withOpacity(isDark ? 0.20 : 0.16)
+              : (isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.72)),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? MuxisColors.electricCyan : MuxisColors.subtleBorderDark,
+            color: isSelected ? accent : MuxisColors.border(isDark),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -569,7 +578,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             Icon(
               icon,
               size: 16,
-              color: isSelected ? MuxisColors.electricCyan : MuxisColors.textMutedDark,
+              color: isSelected ? accent : MuxisColors.textMuted(isDark),
             ),
             const SizedBox(width: 8),
             Text(
@@ -577,7 +586,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : MuxisColors.textSecondaryDark,
+                color: isSelected
+                    ? MuxisColors.textPrimary(isDark)
+                    : MuxisColors.textSecondary(isDark),
               ),
             ),
           ],
@@ -626,21 +637,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
 
     if (filtered.isEmpty) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.library_music_outlined, size: 56, color: MuxisColors.textMutedDark.withOpacity(0.5)),
+              Icon(Icons.library_music_outlined, size: 56, color: MuxisColors.textMuted(isDark).withOpacity(0.55)),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'No tracks in your library yet',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(color: MuxisColors.textPrimary(isDark), fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Drag and drop audio files anywhere, or click "Import Music" to scan folders.',
-                style: TextStyle(color: MuxisColors.textSecondaryDark, fontSize: 13),
+                style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 13),
               ),
               const SizedBox(height: 20),
               MuxisButton(
@@ -709,7 +721,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               if (playlistTracks.isNotEmpty)
                 MuxisButton(
                   label: 'Play Playlist',
-                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                  icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
                   variant: MuxisButtonVariant.primary,
                   height: 36,
                   onPressed: () => audioService.playTrack(playlistTracks.first, newQueue: playlistTracks),
@@ -866,7 +878,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               if (albumTracks.isNotEmpty)
                 MuxisButton(
                   label: 'Play Album',
-                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                  icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
                   variant: MuxisButtonVariant.primary,
                   height: 36,
                   onPressed: () => audioService.playTrack(albumTracks.first, newQueue: albumTracks),
@@ -991,7 +1003,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               if (artistTracks.isNotEmpty)
                 MuxisButton(
                   label: 'Play Artist',
-                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                  icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
                   variant: MuxisButtonVariant.primary,
                   height: 36,
                   onPressed: () => audioService.playTrack(artistTracks.first, newQueue: artistTracks),
@@ -1113,7 +1125,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             Text('${favorites.length} Favorite Tracks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : MuxisColors.textPrimaryLight)),
             MuxisButton(
               label: 'Play All Favorites',
-              icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+              icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
               variant: MuxisButtonVariant.primary,
               height: 36,
               onPressed: () => audioService.playTrack(favorites.first, newQueue: favorites),
@@ -1169,7 +1181,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               children: [
                 MuxisButton(
                   label: 'Play History',
-                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                  icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
                   variant: MuxisButtonVariant.primary,
                   height: 34,
                   onPressed: () => audioService.playTrack(recents.first, newQueue: recents),

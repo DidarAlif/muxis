@@ -48,17 +48,17 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
           decoration: BoxDecoration(
             color: widget.isPlaying
                 ? (isDark
-                      ? MuxisColors.elevatedSurface
-                      : MuxisColors.hoverSurfaceLight)
+                      ? MuxisColors.elevatedSurface.withOpacity(0.85)
+                      : Colors.white.withOpacity(0.85))
                 : (_isHovered
                       ? (isDark
-                            ? MuxisColors.hoverSurface.withOpacity(0.5)
-                            : MuxisColors.hoverSurfaceLight)
+                            ? MuxisColors.hoverSurface.withOpacity(0.55)
+                            : Colors.white.withOpacity(0.55))
                       : Colors.transparent),
             borderRadius: BorderRadius.circular(10),
             border: widget.isPlaying
                 ? Border.all(
-                    color: MuxisColors.electricCyan.withOpacity(0.3),
+                    color: MuxisColors.accent(isDark).withOpacity(0.45),
                     width: 1,
                   )
                 : null,
@@ -86,22 +86,42 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  color: isDark
-                      ? MuxisColors.deepSpace
-                      : MuxisColors.secondarySurface,
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: isDark
+                      ? null
+                      : LinearGradient(
+                          colors: [
+                            MuxisColors.neonGreenLight.withOpacity(0.14),
+                            MuxisColors.cyberTealLight.withOpacity(0.14),
+                          ],
+                        ),
+                  color: isDark ? MuxisColors.deepSpace : null,
                 ),
-                child: Center(
-                  child: Icon(
-                    Icons.music_note_rounded,
-                    size: 20,
-                    color: widget.isPlaying
-                        ? MuxisColors.electricCyan
-                        : (isDark
-                              ? MuxisColors.textMutedDark
-                              : MuxisColors.textMutedLight),
-                  ),
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: widget.track.artworkUrl != null &&
+                        widget.track.artworkUrl!.isNotEmpty
+                    ? Image.network(
+                        widget.track.artworkUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Icon(
+                            Icons.music_note_rounded,
+                            size: 20,
+                            color: widget.isPlaying
+                                ? MuxisColors.accent(isDark)
+                                : MuxisColors.textMuted(isDark),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.music_note_rounded,
+                          size: 20,
+                          color: widget.isPlaying
+                              ? MuxisColors.accent(isDark)
+                              : MuxisColors.textMuted(isDark),
+                        ),
+                      ),
               ),
               const SizedBox(width: 14),
 

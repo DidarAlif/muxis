@@ -100,9 +100,9 @@ class AccountDialog extends ConsumerWidget {
                         const SizedBox(height: 2),
                         Text(
                           user?.email ?? '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: MuxisColors.textMutedDark,
+                            color: MuxisColors.textMuted(isDark),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -213,7 +213,7 @@ class AccountDialog extends ConsumerWidget {
                     showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        backgroundColor: MuxisColors.elevatedSurface,
+                        backgroundColor: MuxisColors.surface(isDark),
                         title: const Text('Delete Muxis Account?'),
                         content: const Text(
                           'This will permanently delete your cloud account, cloud playlists, and synchronization data. Your local music files will remain on your device.',

@@ -92,9 +92,9 @@ class PlaylistDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     Text(
                       playlist.description!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: MuxisColors.textSecondaryDark,
+                        color: MuxisColors.textSecondary(isDark),
                       ),
                     ),
                   ],
@@ -108,9 +108,9 @@ class PlaylistDetailScreen extends ConsumerWidget {
                     children: [
                       MuxisButton(
                         label: 'Play',
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.black,
+                          color: isDark ? Colors.black : Colors.white,
                         ),
                         variant: MuxisButtonVariant.primary,
                         height: 38,

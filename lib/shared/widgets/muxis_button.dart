@@ -56,8 +56,8 @@ class _MuxisButtonState extends State<MuxisButton> {
                 strokeWidth: 2,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   widget.variant == MuxisButtonVariant.primary
-                      ? Colors.black
-                      : MuxisColors.electricCyan,
+                      ? (isDark ? Colors.black : Colors.white)
+                      : MuxisColors.accent(isDark),
                 ),
               ),
             )
@@ -149,19 +149,21 @@ class _MuxisButtonState extends State<MuxisButton> {
     switch (widget.variant) {
       case MuxisButtonVariant.primary:
         return BoxDecoration(
-          gradient: MuxisGradients.prismaticPrimary,
+          gradient: isDark
+              ? MuxisGradients.prismaticPrimary
+              : MuxisGradients.prismaticLightPrimary,
           borderRadius: BorderRadius.circular(widget.borderRadius),
           boxShadow: [
             if (_isHovered)
               BoxShadow(
-                color: MuxisColors.electricCyan.withOpacity(0.55),
+                color: MuxisColors.accent(isDark).withOpacity(0.45),
                 blurRadius: 18,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
               )
             else
               BoxShadow(
-                color: MuxisColors.electricCyan.withOpacity(0.25),
+                color: MuxisColors.accent(isDark).withOpacity(0.25),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -176,26 +178,26 @@ class _MuxisButtonState extends State<MuxisButton> {
             end: Alignment.bottomRight,
             colors: isDark
                 ? [
-                    _isHovered ? Colors.white.withOpacity(0.18) : Colors.white.withOpacity(0.10),
-                    _isHovered ? MuxisColors.electricCyan.withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                    _isHovered ? Colors.white.withOpacity(0.20) : Colors.white.withOpacity(0.11),
+                    _isHovered ? MuxisColors.neonGreen.withOpacity(0.14) : Colors.white.withOpacity(0.05),
                     Colors.black.withOpacity(0.25),
                   ]
                 : [
-                    _isHovered ? Colors.white.withOpacity(0.85) : Colors.white.withOpacity(0.65),
-                    Colors.white.withOpacity(0.40),
-                    Colors.white.withOpacity(0.25),
+                    _isHovered ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.80),
+                    const Color(0xCCE6FAF5),
+                    const Color(0xBBECE9FF),
                   ],
           ),
           border: Border.all(
             color: _isHovered
-                ? MuxisColors.electricCyan.withOpacity(0.8)
-                : (isDark ? Colors.white.withOpacity(0.22) : Colors.white.withOpacity(0.7)),
+                ? MuxisColors.accent(isDark).withOpacity(0.85)
+                : (isDark ? Colors.white.withOpacity(0.24) : Colors.white.withOpacity(0.95)),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
               color: _isHovered
-                  ? MuxisColors.electricCyan.withOpacity(0.25)
+                  ? MuxisColors.accent(isDark).withOpacity(0.24)
                   : Colors.black.withOpacity(isDark ? 0.35 : 0.08),
               blurRadius: _isHovered ? 16 : 10,
               offset: const Offset(0, 4),
@@ -215,19 +217,21 @@ class _MuxisButtonState extends State<MuxisButton> {
                     MuxisColors.deepSpace.withOpacity(0.7),
                   ]
                 : [
-                    _isHovered ? MuxisColors.hoverSurfaceLight : MuxisColors.whiteSurface,
-                    MuxisColors.secondarySurface,
+                    _isHovered ? Colors.white : const Color(0xF0FFFFFF),
+                    const Color(0xFFE6F4F1),
                   ],
           ),
           border: Border.all(
             color: _isHovered
-                ? MuxisColors.electricCyan.withOpacity(0.6)
+                ? MuxisColors.accent(isDark).withOpacity(0.65)
                 : (isDark
                       ? MuxisColors.subtleBorderDark
                       : MuxisColors.subtleBorderLight),
             width: 1,
           ),
-          boxShadow: _isHovered ? MuxisShadows.card : null,
+          boxShadow: _isHovered
+              ? (isDark ? MuxisShadows.card : MuxisShadows.cardLight)
+              : null,
         );
 
       case MuxisButtonVariant.ghost:
@@ -261,7 +265,7 @@ class _MuxisButtonState extends State<MuxisButton> {
 
     switch (widget.variant) {
       case MuxisButtonVariant.primary:
-        return Colors.black; // Optimal contrast on #00F2FE electric cyan
+        return isDark ? Colors.black : Colors.white;
       case MuxisButtonVariant.liquidGlass:
         return isDark ? Colors.white : Colors.black87;
       case MuxisButtonVariant.secondary:
