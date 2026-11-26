@@ -5,6 +5,7 @@ import '../../app/theme/muxis_colors.dart';
 class MuxisSearchField extends StatefulWidget {
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
   final String hintText;
   final VoidCallback? onCommandPaletteTap;
@@ -13,6 +14,7 @@ class MuxisSearchField extends StatefulWidget {
     super.key,
     required this.controller,
     this.onChanged,
+    this.onSubmitted,
     this.onClear,
     this.hintText = 'Search tracks, albums, artists, or frequencies...',
     this.onCommandPaletteTap,
@@ -73,7 +75,9 @@ class _MuxisSearchFieldState extends State<MuxisSearchField> {
             Expanded(
               child: TextField(
                 controller: widget.controller,
+                textInputAction: TextInputAction.search,
                 onChanged: widget.onChanged,
+                onSubmitted: widget.onSubmitted,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

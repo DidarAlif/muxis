@@ -16,6 +16,12 @@ class WebViewAuthSession {
   final String? sapisid;
   final String? cookieHeader;
   final String? ytAuthUser;
+  final String? ytDisplayName;
+  final String? ytAvatarUrl;
+  final List<Map<String, dynamic>> ytPlaylists;
+  final List<Map<String, dynamic>> ytLikedTracks;
+  final List<Map<String, dynamic>> ytRecommendedTracks;
+  final Map<String, List<Map<String, dynamic>>> ytPlaylistTracks;
   final String? spotifyAccessToken;
   final String? spotifyClientToken;
   final String? spotifySpDc;
@@ -35,6 +41,12 @@ class WebViewAuthSession {
     this.sapisid,
     this.cookieHeader,
     this.ytAuthUser,
+    this.ytDisplayName,
+    this.ytAvatarUrl,
+    this.ytPlaylists = const [],
+    this.ytLikedTracks = const [],
+    this.ytRecommendedTracks = const [],
+    this.ytPlaylistTracks = const {},
     this.spotifyAccessToken,
     this.spotifyClientToken,
     this.spotifySpDc,
@@ -575,6 +587,302 @@ class WebViewAuthBridge {
           }
         }
         if (targetPlaylistId == null && i >= 6 && captured != null) {
+          break;
+        }
+      }
+      webview.close();
+      return captured;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Silently runs a hidden YouTube Music WebView2 sync reusing `muxis_yt_session` cookies
+  /// (including HttpOnly SID/__Secure-1PSID/__Secure-3PSID) to fetch genuine profile,
+  /// personal playlists, liked tracks, personalized Home picks, or any private playlist.
+  Future<WebViewAuthSession?> syncYouTubeLibraryViaWebView({
+    String? targetPlaylistId,
+  }) async {
+    if (!_isDesktop || !Platform.isWindows) return null;
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!await WebviewWindow.isWebviewAvailable()) return null;
+      final webview = await WebviewWindow.create(
+        configuration: const CreateConfiguration(
+          windowWidth: 960,
+          windowHeight: 700,
+          titleBarHeight: 0,
+          title: 'MUXIS YouTube Background Sync',
+          openHidden: true,
+          userDataFolderWindows: 'muxis_yt_session',
+        ),
+      );
+
+      final targetPl = (targetPlaylistId ?? '').replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+      final startUrl = targetPl.isNotEmpty
+          ? 'https://music.youtube.com/playlist?list=${targetPl.startsWith('VL') ? targetPl.substring(2) : targetPl}'
+          : 'https://music.youtube.com/';
+      webview.launch(startUrl);
+
+      final ytSyncBootstrap = '''
+(function() {
+  try {
+    if (window.__muxisYtSyncStarted) return JSON.stringify(window.__muxisYtSyncResult || { done: false });
+    if (!window.ytcfg || typeof window.ytcfg.get !== 'function') return JSON.stringify({ done: false, waiting: true });
+    var loggedIn = Boolean(window.ytcfg.get('LOGGED_IN'));
+    if (!loggedIn) return JSON.stringify({ done: false, loggedIn: false });
+    window.__muxisYtSyncStarted = true;
+    window.__muxisYtSyncResult = { done: false };
+
+    (async function() {
+      try {
+        var ctx = window.ytcfg.get('INNERTUBE_CONTEXT') || {
+          client: { clientName: 'WEB_REMIX', clientVersion: '1.20260114.03.00', hl: 'en', gl: 'US' }
+        };
+        var apiKey = window.ytcfg.get('INNERTUBE_API_KEY') || '';
+        var authUser = String(window.ytcfg.get('SESSION_INDEX') || '0');
+        var cookieStr = document.cookie || '';
+        var m = cookieStr.match(/(?:^|;\\s*)(?:SAPISID|__Secure-3PAPISID|__Secure-1PAPISID)=([^;]+)/);
+        var sapisid = m ? m[1] : '';
+
+        var hdrs = {
+          'Content-Type': 'application/json',
+          'X-Origin': 'https://music.youtube.com',
+          'X-Goog-AuthUser': authUser
+        };
+        if (sapisid) {
+          var ts = Math.floor(Date.now() / 1000);
+          var raw = ts + ' ' + sapisid + ' https://music.youtube.com';
+          var buf = await window.crypto.subtle.digest('SHA-1', new TextEncoder().encode(raw));
+          var hex = Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+          hdrs['Authorization'] = 'SAPISIDHASH ' + ts + '_' + hex;
+        }
+
+        var yti = async function(path, payload) {
+          var url = 'https://music.youtube.com/youtubei/v1/' + path + (apiKey ? ('?key=' + encodeURIComponent(apiKey)) : '');
+          var resp = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: hdrs,
+            body: JSON.stringify(Object.assign({ context: ctx }, payload || {}))
+          });
+          if (!resp.ok) return null;
+          return await resp.json();
+        };
+
+        var parseDur = function(str) {
+          if (!str) return 200000;
+          var p = String(str).trim().split(':').map(Number);
+          if (p.length === 2 && !isNaN(p[0]) && !isNaN(p[1])) return (p[0] * 60 + p[1]) * 1000;
+          if (p.length === 3 && !isNaN(p[0]) && !isNaN(p[1]) && !isNaN(p[2])) return ((p[0] * 3600) + (p[1] * 60) + p[2]) * 1000;
+          return 200000;
+        };
+
+        var pickThumb = function(tData) {
+          if (!tData) return null;
+          var list = (tData.musicThumbnailRenderer && tData.musicThumbnailRenderer.thumbnail && tData.musicThumbnailRenderer.thumbnail.thumbnails) ||
+                     (tData.croppedSquareThumbnailRenderer && tData.croppedSquareThumbnailRenderer.thumbnail && tData.croppedSquareThumbnailRenderer.thumbnail.thumbnails) ||
+                     tData.thumbnails;
+          if (Array.isArray(list) && list.length > 0) return list[list.length - 1].url || null;
+          return null;
+        };
+
+        var extractPlaylists = function(data) {
+          var out = [];
+          var seen = {};
+          var walk = function(n) {
+            if (!n || typeof n !== 'object') return;
+            if (Array.isArray(n)) { n.forEach(walk); return; }
+            if (n.musicTwoRowItemRenderer) {
+              var tr = n.musicTwoRowItemRenderer;
+              var bid = tr.navigationEndpoint && tr.navigationEndpoint.browseEndpoint && tr.navigationEndpoint.browseEndpoint.browseId;
+              var title = tr.title && tr.title.runs && tr.title.runs[0] && tr.title.runs[0].text;
+              if (bid && title && !seen[bid] && (bid.indexOf('VL') === 0 || bid.indexOf('PL') === 0 || bid.indexOf('LM') !== -1 || bid.indexOf('FEmusic') !== 0)) {
+                seen[bid] = true;
+                var sub = Array.isArray(tr.subtitle && tr.subtitle.runs) ? tr.subtitle.runs.map(function(r){ return r.text || ''; }).join('') : 'YouTube Music Playlist';
+                out.push({ id: bid, title: title, description: sub, artworkUrl: pickThumb(tr.thumbnailRenderer || tr.thumbnail), trackCount: 0 });
+              }
+            }
+            if (n.musicResponsiveListItemRenderer) {
+              var rr = n.musicResponsiveListItemRenderer;
+              var nb = rr.navigationEndpoint && rr.navigationEndpoint.browseEndpoint && rr.navigationEndpoint.browseEndpoint.browseId;
+              var fc = rr.flexColumns && rr.flexColumns[0] && rr.flexColumns[0].musicResponsiveListItemFlexColumnRenderer;
+              var rt = fc && fc.text && fc.text.runs && fc.text.runs[0] && fc.text.runs[0].text;
+              if (nb && rt && !seen[nb]) {
+                seen[nb] = true;
+                out.push({ id: nb, title: rt, description: 'YouTube Music Playlist', artworkUrl: pickThumb(rr.thumbnail), trackCount: 0 });
+              }
+            }
+            Object.values(n).forEach(walk);
+          };
+          walk(data);
+          return out;
+        };
+
+        var extractTracks = function(data, fav) {
+          var out = [];
+          var seen = {};
+          var walk = function(n) {
+            if (!n || typeof n !== 'object') return;
+            if (Array.isArray(n)) { n.forEach(walk); return; }
+            if (n.musicResponsiveListItemRenderer) {
+              try {
+                var rr = n.musicResponsiveListItemRenderer;
+                var fc = rr.flexColumns || [];
+                var c0 = fc[0] && fc[0].musicResponsiveListItemFlexColumnRenderer && fc[0].musicResponsiveListItemFlexColumnRenderer.text && fc[0].musicResponsiveListItemFlexColumnRenderer.text.runs;
+                var title = c0 && c0[0] && c0[0].text;
+                var vid = (c0 && c0[0] && c0[0].navigationEndpoint && c0[0].navigationEndpoint.watchEndpoint && c0[0].navigationEndpoint.watchEndpoint.videoId) ||
+                          (rr.playlistItemData && rr.playlistItemData.videoId) ||
+                          (rr.overlay && rr.overlay.musicItemThumbnailOverlayRenderer && rr.overlay.musicItemThumbnailOverlayRenderer.content && rr.overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer && rr.overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint && rr.overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint && rr.overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId);
+                if (vid && title && !seen[vid]) {
+                  seen[vid] = true;
+                  var artist = 'YouTube Music';
+                  var album = 'YouTube Music';
+                  var durMs = 200000;
+                  var c1 = fc[1] && fc[1].musicResponsiveListItemFlexColumnRenderer && fc[1].musicResponsiveListItemFlexColumnRenderer.text && fc[1].musicResponsiveListItemFlexColumnRenderer.text.runs;
+                  if (Array.isArray(c1)) {
+                    var toks = c1.map(function(r){ return (r.text || '').trim(); }).filter(function(s){
+                      var lo = s.toLowerCase();
+                      return s && s !== '•' && s !== '·' && lo !== 'song' && lo !== 'video' && lo !== 'ep' && lo !== 'single' && lo !== 'album';
+                    });
+                    if (toks.length && /^\\d+:\\d{2}(:\\d{2})?\$/.test(toks[toks.length - 1])) durMs = parseDur(toks.pop());
+                    if (toks.length) artist = toks[0];
+                    if (toks.length > 1) album = toks[1];
+                  }
+                  var fx = rr.fixedColumns && rr.fixedColumns[0] && rr.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer && rr.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text && rr.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs;
+                  if (fx && fx[0] && fx[0].text) durMs = parseDur(fx[0].text);
+                  out.push({ id: String(vid), title: String(title), artist: String(artist), album: String(album), durationMs: durMs, artworkUrl: pickThumb(rr.thumbnail), isFavorite: Boolean(fav) });
+                }
+              } catch (_) {}
+            }
+            if (n.musicTwoRowItemRenderer) {
+              try {
+                var tr = n.musicTwoRowItemRenderer;
+                var vid2 = (tr.navigationEndpoint && tr.navigationEndpoint.watchEndpoint && tr.navigationEndpoint.watchEndpoint.videoId) ||
+                           (tr.thumbnailOverlay && tr.thumbnailOverlay.musicItemThumbnailOverlayRenderer && tr.thumbnailOverlay.musicItemThumbnailOverlayRenderer.content && tr.thumbnailOverlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer && tr.thumbnailOverlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint && tr.thumbnailOverlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint && tr.thumbnailOverlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId);
+                var title2 = tr.title && tr.title.runs && tr.title.runs[0] && tr.title.runs[0].text;
+                if (vid2 && title2 && !seen[vid2]) {
+                  seen[vid2] = true;
+                  var artist2 = 'YouTube Music';
+                  var sub = tr.subtitle && tr.subtitle.runs;
+                  if (Array.isArray(sub)) {
+                    var toks2 = sub.map(function(r){ return (r.text || '').trim(); }).filter(function(s){
+                      var lo = s.toLowerCase();
+                      return s && s !== '•' && s !== '·' && lo !== 'song' && lo !== 'video';
+                    });
+                    if (toks2.length) artist2 = toks2[0];
+                  }
+                  out.push({ id: String(vid2), title: String(title2), artist: String(artist2), album: 'YouTube Music', durationMs: 210000, artworkUrl: pickThumb(tr.thumbnailRenderer || tr.thumbnail), isFavorite: Boolean(fav) });
+                }
+              } catch (_) {}
+            }
+            Object.values(n).forEach(walk);
+          };
+          walk(data);
+          return out;
+        };
+
+        var targetPid = '$targetPl';
+        if (targetPid) {
+          var bid = (targetPid.indexOf('VL') === 0 || targetPid.indexOf('FE') === 0) ? targetPid : ('VL' + targetPid);
+          var plData = await yti('browse', { browseId: bid });
+          var plTracks = plData ? extractTracks(plData, false) : [];
+          var plMap = {};
+          plMap[targetPid] = plTracks;
+          window.__muxisYtSyncResult = { done: true, playlists: [], likedTracks: [], recommendedTracks: [], playlistTracks: plMap, sapisid: sapisid, authUser: authUser, cookies: cookieStr };
+          return;
+        }
+
+        var results = await Promise.all([
+          yti('account/account_menu', {}),
+          yti('browse', { browseId: 'FEmusic_liked_playlists' }),
+          yti('browse', { browseId: 'VLLM' }),
+          yti('browse', { browseId: 'FEmusic_home' })
+        ]);
+
+        var acc = results[0];
+        var displayName = null;
+        var avatarUrl = null;
+        try {
+          var hdr = acc.actions[0].openPopupAction.popup.multiPageMenuRenderer.header.activeAccountHeaderRenderer;
+          if (hdr.accountName && hdr.accountName.runs && hdr.accountName.runs[0]) displayName = hdr.accountName.runs[0].text;
+          var thumbs = hdr.accountPhoto && hdr.accountPhoto.thumbnails;
+          if (Array.isArray(thumbs) && thumbs.length) avatarUrl = thumbs[thumbs.length - 1].url;
+        } catch (_) {}
+
+        var pls = results[1] ? extractPlaylists(results[1]) : [];
+        if (pls.length === 0) {
+          var libLanding = await yti('browse', { browseId: 'FEmusic_library_landing' });
+          if (libLanding) pls = extractPlaylists(libLanding);
+        }
+        var liked = results[2] ? extractTracks(results[2], true) : [];
+        if (liked.length === 0) {
+          var likedVideos = await yti('browse', { browseId: 'FEmusic_liked_videos' });
+          if (likedVideos) liked = extractTracks(likedVideos, true);
+        }
+        var home = results[3] ? extractTracks(results[3], false) : [];
+
+        var plTracksMap = {};
+        if (pls.length > 0) {
+          var topPls = pls.slice(0, 4);
+          var plResponses = await Promise.all(topPls.map(function(p) {
+            var b = (p.id.indexOf('VL') === 0 || p.id.indexOf('FE') === 0) ? p.id : ('VL' + p.id);
+            return yti('browse', { browseId: b });
+          }));
+          for (var j = 0; j < topPls.length; j++) {
+            if (plResponses[j]) {
+              var trList = extractTracks(plResponses[j], false);
+              plTracksMap[topPls[j].id] = trList;
+              topPls[j].trackCount = trList.length;
+            }
+          }
+        }
+
+        window.__muxisYtSyncResult = {
+          done: true,
+          displayName: displayName,
+          avatarUrl: avatarUrl,
+          playlists: pls,
+          likedTracks: liked,
+          recommendedTracks: home,
+          playlistTracks: plTracksMap,
+          sapisid: sapisid,
+          authUser: authUser,
+          cookies: cookieStr
+        };
+      } catch (e) {
+        window.__muxisYtSyncResult = { done: true, playlists: [], likedTracks: [], recommendedTracks: [], playlistTracks: {} };
+      }
+    })();
+    return JSON.stringify({ done: false });
+  } catch (_) {
+    return JSON.stringify({ done: true, playlists: [], likedTracks: [], recommendedTracks: [], playlistTracks: {} });
+  }
+})()
+''';
+
+      WebViewAuthSession? captured;
+      for (int i = 0; i < 14; i++) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        final raw = await webview.evaluateJavaScript(ytSyncBootstrap);
+        final decoded = _decodeEvalMap(raw);
+        if (decoded == null) continue;
+        if (decoded['loggedIn'] == false && i >= 5) {
+          break;
+        }
+        if (decoded['done'] == true) {
+          captured = WebViewAuthSession(
+            isSuccess: true,
+            sapisid: decoded['sapisid']?.toString(),
+            cookieHeader: decoded['cookies']?.toString(),
+            ytAuthUser: decoded['authUser']?.toString() ?? '0',
+            ytDisplayName: decoded['displayName']?.toString(),
+            ytAvatarUrl: decoded['avatarUrl']?.toString(),
+            ytPlaylists: _castMapList(decoded['playlists']),
+            ytLikedTracks: _castMapList(decoded['likedTracks']),
+            ytRecommendedTracks: _castMapList(decoded['recommendedTracks']),
+            ytPlaylistTracks: _castPlaylistTracksMap(decoded['playlistTracks']),
+          );
           break;
         }
       }

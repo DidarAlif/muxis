@@ -79,7 +79,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
       try {
         final tracks = _isSpotify
             ? await _spotifyProvider.search(q)
-            : await _ytProvider.search(q);
+            : await _ytProvider.search(q, songsOnly: true);
         if (mounted && _searchCtrl.text.trim() == q) {
           setState(() {
             _searchResults = tracks;
@@ -514,21 +514,29 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
             style: MuxisTypography.sectionHeading(isDark: isDark),
           ),
           const SizedBox(height: 12),
-          ...List.generate(_searchResults.length, (i) {
-            final track = _searchResults[i];
-            return MuxisTrackRow(
-              track: track,
-              index: i,
-              isPlaying:
-                  playback.currentTrack?.id == track.id && playback.isPlaying,
-              onTap: () =>
-                  audioService.playTrack(track, newQueue: _searchResults),
-              onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
-              onPlayNextTap: () =>
-                  audioService.addToQueue(track, playNext: true),
-              onAddToQueueTap: () => audioService.addToQueue(track),
-            );
-          }),
+          if (_searchResults.isEmpty)
+            MuxisEmptyState(
+              icon: Icons.music_off_rounded,
+              title: 'No Matching Songs Found',
+              message:
+                  'Try refining your search query or check your internet connection.',
+            )
+          else
+            ...List.generate(_searchResults.length, (i) {
+              final track = _searchResults[i];
+              return MuxisTrackRow(
+                track: track,
+                index: i,
+                isPlaying:
+                    playback.currentTrack?.id == track.id && playback.isPlaying,
+                onTap: () =>
+                    audioService.playTrack(track, newQueue: _searchResults),
+                onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
+                onPlayNextTap: () =>
+                    audioService.addToQueue(track, playNext: true),
+                onAddToQueueTap: () => audioService.addToQueue(track),
+              );
+            }),
         ] else ...[
           // --- SECTION TABS: PICKS | PLAYLISTS | LIKED ---
           Wrap(

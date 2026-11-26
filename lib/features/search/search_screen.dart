@@ -49,7 +49,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
   }
 
-  void _onSearch(String query) {
+  void _onSearch(String query, {bool immediate = false}) {
     _debounceTimer?.cancel();
     final trimmed = query.trim();
     _lastQuery = trimmed;
@@ -64,19 +64,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     setState(() => _isSearching = true);
 
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+    Future<void> runSearch() async {
       try {
         List<Track> searchResults = [];
 
         switch (_filterSource) {
           case SearchFilterSource.youtube:
-            searchResults = await _ytProvider.search(trimmed);
+            searchResults = await _ytProvider.search(trimmed, songsOnly: true);
             break;
           case SearchFilterSource.spotify:
             searchResults = await _spotifyProvider.search(trimmed);
             break;
           case SearchFilterSource.all:
-            final ytFuture = _ytProvider.search(trimmed);
+            final ytFuture = _ytProvider.search(trimmed, songsOnly: true);
             final spFuture = _spotifyProvider.search(trimmed);
             final res = await Future.wait([ytFuture, spFuture]);
             final ytTracks = res[0];
@@ -103,7 +103,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           setState(() => _isSearching = false);
         }
       }
-    });
+    }
+
+    if (immediate) {
+      runSearch();
+    } else {
+      _debounceTimer = Timer(const Duration(milliseconds: 280), runSearch);
+    }
   }
 
   @override
@@ -122,7 +128,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         MuxisSearchField(
           controller: _controller,
           onChanged: _onSearch,
-          onClear: () => _onSearch(''),
+          onSubmitted: (q) => _onSearch(q, immediate: true),
+          onClear: () => _onSearch('', immediate: true),
         ),
         const SizedBox(height: 14),
 
@@ -190,6 +197,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onAddToQueueTap: () => audioService.addToQueue(track),
             );
           }),
+        ] else if (_lastQuery.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.music_off_rounded,
+                    size: 40,
+                    color: MuxisColors.textMuted(isDark),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No matching songs found for "$_lastQuery"',
+                    style: MuxisTypography.sectionHeading(isDark: isDark),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Try searching by exact song title + artist name.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: MuxisColors.textSecondary(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ] else ...[
           // Default Search Suggestions
           Text(

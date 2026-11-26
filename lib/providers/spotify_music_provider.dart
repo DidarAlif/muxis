@@ -704,12 +704,14 @@ class SpotifyMusicProvider implements MusicProvider {
 
   @override
   Future<List<Track>> search(String query) async {
-    if (query.trim().isEmpty) return [];
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
 
+    // 1. Spotify REST Search (only if not rate-limited)
     final res = await _authorizedGet(
       'https://api.spotify.com/v1/search',
       queryParameters: {
-        'q': query,
+        'q': cleanQuery,
         'type': 'track',
         'limit': '20',
       },
@@ -725,9 +727,25 @@ class SpotifyMusicProvider implements MusicProvider {
       }
     }
 
-    // Bridge fallback: query InnerTube directly and tag as Spotify catalog result
+    // 2. Spotify Pathfinder searchDesktop (if hash was captured during browser login)
+    final pf = await _pathfinderPost('searchDesktop', {
+      'searchTerm': cleanQuery,
+      'offset': 0,
+      'limit': 20,
+      'numberOfTopResults': 5,
+      'includeAudiobooks': false,
+      'includeArtistHasConcertsField': false,
+      'includePreReleases': false,
+      'includeLocalConcertsField': false,
+    });
+    final pfTracks = _parsePathfinderSearchTracks(pf);
+    if (pfTracks.isNotEmpty) {
+      return pfTracks;
+    }
+
+    // 3. Bridge fallback: query clean InnerTube Songs catalog (returns real YT Music IDs)
     try {
-      final ytResults = await _innerTubeBridge.search(query);
+      final ytResults = await _innerTubeBridge.search(cleanQuery, songsOnly: true);
       return ytResults.map((t) {
         return t.copyWith(
           id: 'sp-${t.id}',
@@ -738,6 +756,43 @@ class SpotifyMusicProvider implements MusicProvider {
     } catch (_) {
       return [];
     }
+  }
+
+  List<Track> _parsePathfinderSearchTracks(Map<String, dynamic>? data) {
+    final items = data?['data']?['searchV2']?['tracksV2']?['items'] as List?;
+    if (items == null) return [];
+    final out = <Track>[];
+    for (final row in items) {
+      if (row is! Map) continue;
+      final node = row['item'] ?? row;
+      final track = _parsePathfinderTrackNode(node, isFavorite: false);
+      if (track != null) out.add(track);
+    }
+    return out;
+  }
+
+  int _scoreMatch(Track candidate, String targetTitle, String targetArtist) {
+    int score = 0;
+    final cTitle = candidate.title.toLowerCase();
+    final cArtist = candidate.artist.toLowerCase();
+    final tLower = targetTitle.toLowerCase();
+    final aLower = targetArtist.toLowerCase();
+
+    if (cTitle == tLower) score += 60;
+    if (cTitle.contains(tLower) || tLower.contains(cTitle)) score += 30;
+    for (final w in tLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
+      if (cTitle.contains(w)) score += 10;
+    }
+    for (final w in aLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
+      if (cArtist.contains(w) || cTitle.contains(w)) score += 12;
+    }
+    if (RegExp(r'\b(cover|karaoke|8d|slowed|reverb|nightcore|sped up|instrumental)\b')
+        .hasMatch(cTitle) &&
+        !RegExp(r'\b(cover|karaoke|8d|slowed|reverb|nightcore|sped up|instrumental)\b')
+            .hasMatch(tLower)) {
+      score -= 40;
+    }
+    return score;
   }
 
   @override
@@ -771,18 +826,25 @@ class SpotifyMusicProvider implements MusicProvider {
       final effectiveTitle = cleanTitle.isNotEmpty ? cleanTitle : track.title;
       final cleanArtist = track.artist
           .replaceAll(RegExp(r'\s*\b(feat\.|ft\.)\b.*', caseSensitive: false), '')
+          .split(',')
+          .first
           .trim();
       final effectiveArtist = cleanArtist.isNotEmpty ? cleanArtist : track.artist;
 
       final searchQuery = '$effectiveArtist $effectiveTitle'.trim();
       var matches = await _innerTubeBridge.search(searchQuery, songsOnly: true);
       if (matches.isEmpty) {
-        matches = await _innerTubeBridge.search(searchQuery);
+        matches = await _innerTubeBridge.search('$effectiveTitle $effectiveArtist');
       }
-      for (final match in matches.take(3)) {
-        final resolved = await _innerTubeBridge.resolveAudioStreamUrl(match);
-        if (resolved != null && resolved.isNotEmpty) {
-          return resolved;
+      if (matches.isNotEmpty) {
+        final ranked = List<Track>.from(matches)
+          ..sort((a, b) => _scoreMatch(b, effectiveTitle, effectiveArtist)
+              .compareTo(_scoreMatch(a, effectiveTitle, effectiveArtist)));
+        for (final match in ranked.take(3)) {
+          final resolved = await _innerTubeBridge.resolveAudioStreamUrl(match);
+          if (resolved != null && resolved.isNotEmpty) {
+            return resolved;
+          }
         }
       }
     } catch (_) {}

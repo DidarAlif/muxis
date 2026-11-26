@@ -334,10 +334,46 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
 
     try {
       final yt = InnerTubeMusicProvider(prefs: _prefs);
-      final profile = await yt.fetchUserProfile();
-      final playlists = await yt.fetchUserPlaylists();
-      final liked = await yt.fetchLikedTracks();
-      final home = await yt.fetchHomeRecommendations();
+      var profile = await yt.fetchUserProfile();
+      var playlists = await yt.fetchUserPlaylists();
+      var liked = await yt.fetchLikedTracks();
+      var home = await yt.fetchHomeRecommendations();
+      final wvPlaylistTracks = <String, List<Track>>{};
+
+      if (playlists.isEmpty ||
+          liked.isEmpty ||
+          (profile['displayName'] ?? '').isEmpty) {
+        final wvYt = await WebViewAuthBridge().syncYouTubeLibraryViaWebView();
+        if (wvYt != null && wvYt.isSuccess) {
+          if (wvYt.ytDisplayName != null && wvYt.ytDisplayName!.isNotEmpty) {
+            profile = {
+              'displayName': wvYt.ytDisplayName,
+              'avatarUrl': wvYt.ytAvatarUrl,
+            };
+          }
+          if (wvYt.ytPlaylists.isNotEmpty) {
+            playlists =
+                InnerTubeMusicProvider.playlistsFromWebViewMaps(wvYt.ytPlaylists);
+          }
+          if (wvYt.ytLikedTracks.isNotEmpty) {
+            liked = InnerTubeMusicProvider.tracksFromWebViewMaps(
+              wvYt.ytLikedTracks,
+              isFavorite: true,
+            );
+          }
+          if (wvYt.ytRecommendedTracks.isNotEmpty) {
+            home = InnerTubeMusicProvider.tracksFromWebViewMaps(
+              wvYt.ytRecommendedTracks,
+            );
+          }
+          for (final entry in wvYt.ytPlaylistTracks.entries) {
+            if (entry.value.isNotEmpty) {
+              wvPlaylistTracks[entry.key] =
+                  InnerTubeMusicProvider.tracksFromWebViewMaps(entry.value);
+            }
+          }
+        }
+      }
 
       if (profile['displayName'] != null &&
           profile['displayName']!.isNotEmpty) {
@@ -349,7 +385,8 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
 
       final hydratedPlaylists = <Playlist>[];
       for (final pl in playlists.take(10)) {
-        final plTracks = await yt.fetchPlaylistTracks(pl.id);
+        final plTracks =
+            wvPlaylistTracks[pl.id] ?? await yt.fetchPlaylistTracks(pl.id);
         if (plTracks.isNotEmpty) {
           await _db.saveTracks(plTracks);
           await _db.setPlaylist(pl.title, plTracks.map((t) => t.id).toList());
@@ -377,6 +414,15 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         }
       }
 
+      final bestHome = home.isNotEmpty
+          ? home
+          : (liked.isNotEmpty
+              ? liked
+              : (hydratedPlaylists.isNotEmpty &&
+                      hydratedPlaylists.first.tracks.isNotEmpty
+                  ? hydratedPlaylists.first.tracks
+                  : state.youtube.recommendedTracks));
+
       state = state.copyWith(
         youtube: state.youtube.copyWith(
           isSyncing: false,
@@ -386,8 +432,7 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
               ? hydratedPlaylists
               : state.youtube.playlists,
           likedTracks: liked.isNotEmpty ? liked : state.youtube.likedTracks,
-          recommendedTracks:
-              home.isNotEmpty ? home : state.youtube.recommendedTracks,
+          recommendedTracks: bestHome,
         ),
       );
 
@@ -527,6 +572,18 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         }
       }
 
+      final libraryTracks = <Track>[
+        ...liked,
+        for (final pl in hydratedPlaylists) ...pl.tracks,
+      ];
+      final bestSpRecommended = (topTracks.length > 2)
+          ? topTracks
+          : (libraryTracks.isNotEmpty
+              ? libraryTracks.take(20).toList()
+              : (topTracks.isNotEmpty
+                  ? topTracks
+                  : state.spotify.recommendedTracks));
+
       state = state.copyWith(
         spotify: state.spotify.copyWith(
           isSyncing: false,
@@ -543,8 +600,7 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
               ? hydratedPlaylists
               : state.spotify.playlists,
           likedTracks: liked.isNotEmpty ? liked : state.spotify.likedTracks,
-          recommendedTracks:
-              topTracks.isNotEmpty ? topTracks : state.spotify.recommendedTracks,
+          recommendedTracks: bestSpRecommended,
         ),
       );
 
@@ -592,7 +648,18 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         return updatedList.firstWhere((p) => p.id == playlistId);
       } else if (source == MusicSource.youtube) {
         final yt = InnerTubeMusicProvider(prefs: _prefs);
-        final tracks = await yt.fetchPlaylistTracks(playlistId);
+        var tracks = await yt.fetchPlaylistTracks(playlistId);
+        if (tracks.isEmpty) {
+          final wvPl = await WebViewAuthBridge()
+              .syncYouTubeLibraryViaWebView(targetPlaylistId: playlistId);
+          final raw = wvPl?.ytPlaylistTracks[playlistId] ??
+              (wvPl != null && wvPl.ytPlaylistTracks.isNotEmpty
+                  ? wvPl.ytPlaylistTracks.values.first
+                  : null);
+          if (raw != null && raw.isNotEmpty) {
+            tracks = InnerTubeMusicProvider.tracksFromWebViewMaps(raw);
+          }
+        }
         if (tracks.isEmpty) return null;
         await _db.saveTracks(tracks);
 

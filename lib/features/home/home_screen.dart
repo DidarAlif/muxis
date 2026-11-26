@@ -36,7 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _loadTrending() async {
     try {
-      final tracks = await _ytProvider.getFeaturedTracks();
+      final tracks = await _ytProvider.fetchHomeRecommendations();
       if (mounted) {
         setState(() {
           _trendingTracks = tracks;

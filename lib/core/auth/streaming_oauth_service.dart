@@ -191,12 +191,16 @@ class StreamingOAuthService {
     return syncYouTubeInnerTubeAccount();
   }
 
-  /// Synchronizes profile, personal playlists, and liked songs from YouTube Music InnerTube.
+  /// Synchronizes profile, personal playlists, and liked songs from YouTube Music InnerTube
+  /// and hidden WebView2 session (when HttpOnly Google cookies are required on Windows).
   Future<StreamingAuthResult> syncYouTubeInnerTubeAccount() async {
     final ytProvider = InnerTubeMusicProvider(prefs: _prefs, dio: _dio);
 
     String displayName = 'YouTube Music Listener';
     String? avatarUrl;
+    var playlists = <Playlist>[];
+    var liked = <Track>[];
+    final wvPlaylistTracks = <String, List<Track>>{};
 
     try {
       final profile = await ytProvider.fetchUserProfile();
@@ -204,42 +208,85 @@ class StreamingOAuthService {
         displayName = profile['displayName']!;
       }
       avatarUrl = profile['avatarUrl'];
+      playlists = await ytProvider.fetchUserPlaylists();
+      liked = await ytProvider.fetchLikedTracks();
     } catch (_) {}
+
+    // On Windows desktop, Edge WebView2 owns full HttpOnly Google cookies (SID/__Secure-3PSID)
+    // seamlessly inside the saved profile, so run a single hidden sync pass if needed.
+    if (playlists.isEmpty || liked.isEmpty || displayName == 'YouTube Music Listener') {
+      final wvSession = await WebViewAuthBridge().syncYouTubeLibraryViaWebView();
+      if (wvSession != null && wvSession.isSuccess) {
+        if (wvSession.ytDisplayName != null && wvSession.ytDisplayName!.isNotEmpty) {
+          displayName = wvSession.ytDisplayName!;
+        }
+        if (wvSession.ytAvatarUrl != null && wvSession.ytAvatarUrl!.isNotEmpty) {
+          avatarUrl = wvSession.ytAvatarUrl;
+        }
+        if (wvSession.ytPlaylists.isNotEmpty) {
+          playlists = InnerTubeMusicProvider.playlistsFromWebViewMaps(wvSession.ytPlaylists);
+        }
+        if (wvSession.ytLikedTracks.isNotEmpty) {
+          liked = InnerTubeMusicProvider.tracksFromWebViewMaps(
+            wvSession.ytLikedTracks,
+            isFavorite: true,
+          );
+        }
+        for (final entry in wvSession.ytPlaylistTracks.entries) {
+          if (entry.value.isNotEmpty) {
+            wvPlaylistTracks[entry.key] =
+                InnerTubeMusicProvider.tracksFromWebViewMaps(entry.value);
+          }
+        }
+        if (wvSession.cookieHeader != null && wvSession.cookieHeader!.isNotEmpty) {
+          await _prefs.saveYtCookie(wvSession.cookieHeader!);
+        }
+        if (wvSession.sapisid != null && wvSession.sapisid!.isNotEmpty) {
+          await _prefs.saveYtSapisid(wvSession.sapisid!);
+        }
+        if (wvSession.ytAuthUser != null && wvSession.ytAuthUser!.isNotEmpty) {
+          await _prefs.saveYtAuthUser(wvSession.ytAuthUser!);
+        }
+      }
+    }
 
     await _prefs.saveYtUserProfile(displayName, avatarUrl);
     await _prefs.saveActiveSource('youtube');
 
-    int playlistsCount = 0;
     int tracksCount = 0;
+    final hydratedPlaylists = <Playlist>[];
 
-    try {
-      final playlists = await ytProvider.fetchUserPlaylists();
-      playlistsCount = playlists.length;
-      for (final pl in playlists.take(15)) {
-        final tracks = await ytProvider.fetchPlaylistTracks(pl.id);
-        if (tracks.isNotEmpty) {
-          tracksCount += tracks.length;
-          await _db.saveTracks(tracks);
-          await _db.setPlaylist(
-            pl.title,
-            tracks.map((t) => t.id).toList(),
-          );
+    for (final pl in playlists.take(15)) {
+      final tracks = wvPlaylistTracks[pl.id] ?? await ytProvider.fetchPlaylistTracks(pl.id);
+      if (tracks.isNotEmpty) {
+        tracksCount += tracks.length;
+        await _db.saveTracks(tracks);
+        await _db.setPlaylist(
+          pl.title,
+          tracks.map((t) => t.id).toList(),
+        );
+        hydratedPlaylists.add(pl.copyWith(tracks: tracks, trackCount: tracks.length));
+      } else {
+        hydratedPlaylists.add(pl);
+      }
+    }
+    if (playlists.length > 15) {
+      hydratedPlaylists.addAll(playlists.skip(15));
+    }
+
+    if (hydratedPlaylists.isNotEmpty) {
+      await _savePlaylistsCache(_prefs, hydratedPlaylists, isSpotify: false);
+    }
+
+    if (liked.isNotEmpty) {
+      await _db.saveTracks(liked);
+      for (final t in liked) {
+        if (!_db.isFavorite(t.id)) {
+          await _db.toggleFavorite(t.id);
         }
       }
-    } catch (_) {}
-
-    try {
-      final liked = await ytProvider.fetchLikedTracks();
-      if (liked.isNotEmpty) {
-        await _db.saveTracks(liked);
-        for (final t in liked) {
-          if (!_db.isFavorite(t.id)) {
-            await _db.toggleFavorite(t.id);
-          }
-        }
-        tracksCount += liked.length;
-      }
-    } catch (_) {}
+      tracksCount += liked.length;
+    }
 
     return StreamingAuthResult(
       isSuccess: true,
@@ -247,7 +294,7 @@ class StreamingOAuthService {
       displayName: displayName,
       avatarUrl: avatarUrl,
       subscription: 'YouTube Music Ad-Free Sync',
-      playlistsImported: playlistsCount,
+      playlistsImported: hydratedPlaylists.length,
       tracksImported: tracksCount,
     );
   }

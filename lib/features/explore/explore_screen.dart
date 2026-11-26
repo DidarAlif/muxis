@@ -32,7 +32,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   Future<void> _loadFeatured() async {
     try {
-      final ytFuture = _ytProvider.getFeaturedTracks();
+      final ytFuture = _ytProvider.fetchHomeRecommendations();
       final spFuture = _spotifyProvider.getFeaturedTracks();
       final res = await Future.wait([ytFuture, spFuture]);
       if (mounted) {
