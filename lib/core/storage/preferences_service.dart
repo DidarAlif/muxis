@@ -14,12 +14,18 @@ class PreferencesService {
   static const String _keyActiveSource = 'muxis_active_streaming_source';
   static const String _keyYtCookie = 'muxis_yt_cookie';
   static const String _keyYtSapisid = 'muxis_yt_sapisid';
+  static const String _keyYtAuthUser = 'muxis_yt_auth_user';
   static const String _keyYtUserName = 'muxis_yt_user_name';
   static const String _keyYtUserAvatar = 'muxis_yt_user_avatar';
+  static const String _keyYtPlaylistsCache = 'muxis_yt_playlists_cache';
   static const String _keySpotifyClientId = 'muxis_spotify_client_id';
   static const String _keySpotifyClientSecret = 'muxis_spotify_client_secret';
   static const String _keySpotifyAccessToken = 'muxis_spotify_access_token';
+  static const String _keySpotifyClientToken = 'muxis_spotify_client_token';
   static const String _keySpotifySpDc = 'muxis_spotify_sp_dc';
+  static const String _keySpotifyPathfinderHashes =
+      'muxis_spotify_pathfinder_hashes';
+  static const String _keySpotifyPlaylistsCache = 'muxis_spotify_playlists_cache';
   static const String _keySpotifyUserName = 'muxis_spotify_user_name';
   static const String _keySpotifyUserAvatar = 'muxis_spotify_user_avatar';
   static const String _keySpotifyProduct = 'muxis_spotify_product';
@@ -54,6 +60,27 @@ class PreferencesService {
   Future<String?> getYtSapisid() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyYtSapisid);
+  }
+
+  Future<void> saveYtAuthUser(String authUser) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyYtAuthUser, authUser);
+  }
+
+  Future<String> getYtAuthUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString(_keyYtAuthUser);
+    return (val != null && val.isNotEmpty) ? val : '0';
+  }
+
+  Future<void> saveYtPlaylistsCache(String jsonStr) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyYtPlaylistsCache, jsonStr);
+  }
+
+  Future<String?> getYtPlaylistsCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyYtPlaylistsCache);
   }
 
   Future<void> saveYtUserProfile(String name, String? avatarUrl) async {
@@ -116,6 +143,36 @@ class PreferencesService {
     return prefs.getString(_keySpotifySpDc);
   }
 
+  Future<void> saveSpotifyClientToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySpotifyClientToken, token);
+  }
+
+  Future<String?> getSpotifyClientToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySpotifyClientToken);
+  }
+
+  Future<void> saveSpotifyPathfinderHashes(String jsonStr) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySpotifyPathfinderHashes, jsonStr);
+  }
+
+  Future<String?> getSpotifyPathfinderHashes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySpotifyPathfinderHashes);
+  }
+
+  Future<void> saveSpotifyPlaylistsCache(String jsonStr) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySpotifyPlaylistsCache, jsonStr);
+  }
+
+  Future<String?> getSpotifyPlaylistsCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySpotifyPlaylistsCache);
+  }
+
   Future<void> saveGoogleClientId(String clientId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyGoogleClientId, clientId);
@@ -166,12 +223,17 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyYtCookie);
     await prefs.remove(_keyYtSapisid);
+    await prefs.remove(_keyYtAuthUser);
     await prefs.remove(_keyYtUserName);
     await prefs.remove(_keyYtUserAvatar);
+    await prefs.remove(_keyYtPlaylistsCache);
     await prefs.remove(_keySpotifyClientId);
     await prefs.remove(_keySpotifyClientSecret);
     await prefs.remove(_keySpotifyAccessToken);
+    await prefs.remove(_keySpotifyClientToken);
     await prefs.remove(_keySpotifySpDc);
+    await prefs.remove(_keySpotifyPathfinderHashes);
+    await prefs.remove(_keySpotifyPlaylistsCache);
     await prefs.remove(_keySpotifyUserName);
     await prefs.remove(_keySpotifyUserAvatar);
     await prefs.remove(_keySpotifyProduct);

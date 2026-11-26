@@ -9,8 +9,6 @@ import '../../core/auth/streaming_accounts_controller.dart';
 import '../../core/auth/streaming_oauth_service.dart';
 import '../../core/database/database_service.dart';
 import '../../core/storage/preferences_service.dart';
-import '../../providers/innertube_music_provider.dart';
-import '../../providers/spotify_music_provider.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
 
@@ -703,7 +701,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: MuxisColors.accent(isDark),
                             ),
                             tooltip: 'Sync YouTube Music',
-                            onPressed: accountsNotifier.syncYouTubeLive,
+                            onPressed: () async {
+                              final msg =
+                                  await accountsNotifier.syncYouTubeLive();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(msg),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
                           ),
                           IconButton(
                             icon: Icon(
@@ -834,7 +842,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: MuxisColors.spotifyGreen,
                             ),
                             tooltip: 'Sync Spotify Playlists',
-                            onPressed: accountsNotifier.syncSpotifyLive,
+                            onPressed: () async {
+                              final msg =
+                                  await accountsNotifier.syncSpotifyLive();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(msg),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
                           ),
                           IconButton(
                             icon: Icon(
@@ -1153,7 +1171,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'v1.1.0 (Browser Login, Dual Stream Hubs & Kinetic Spectrum)',
+                      'v1.1.1 (Browser Login, Pathfinder Sync, Dual Stream Hubs & Spectrum)',
                       style: TextStyle(
                         fontSize: 12,
                         color: MuxisColors.textMuted(isDark),

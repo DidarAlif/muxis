@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/spotify_music_provider.dart';
+import '../../shared/models/playlist.dart';
 import '../../shared/models/track.dart';
 import '../database/database_service.dart';
 import '../storage/preferences_service.dart';
@@ -168,9 +170,11 @@ class StreamingOAuthService {
       return StreamingAuthResult(
         isSuccess: false,
         platform: 'YouTube Music',
-        errorMessage: session.isCancelled
-            ? 'YouTube Music sign-in was cancelled.'
-            : (session.errorMessage ?? 'Unable to connect YouTube Music.'),
+        errorMessage: session.isBlockedByGoogleWebView
+            ? session.errorMessage
+            : (session.isCancelled
+                ? 'YouTube Music sign-in was cancelled.'
+                : (session.errorMessage ?? 'Unable to connect YouTube Music.')),
       );
     }
 
@@ -179,6 +183,9 @@ class StreamingOAuthService {
     }
     if (session.sapisid != null && session.sapisid!.isNotEmpty) {
       await _prefs.saveYtSapisid(session.sapisid!);
+    }
+    if (session.ytAuthUser != null && session.ytAuthUser!.isNotEmpty) {
+      await _prefs.saveYtAuthUser(session.ytAuthUser!);
     }
 
     return syncYouTubeInnerTubeAccount();
@@ -246,8 +253,8 @@ class StreamingOAuthService {
   }
 
   /// Primary Zero-Config Interactive Browser Login for Spotify.
-  /// Redirects directly to Spotify login and captures the authenticated user
-  /// session internally without requiring Spotify Premium Developer apps or manual tokens.
+  /// Redirects directly to Spotify login, captures Web Player session + live library,
+  /// and synchronizes cleanly without triggering REST 429 failures.
   Future<StreamingAuthResult> signInWithSpotifyWeb(BuildContext context) async {
     final session = await WebViewAuthBridge().authenticateSpotify(context);
     if (!session.isSuccess ||
@@ -263,135 +270,183 @@ class StreamingOAuthService {
     }
 
     await _prefs.saveSpotifyAccessToken(session.spotifyAccessToken!);
+    if (session.spotifyClientToken != null &&
+        session.spotifyClientToken!.isNotEmpty) {
+      await _prefs.saveSpotifyClientToken(session.spotifyClientToken!);
+    }
     if (session.spotifySpDc != null && session.spotifySpDc!.isNotEmpty) {
       await _prefs.saveSpotifySpDc(session.spotifySpDc!);
     }
+    if (session.spotifyPathfinderHashesJson != null &&
+        session.spotifyPathfinderHashesJson!.isNotEmpty) {
+      await _prefs.saveSpotifyPathfinderHashes(session.spotifyPathfinderHashesJson!);
+    }
 
-    return syncSpotifyWithAccessToken(session.spotifyAccessToken!);
-  }
+    int capturedPlaylistsCount = 0;
+    int capturedTracksCount = 0;
 
-  /// Synchronizes Spotify profile, playlists, and liked songs using any valid Bearer token
-  Future<StreamingAuthResult> syncSpotifyWithAccessToken(String accessToken) async {
-    try {
-      final profileRes = await _dio.get(
-        'https://api.spotify.com/v1/me',
-        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+    // Persist any playlists & liked tracks captured directly from Spotify Web Player in WebView
+    if (session.spotifyPlaylists.isNotEmpty) {
+      final playlists = SpotifyMusicProvider.playlistsFromWebViewMaps(
+        session.spotifyPlaylists,
       );
+      capturedPlaylistsCount = playlists.length;
+      await _savePlaylistsCache(_prefs, playlists, isSpotify: true);
 
-      String displayName = 'Spotify Listener';
-      String? email;
-      String? avatarUrl;
-      String product = 'SPOTIFY AD-FREE BRIDGE';
-
-      if (profileRes.statusCode == 200 && profileRes.data != null) {
-        final profile = profileRes.data as Map<String, dynamic>;
-        displayName = profile['display_name'] as String? ?? 'Spotify Listener';
-        email = profile['email'] as String?;
-        final rawProduct = profile['product'] as String?;
-        if (rawProduct != null && rawProduct.isNotEmpty) {
-          product = rawProduct.toUpperCase();
-        }
-        final images = profile['images'] as List?;
-        if (images != null && images.isNotEmpty) {
-          avatarUrl = images[0]['url'] as String?;
+      for (final pl in playlists) {
+        final rawTracks = session.spotifyPlaylistTracks[pl.id];
+        if (rawTracks != null && rawTracks.isNotEmpty) {
+          final parsed = SpotifyMusicProvider.tracksFromWebViewMaps(rawTracks);
+          if (parsed.isNotEmpty) {
+            capturedTracksCount += parsed.length;
+            await _db.saveTracks(parsed);
+            await _db.setPlaylist(pl.title, parsed.map((t) => t.id).toList());
+          }
         }
       }
-
-      await _prefs.saveSpotifyUserProfile(displayName, avatarUrl, product);
-      await _prefs.saveActiveSource('spotify');
-
-      int playlistsCount = 0;
-      int tracksCount = 0;
-
-      try {
-        final playlistsRes = await _dio.get(
-          'https://api.spotify.com/v1/me/playlists',
-          queryParameters: {'limit': '50'},
-          options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-        );
-
-        if (playlistsRes.statusCode == 200 && playlistsRes.data != null) {
-          final items = playlistsRes.data['items'] as List?;
-          if (items != null) {
-            playlistsCount = items.length;
-            for (final pl in items.take(20)) {
-              final plName = pl['name'] as String? ?? 'Spotify Playlist';
-              final plId = pl['id'] as String?;
-              if (plId != null) {
-                final tracksRes = await _dio.get(
-                  'https://api.spotify.com/v1/playlists/$plId/tracks',
-                  queryParameters: {'limit': '50'},
-                  options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-                );
-
-                if (tracksRes.statusCode == 200 && tracksRes.data != null) {
-                  final trackItems = tracksRes.data['items'] as List?;
-                  if (trackItems != null) {
-                    final importedTracks = <Track>[];
-                    for (final item in trackItems) {
-                      final t = item['track'];
-                      if (t == null || t is! Map<String, dynamic>) continue;
-                      final track = _parseSpotifyTrack(t);
-                      importedTracks.add(track);
-                      tracksCount++;
-                    }
-                    await _db.saveTracks(importedTracks);
-                    await _db.setPlaylist(
-                      plName,
-                      importedTracks.map((x) => x.id).toList(),
-                    );
-                  }
-                }
-              }
-            }
-          }
-        }
-      } catch (_) {}
-
-      try {
-        final likedRes = await _dio.get(
-          'https://api.spotify.com/v1/me/tracks',
-          queryParameters: {'limit': '50'},
-          options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-        );
-
-        if (likedRes.statusCode == 200 && likedRes.data != null) {
-          final items = likedRes.data['items'] as List?;
-          if (items != null) {
-            final likedTracks = <Track>[];
-            for (final item in items) {
-              final t = item['track'];
-              if (t != null && t is Map<String, dynamic>) {
-                final track = _parseSpotifyTrack(t, isFavorite: true);
-                likedTracks.add(track);
-                if (!_db.isFavorite(track.id)) {
-                  await _db.toggleFavorite(track.id);
-                }
-                tracksCount++;
-              }
-            }
-            await _db.saveTracks(likedTracks);
-          }
-        }
-      } catch (_) {}
-
-      return StreamingAuthResult(
-        isSuccess: true,
-        platform: 'Spotify',
-        displayName: displayName,
-        email: email,
-        avatarUrl: avatarUrl,
-        subscription: product,
-        playlistsImported: playlistsCount,
-        tracksImported: tracksCount,
-      );
-    } catch (e) {
-      return StreamingAuthResult(
-        isSuccess: false,
-        platform: 'Spotify',
-        errorMessage: 'Spotify account sync error: $e',
-      );
     }
+
+    if (session.spotifyLikedTracks.isNotEmpty) {
+      final liked = SpotifyMusicProvider.tracksFromWebViewMaps(
+        session.spotifyLikedTracks,
+        isFavorite: true,
+      );
+      if (liked.isNotEmpty) {
+        await _db.saveTracks(liked);
+        for (final t in liked) {
+          if (!_db.isFavorite(t.id)) {
+            await _db.toggleFavorite(t.id);
+          }
+        }
+        capturedTracksCount += liked.length;
+      }
+    }
+
+    return syncSpotifyWithAccessToken(
+      session.spotifyAccessToken!,
+      fallbackDisplayName: session.spotifyDisplayName,
+      fallbackAvatarUrl: session.spotifyAvatarUrl,
+      fallbackProduct: session.spotifyProduct,
+      seedPlaylistsCount: capturedPlaylistsCount,
+      seedTracksCount: capturedTracksCount,
+    );
+  }
+
+  Future<void> _savePlaylistsCache(
+    PreferencesService prefs,
+    List<Playlist> playlists, {
+    required bool isSpotify,
+  }) async {
+    final serialized = jsonEncode(
+      playlists
+          .map((p) => {
+                'id': p.id,
+                'title': p.title,
+                'description': p.description,
+                'artworkUrl': p.artworkUrl,
+                'trackCount': p.trackCount,
+              })
+          .toList(),
+    );
+    if (isSpotify) {
+      await prefs.saveSpotifyPlaylistsCache(serialized);
+    } else {
+      await prefs.saveYtPlaylistsCache(serialized);
+    }
+  }
+
+  /// Synchronizes Spotify profile, playlists, and liked songs using Pathfinder + 429-safe Web API.
+  /// Never fails a valid browser login when Spotify REST `/v1/` applies rate limits (429).
+  Future<StreamingAuthResult> syncSpotifyWithAccessToken(
+    String accessToken, {
+    String? fallbackDisplayName,
+    String? fallbackAvatarUrl,
+    String? fallbackProduct,
+    int seedPlaylistsCount = 0,
+    int seedTracksCount = 0,
+  }) async {
+    final sp = SpotifyMusicProvider(prefs: _prefs, dio: _dio);
+
+    String displayName = (fallbackDisplayName != null &&
+            fallbackDisplayName.isNotEmpty)
+        ? fallbackDisplayName
+        : 'Spotify Listener';
+    String? avatarUrl = fallbackAvatarUrl;
+    String product = (fallbackProduct != null && fallbackProduct.isNotEmpty)
+        ? fallbackProduct
+        : 'SPOTIFY AD-FREE BRIDGE';
+
+    try {
+      final profile = await sp.fetchUserProfile();
+      if (profile['displayName'] != null &&
+          profile['displayName']!.isNotEmpty) {
+        displayName = profile['displayName']!;
+      }
+      if (profile['avatarUrl'] != null && profile['avatarUrl']!.isNotEmpty) {
+        avatarUrl = profile['avatarUrl'];
+      }
+      if (profile['product'] != null && profile['product']!.isNotEmpty) {
+        product = profile['product']!;
+      }
+    } catch (_) {}
+
+    await _prefs.saveSpotifyUserProfile(displayName, avatarUrl, product);
+    await _prefs.saveActiveSource('spotify');
+
+    int playlistsCount = seedPlaylistsCount;
+    int tracksCount = seedTracksCount;
+
+    try {
+      final playlists = await sp.fetchUserPlaylists(allowWebViewFallback: false);
+      if (playlists.isNotEmpty) {
+        playlistsCount = playlists.length;
+        await _savePlaylistsCache(_prefs, playlists, isSpotify: true);
+
+        // Gently hydrate top 5 playlists with pacing to avoid Spotify 429 bursts;
+        // remaining playlists hydrate on-demand when opened in Spotify Hub.
+        for (final pl in playlists.take(5)) {
+          await Future.delayed(const Duration(milliseconds: 350));
+          final tracks = await sp.fetchPlaylistTracks(
+            pl.id,
+            allowWebViewFallback: false,
+          );
+          if (tracks.isNotEmpty) {
+            await _db.saveTracks(tracks);
+            await _db.setPlaylist(
+              pl.title,
+              tracks.map((x) => x.id).toList(),
+            );
+            tracksCount += tracks.length;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (seedTracksCount == 0) {
+      try {
+        await Future.delayed(const Duration(milliseconds: 350));
+        final liked = await sp.fetchLikedTracks(allowWebViewFallback: false);
+        if (liked.isNotEmpty) {
+          await _db.saveTracks(liked);
+          for (final track in liked) {
+            if (!_db.isFavorite(track.id)) {
+              await _db.toggleFavorite(track.id);
+            }
+          }
+          tracksCount += liked.length;
+        }
+      } catch (_) {}
+    }
+
+    return StreamingAuthResult(
+      isSuccess: true,
+      platform: 'Spotify',
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      subscription: product,
+      playlistsImported: playlistsCount,
+      tracksImported: tracksCount,
+    );
   }
 
   /// Interactive Browser SSO Flow for Spotify (Internal/Custom Developer OAuth Fallback)

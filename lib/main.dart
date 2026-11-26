@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:desktop_webview_window/desktop_webview_window.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +11,15 @@ import 'app/app.dart';
 import 'core/config/app_config.dart';
 import 'core/database/database_service.dart';
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Handle sub-window title-bar process if invoked by desktop_webview_window
+  if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    if (runWebViewTitleBarWidget(args)) {
+      return;
+    }
+  }
 
   // 1. Safely attempt to load .env if present
   try {

@@ -36,6 +36,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
 
   int _subTab = 0; // 0: Stream Picks, 1: Playlists, 2: Liked Songs
   Playlist? _openPlaylist;
+  bool _isHydratingPlaylist = false;
   List<Track> _searchResults = [];
   bool _isSearching = false;
   Timer? _debounce;
@@ -248,7 +249,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${pl.tracks.length} tracks • Ad-Free High Fidelity',
+                        '${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks • Ad-Free High Fidelity',
                         style: TextStyle(
                           fontSize: 13,
                           color: MuxisColors.textSecondary(isDark),
@@ -276,11 +277,41 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          if (pl.tracks.isEmpty)
-            MuxisEmptyState(
-              icon: Icons.music_off_rounded,
-              title: 'No Playable Tracks Found',
-              message: 'Tap Sync in $platformName header to refresh tracks.',
+          if (_isHydratingPlaylist && pl.tracks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 14),
+                    Text('Fetching tracks from streaming session...'),
+                  ],
+                ),
+              ),
+            )
+          else if (pl.tracks.isEmpty)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MuxisEmptyState(
+                    icon: Icons.music_off_rounded,
+                    title: 'No Playable Tracks Loaded Yet',
+                    message:
+                        'Tap Load Tracks below or Sync Library in the header to hydrate this playlist.',
+                  ),
+                  const SizedBox(height: 12),
+                  MuxisButton(
+                    label: 'Load Playlist Tracks',
+                    icon: const Icon(Icons.sync_rounded, size: 16),
+                    variant: MuxisButtonVariant.primary,
+                    height: 36,
+                    onPressed: () => _openAndHydratePlaylist(pl),
+                  ),
+                ],
+              ),
             )
           else
             ...List.generate(pl.tracks.length, (i) {
@@ -413,9 +444,18 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                 variant: MuxisButtonVariant.liquidGlass,
                 height: 38,
                 isLoading: data.isSyncing,
-                onPressed: _isSpotify
-                    ? accountsNotifier.syncSpotifyLive
-                    : accountsNotifier.syncYouTubeLive,
+                onPressed: () async {
+                  final msg = _isSpotify
+                      ? await accountsNotifier.syncSpotifyLive()
+                      : await accountsNotifier.syncYouTubeLive();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(msg),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -684,7 +724,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
       itemBuilder: (ctx, i) {
         final pl = playlists[i];
         return InkWell(
-          onTap: () => setState(() => _openPlaylist = pl),
+          onTap: () => _openAndHydratePlaylist(pl),
           borderRadius: BorderRadius.circular(16),
           child: MuxisGlassCard(
             padding: const EdgeInsets.all(12),
@@ -800,5 +840,24 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
         }),
       ],
     );
+  }
+
+  Future<void> _openAndHydratePlaylist(Playlist pl) async {
+    setState(() {
+      _openPlaylist = pl;
+      _isHydratingPlaylist = pl.tracks.isEmpty;
+    });
+    if (pl.tracks.isEmpty) {
+      final hydrated = await ref
+          .read(streamingAccountsProvider.notifier)
+          .hydratePlaylistTracks(widget.platform, pl.id);
+      if (!mounted) return;
+      setState(() {
+        _isHydratingPlaylist = false;
+        if (hydrated != null && _openPlaylist?.id == pl.id) {
+          _openPlaylist = hydrated;
+        }
+      });
+    }
   }
 }

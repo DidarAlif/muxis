@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -103,6 +105,9 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
   final DatabaseService _db;
   final StreamingOAuthService _oauth;
 
+  bool _syncingYouTube = false;
+  bool _syncingSpotify = false;
+
   StreamingAccountsNotifier({
     required PreferencesService prefs,
     required DatabaseService db,
@@ -114,18 +119,20 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
     refreshFromStorage();
   }
 
-  /// Hydrates linked accounts and locally persisted platform playlists/tracks immediately
-  Future<void> refreshFromStorage() async {
+  /// Hydrates linked accounts and locally persisted platform playlists/tracks immediately.
+  Future<void> refreshFromStorage({bool triggerBackgroundSync = true}) async {
     final ytCookie = await _prefs.getYtCookie();
     final ytSapisid = await _prefs.getYtSapisid();
     final ytName = await _prefs.getYtUserName();
     final ytAvatar = await _prefs.getYtUserAvatar();
+    final ytCacheJson = await _prefs.getYtPlaylistsCache();
 
     final spToken = await _prefs.getSpotifyAccessToken();
     final spClientId = await _prefs.getSpotifyClientId();
     final spName = await _prefs.getSpotifyUserName();
     final spAvatar = await _prefs.getSpotifyUserAvatar();
     final spProd = await _prefs.getSpotifyProduct();
+    final spCacheJson = await _prefs.getSpotifyPlaylistsCache();
     final active = await _prefs.getActiveSource();
 
     final hasYt = (ytCookie != null && ytCookie.isNotEmpty) ||
@@ -135,16 +142,17 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         (spClientId != null && spClientId.isNotEmpty) ||
         (spName != null && spName.isNotEmpty);
 
-    // Load cached playlists & tracks filtered per platform
     final allTracks = _db.getAllTracks();
     final savedPlaylists = _db.getPlaylists();
     final favs = _db.getFavoriteTracks();
 
-    final ytPlaylists = <Playlist>[];
-    final spPlaylists = <Playlist>[];
+    final dbYtPlaylists = <Playlist>[];
+    final dbSpPlaylists = <Playlist>[];
     for (final entry in savedPlaylists.entries) {
       final memberTracks = allTracks
-          .where((t) => entry.value.contains(t.id) || entry.value.contains(t.localFilePath))
+          .where((t) =>
+              entry.value.contains(t.id) ||
+              (t.localFilePath != null && entry.value.contains(t.localFilePath)))
           .toList();
       if (memberTracks.isEmpty) continue;
       final isSp = memberTracks.any((t) => t.source == MusicSource.spotify);
@@ -156,11 +164,14 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         trackCount: memberTracks.length,
       );
       if (isSp) {
-        spPlaylists.add(plObj);
+        dbSpPlaylists.add(plObj);
       } else if (memberTracks.any((t) => t.source == MusicSource.youtube)) {
-        ytPlaylists.add(plObj);
+        dbYtPlaylists.add(plObj);
       }
     }
+
+    final ytPlaylists = _mergePlaylistsCache(ytCacheJson, dbYtPlaylists);
+    final spPlaylists = _mergePlaylistsCache(spCacheJson, dbSpPlaylists);
 
     final ytTracks =
         allTracks.where((t) => t.source == MusicSource.youtube).toList();
@@ -194,15 +205,79 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       ),
     );
 
-    if (hasYt && state.youtube.playlists.isEmpty) {
-      syncYouTubeLive();
-    }
-    if (hasSp && state.spotify.playlists.isEmpty) {
-      syncSpotifyLive();
+    if (triggerBackgroundSync) {
+      if (hasYt && state.youtube.playlists.isEmpty && !_syncingYouTube) {
+        syncYouTubeLive();
+      }
+      if (hasSp && state.spotify.playlists.isEmpty && !_syncingSpotify) {
+        syncSpotifyLive();
+      }
     }
   }
 
-  /// Launches genuine browser login for YouTube Music & syncs account + playlists
+  List<Playlist> _mergePlaylistsCache(
+    String? cacheJson,
+    List<Playlist> dbPlaylists,
+  ) {
+    final byTitle = <String, Playlist>{};
+    for (final p in dbPlaylists) {
+      byTitle[p.title] = p;
+    }
+
+    if (cacheJson != null && cacheJson.isNotEmpty) {
+      try {
+        final list = jsonDecode(cacheJson) as List<dynamic>;
+        final merged = <Playlist>[];
+        for (final raw in list) {
+          if (raw is! Map) continue;
+          final id = raw['id']?.toString() ?? '';
+          final title = raw['title']?.toString() ?? '';
+          if (id.isEmpty || title.isEmpty) continue;
+          final existing = byTitle.remove(title);
+          merged.add(
+            Playlist(
+              id: id,
+              title: title,
+              description: raw['description']?.toString(),
+              artworkUrl: raw['artworkUrl']?.toString() ?? existing?.artworkUrl,
+              tracks: existing?.tracks ?? const [],
+              trackCount: (existing != null && existing.tracks.isNotEmpty)
+                  ? existing.tracks.length
+                  : ((raw['trackCount'] as num?)?.toInt() ?? 0),
+            ),
+          );
+        }
+        merged.addAll(byTitle.values);
+        return merged;
+      } catch (_) {}
+    }
+
+    return dbPlaylists;
+  }
+
+  Future<void> _savePlaylistsCache(
+    List<Playlist> playlists, {
+    required bool isSpotify,
+  }) async {
+    final jsonStr = jsonEncode(
+      playlists
+          .map((p) => {
+                'id': p.id,
+                'title': p.title,
+                'description': p.description,
+                'artworkUrl': p.artworkUrl,
+                'trackCount': p.tracks.isNotEmpty ? p.tracks.length : p.trackCount,
+              })
+          .toList(),
+    );
+    if (isSpotify) {
+      await _prefs.saveSpotifyPlaylistsCache(jsonStr);
+    } else {
+      await _prefs.saveYtPlaylistsCache(jsonStr);
+    }
+  }
+
+  /// Launches genuine browser login for YouTube Music & syncs account + playlists.
   Future<StreamingAuthResult> connectYouTubeWithBrowser(
     BuildContext context,
   ) async {
@@ -210,7 +285,7 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       youtube: state.youtube.copyWith(isSyncing: true),
     );
     final res = await _oauth.signInWithYouTubeWeb(context);
-    await refreshFromStorage();
+    await refreshFromStorage(triggerBackgroundSync: false);
     if (res.isSuccess) {
       await syncYouTubeLive();
     } else {
@@ -221,7 +296,7 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
     return res;
   }
 
-  /// Launches genuine browser login for Spotify & syncs account + playlists
+  /// Launches genuine browser login for Spotify & syncs account + playlists without 429 bursts.
   Future<StreamingAuthResult> connectSpotifyWithBrowser(
     BuildContext context,
   ) async {
@@ -229,9 +304,16 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       spotify: state.spotify.copyWith(isSyncing: true),
     );
     final res = await _oauth.signInWithSpotifyWeb(context);
-    await refreshFromStorage();
+    await refreshFromStorage(triggerBackgroundSync: false);
     if (res.isSuccess) {
-      await syncSpotifyLive();
+      // Only perform supplementary sync if browser login didn't already capture playlists + liked
+      if (state.spotify.playlists.isEmpty || state.spotify.likedTracks.isEmpty) {
+        await syncSpotifyLive();
+      } else {
+        state = state.copyWith(
+          spotify: state.spotify.copyWith(isSyncing: false),
+        );
+      }
     } else {
       state = state.copyWith(
         spotify: state.spotify.copyWith(isSyncing: false),
@@ -240,24 +322,22 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
     return res;
   }
 
-  /// Pulls live YouTube Music recommendations, playlists, and likes via InnerTube
-  Future<void> syncYouTubeLive() async {
-    if (!state.youtube.isConnected) return;
+  /// Pulls live YouTube Music recommendations, playlists, and likes via InnerTube.
+  Future<String> syncYouTubeLive() async {
+    if (!state.youtube.isConnected) return 'YouTube Music is not connected.';
+    if (_syncingYouTube) return 'YouTube Music sync already running.';
+    _syncingYouTube = true;
+
     state = state.copyWith(
       youtube: state.youtube.copyWith(isSyncing: true),
     );
 
     try {
       final yt = InnerTubeMusicProvider(prefs: _prefs);
-      final profileF = yt.fetchUserProfile();
-      final playlistsF = yt.fetchUserPlaylists();
-      final likedF = yt.fetchLikedTracks();
-      final homeF = yt.fetchHomeRecommendations();
-
-      final profile = await profileF;
-      final playlists = await playlistsF;
-      final liked = await likedF;
-      final home = await homeF;
+      final profile = await yt.fetchUserProfile();
+      final playlists = await yt.fetchUserPlaylists();
+      final liked = await yt.fetchLikedTracks();
+      final home = await yt.fetchHomeRecommendations();
 
       if (profile['displayName'] != null &&
           profile['displayName']!.isNotEmpty) {
@@ -267,9 +347,8 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         );
       }
 
-      // Hydrate top playlists with track lists cleanly
       final hydratedPlaylists = <Playlist>[];
-      for (final pl in playlists.take(12)) {
+      for (final pl in playlists.take(10)) {
         final plTracks = await yt.fetchPlaylistTracks(pl.id);
         if (plTracks.isNotEmpty) {
           await _db.saveTracks(plTracks);
@@ -282,9 +361,20 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
           ),
         );
       }
+      if (playlists.length > 10) {
+        hydratedPlaylists.addAll(playlists.skip(10));
+      }
 
+      if (hydratedPlaylists.isNotEmpty) {
+        await _savePlaylistsCache(hydratedPlaylists, isSpotify: false);
+      }
       if (liked.isNotEmpty) {
         await _db.saveTracks(liked);
+        for (final t in liked) {
+          if (!_db.isFavorite(t.id)) {
+            await _db.toggleFavorite(t.id);
+          }
+        }
       }
 
       state = state.copyWith(
@@ -300,48 +390,101 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
               home.isNotEmpty ? home : state.youtube.recommendedTracks,
         ),
       );
-    } catch (_) {
+
+      final countPl = state.youtube.playlists.length;
+      final countLiked = state.youtube.likedTracks.length;
+      return 'YouTube Music synced: $countPl playlists & $countLiked liked songs.';
+    } catch (e) {
       state = state.copyWith(
         youtube: state.youtube.copyWith(isSyncing: false),
       );
+      return 'YouTube Music sync encountered an issue: $e';
+    } finally {
+      _syncingYouTube = false;
     }
   }
 
-  /// Pulls live Spotify playlists, liked tracks, and personalized top tracks
-  Future<void> syncSpotifyLive() async {
-    if (!state.spotify.isConnected) return;
+  /// Pulls live Spotify playlists, liked tracks, and personalized top tracks cleanly.
+  Future<String> syncSpotifyLive() async {
+    if (!state.spotify.isConnected) return 'Spotify is not connected.';
+    if (_syncingSpotify) return 'Spotify sync already running.';
+    _syncingSpotify = true;
+
     state = state.copyWith(
       spotify: state.spotify.copyWith(isSyncing: true),
     );
 
     try {
       final sp = SpotifyMusicProvider(prefs: _prefs);
-      final playlists = await sp.fetchUserPlaylists();
-      final liked = await sp.fetchLikedTracks();
+      final profile = await sp.fetchUserProfile();
+      if (profile['displayName'] != null &&
+          profile['displayName']!.isNotEmpty) {
+        await _prefs.saveSpotifyUserProfile(
+          profile['displayName']!,
+          profile['avatarUrl'],
+          profile['product'] ?? state.spotify.planBadge ?? 'SPOTIFY BRIDGE',
+        );
+      }
+
+      final playlists = await sp.fetchUserPlaylists(allowWebViewFallback: true);
+      await Future.delayed(const Duration(milliseconds: 300));
+      final liked = await sp.fetchLikedTracks(allowWebViewFallback: true);
+      await Future.delayed(const Duration(milliseconds: 300));
       final topTracks = await sp.fetchTopTracks();
 
+      // Retain already hydrated tracks for playlists if we don't fetch all sequentially
+      final existingById = {
+        for (final p in state.spotify.playlists) p.id: p,
+      };
+
       final hydratedPlaylists = <Playlist>[];
-      for (final pl in playlists.take(12)) {
-        final tracks = await sp.fetchPlaylistTracks(pl.id);
-        if (tracks.isNotEmpty) {
-          await _db.saveTracks(tracks);
-          await _db.setPlaylist(pl.title, tracks.map((t) => t.id).toList());
+      int hydratedCount = 0;
+      for (final pl in playlists) {
+        final prev = existingById[pl.id];
+        if (hydratedCount < 5 && !sp.lastRequestWasRateLimited) {
+          await Future.delayed(const Duration(milliseconds: 350));
+          final tracks = await sp.fetchPlaylistTracks(
+            pl.id,
+            allowWebViewFallback: false,
+          );
+          hydratedCount++;
+          if (tracks.isNotEmpty) {
+            await _db.saveTracks(tracks);
+            await _db.setPlaylist(pl.title, tracks.map((t) => t.id).toList());
+            hydratedPlaylists.add(
+              pl.copyWith(tracks: tracks, trackCount: tracks.length),
+            );
+            continue;
+          }
         }
         hydratedPlaylists.add(
           pl.copyWith(
-            tracks: tracks,
-            trackCount: tracks.isNotEmpty ? tracks.length : pl.trackCount,
+            tracks: prev?.tracks ?? const [],
+            trackCount: (prev != null && prev.tracks.isNotEmpty)
+                ? prev.tracks.length
+                : pl.trackCount,
           ),
         );
       }
 
+      if (hydratedPlaylists.isNotEmpty) {
+        await _savePlaylistsCache(hydratedPlaylists, isSpotify: true);
+      }
       if (liked.isNotEmpty) {
         await _db.saveTracks(liked);
+        for (final t in liked) {
+          if (!_db.isFavorite(t.id)) {
+            await _db.toggleFavorite(t.id);
+          }
+        }
       }
 
       state = state.copyWith(
         spotify: state.spotify.copyWith(
           isSyncing: false,
+          displayName: profile['displayName'] ?? state.spotify.displayName,
+          avatarUrl: profile['avatarUrl'] ?? state.spotify.avatarUrl,
+          planBadge: profile['product'] ?? state.spotify.planBadge,
           playlists: hydratedPlaylists.isNotEmpty
               ? hydratedPlaylists
               : state.spotify.playlists,
@@ -350,11 +493,69 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
               topTracks.isNotEmpty ? topTracks : state.spotify.recommendedTracks,
         ),
       );
-    } catch (_) {
+
+      final countPl = state.spotify.playlists.length;
+      final countLiked = state.spotify.likedTracks.length;
+      if (countPl == 0 && countLiked == 0 && sp.lastRequestWasRateLimited) {
+        return 'Spotify API rate-limited temporarily. Re-sign in via Browser if session expired.';
+      }
+      return 'Spotify synced: $countPl playlists & $countLiked liked songs.';
+    } catch (e) {
       state = state.copyWith(
         spotify: state.spotify.copyWith(isSyncing: false),
       );
+      return 'Spotify sync error: $e';
+    } finally {
+      _syncingSpotify = false;
     }
+  }
+
+  /// On-demand hydration when user opens a playlist whose tracks haven't been loaded yet.
+  Future<Playlist?> hydratePlaylistTracks(
+    MusicSource source,
+    String playlistId,
+  ) async {
+    try {
+      if (source == MusicSource.spotify) {
+        final sp = SpotifyMusicProvider(prefs: _prefs);
+        final tracks = await sp.fetchPlaylistTracks(
+          playlistId,
+          allowWebViewFallback: true,
+        );
+        if (tracks.isEmpty) return null;
+        await _db.saveTracks(tracks);
+
+        final updatedList = state.spotify.playlists.map((pl) {
+          if (pl.id != playlistId) return pl;
+          _db.setPlaylist(pl.title, tracks.map((t) => t.id).toList());
+          return pl.copyWith(tracks: tracks, trackCount: tracks.length);
+        }).toList();
+
+        await _savePlaylistsCache(updatedList, isSpotify: true);
+        state = state.copyWith(
+          spotify: state.spotify.copyWith(playlists: updatedList),
+        );
+        return updatedList.firstWhere((p) => p.id == playlistId);
+      } else if (source == MusicSource.youtube) {
+        final yt = InnerTubeMusicProvider(prefs: _prefs);
+        final tracks = await yt.fetchPlaylistTracks(playlistId);
+        if (tracks.isEmpty) return null;
+        await _db.saveTracks(tracks);
+
+        final updatedList = state.youtube.playlists.map((pl) {
+          if (pl.id != playlistId) return pl;
+          _db.setPlaylist(pl.title, tracks.map((t) => t.id).toList());
+          return pl.copyWith(tracks: tracks, trackCount: tracks.length);
+        }).toList();
+
+        await _savePlaylistsCache(updatedList, isSpotify: false);
+        state = state.copyWith(
+          youtube: state.youtube.copyWith(playlists: updatedList),
+        );
+        return updatedList.firstWhere((p) => p.id == playlistId);
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> setActiveSource(String source) async {
@@ -365,6 +566,8 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
   Future<void> disconnectYouTube() async {
     await _prefs.saveYtCookie('');
     await _prefs.saveYtSapisid('');
+    await _prefs.saveYtAuthUser('0');
+    await _prefs.saveYtPlaylistsCache('');
     await _prefs.saveGoogleClientId('');
     await _prefs.saveGoogleClientSecret('');
     await _prefs.saveYtUserProfile('', null);
@@ -380,7 +583,10 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
     await _prefs.saveSpotifyClientId('');
     await _prefs.saveSpotifyClientSecret('');
     await _prefs.saveSpotifyAccessToken('');
+    await _prefs.saveSpotifyClientToken('');
     await _prefs.saveSpotifySpDc('');
+    await _prefs.saveSpotifyPathfinderHashes('');
+    await _prefs.saveSpotifyPlaylistsCache('');
     await _prefs.saveSpotifyUserProfile('', null, '');
     await WebViewAuthBridge().clearPlatformSession('spotify');
     state = state.copyWith(

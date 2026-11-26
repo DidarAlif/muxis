@@ -55,6 +55,7 @@ class InnerTubeMusicProvider implements MusicProvider {
 
     final rawCookie = await _prefs.getYtCookie();
     final rawSapisid = await _prefs.getYtSapisid();
+    final authUser = await _prefs.getYtAuthUser();
 
     final cookie = rawCookie?.replaceAll(RegExp(r'[\r\n]'), ' ').trim();
     final sapisid = rawSapisid?.replaceAll(RegExp(r'[\r\n]'), ' ').trim();
@@ -65,6 +66,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       final hash = sha1.convert(utf8.encode(raw)).toString();
       headers['Authorization'] = 'SAPISIDHASH ${timestamp}_$hash';
       headers['X-Origin'] = _youtubeMusicOrigin;
+      headers['X-Goog-AuthUser'] = authUser;
 
       if (cookie != null && cookie.isNotEmpty) {
         headers['Cookie'] = cookie;
@@ -73,6 +75,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       }
     } else if (cookie != null && cookie.isNotEmpty) {
       headers['Cookie'] = cookie;
+      headers['X-Goog-AuthUser'] = authUser;
     }
 
     return headers;
