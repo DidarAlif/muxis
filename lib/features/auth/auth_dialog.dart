@@ -87,7 +87,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'MUXIS CLOUD',
                         style: TextStyle(
                           fontFamily: 'JetBrains Mono',

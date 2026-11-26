@@ -28,4 +28,27 @@ class Playlist {
 
   Duration get totalDuration =>
       tracks.fold(Duration.zero, (prev, t) => prev + t.duration);
+
+  Playlist copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? coverUrl,
+    String? artworkUrl,
+    bool? isCustom,
+    List<Track>? tracks,
+    DateTime? createdAt,
+    int? trackCount,
+  }) {
+    return Playlist(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      coverUrl: coverUrl ?? artworkUrl ?? this.coverUrl,
+      isCustom: isCustom ?? this.isCustom,
+      tracks: tracks ?? this.tracks,
+      createdAt: createdAt ?? this.createdAt,
+      trackCount: trackCount ?? _explicitTrackCount,
+    );
+  }
 }
