@@ -416,20 +416,55 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
 
     try {
       final sp = SpotifyMusicProvider(prefs: _prefs);
-      final profile = await sp.fetchUserProfile();
-      if (profile['displayName'] != null &&
-          profile['displayName']!.isNotEmpty) {
+      var playlists = await sp.fetchUserPlaylists(allowWebViewFallback: false);
+      var liked = await sp.fetchLikedTracks(allowWebViewFallback: false);
+      final webViewPlaylistTracks = <String, List<Track>>{};
+
+      String? resolvedName;
+      String? resolvedAvatar;
+      String? resolvedPlan;
+
+      if (playlists.isEmpty && liked.isEmpty) {
+        final wvSession = await sp.fetchSingleWebViewSyncSession();
+        if (wvSession != null && wvSession.isSuccess) {
+          if (wvSession.spotifyPlaylists.isNotEmpty) {
+            playlists = SpotifyMusicProvider.playlistsFromWebViewMaps(
+              wvSession.spotifyPlaylists,
+            );
+          }
+          if (wvSession.spotifyLikedTracks.isNotEmpty) {
+            liked = SpotifyMusicProvider.tracksFromWebViewMaps(
+              wvSession.spotifyLikedTracks,
+              isFavorite: true,
+            );
+          }
+          for (final entry in wvSession.spotifyPlaylistTracks.entries) {
+            if (entry.value.isNotEmpty) {
+              webViewPlaylistTracks[entry.key] =
+                  SpotifyMusicProvider.tracksFromWebViewMaps(entry.value);
+            }
+          }
+          resolvedName = wvSession.spotifyDisplayName;
+          resolvedAvatar = wvSession.spotifyAvatarUrl;
+          resolvedPlan = wvSession.spotifyProduct;
+        }
+      }
+
+      if (resolvedName == null || resolvedName.isEmpty) {
+        final profile = await sp.fetchUserProfile();
+        resolvedName = profile['displayName'];
+        resolvedAvatar = profile['avatarUrl'];
+        resolvedPlan = profile['product'];
+      }
+
+      if (resolvedName != null && resolvedName.isNotEmpty) {
         await _prefs.saveSpotifyUserProfile(
-          profile['displayName']!,
-          profile['avatarUrl'],
-          profile['product'] ?? state.spotify.planBadge ?? 'SPOTIFY BRIDGE',
+          resolvedName,
+          resolvedAvatar,
+          resolvedPlan ?? state.spotify.planBadge ?? 'SPOTIFY BRIDGE',
         );
       }
 
-      final playlists = await sp.fetchUserPlaylists(allowWebViewFallback: true);
-      await Future.delayed(const Duration(milliseconds: 300));
-      final liked = await sp.fetchLikedTracks(allowWebViewFallback: true);
-      await Future.delayed(const Duration(milliseconds: 300));
       final topTracks = await sp.fetchTopTracks();
 
       // Retain already hydrated tracks for playlists if we don't fetch all sequentially
@@ -440,9 +475,22 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       final hydratedPlaylists = <Playlist>[];
       int hydratedCount = 0;
       for (final pl in playlists) {
+        final wvTracks = webViewPlaylistTracks[pl.id];
+        if (wvTracks != null && wvTracks.isNotEmpty) {
+          await _db.saveTracks(wvTracks);
+          await _db.setPlaylist(pl.title, wvTracks.map((t) => t.id).toList());
+          hydratedPlaylists.add(
+            pl.copyWith(tracks: wvTracks, trackCount: wvTracks.length),
+          );
+          hydratedCount++;
+          continue;
+        }
+
         final prev = existingById[pl.id];
         if (hydratedCount < 5 && !sp.lastRequestWasRateLimited) {
-          await Future.delayed(const Duration(milliseconds: 350));
+          if (hydratedCount > 0) {
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
           final tracks = await sp.fetchPlaylistTracks(
             pl.id,
             allowWebViewFallback: false,
@@ -482,9 +530,15 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       state = state.copyWith(
         spotify: state.spotify.copyWith(
           isSyncing: false,
-          displayName: profile['displayName'] ?? state.spotify.displayName,
-          avatarUrl: profile['avatarUrl'] ?? state.spotify.avatarUrl,
-          planBadge: profile['product'] ?? state.spotify.planBadge,
+          displayName: (resolvedName != null && resolvedName.isNotEmpty)
+              ? resolvedName
+              : state.spotify.displayName,
+          avatarUrl: (resolvedAvatar != null && resolvedAvatar.isNotEmpty)
+              ? resolvedAvatar
+              : state.spotify.avatarUrl,
+          planBadge: (resolvedPlan != null && resolvedPlan.isNotEmpty)
+              ? resolvedPlan
+              : state.spotify.planBadge,
           playlists: hydratedPlaylists.isNotEmpty
               ? hydratedPlaylists
               : state.spotify.playlists,

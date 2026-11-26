@@ -21,6 +21,7 @@ class SpotifyMusicProvider implements MusicProvider {
   DateTime? _tokenExpiry;
   String? _cachedClientToken;
   bool lastRequestWasRateLimited = false;
+  static DateTime? _webApiCooldownUntil;
 
   static const String _webPlayerClientId = 'd8a5ed958d274c2e8ee717e6a4b0971d';
   static const String _browserUserAgent =
@@ -170,6 +171,12 @@ class SpotifyMusicProvider implements MusicProvider {
     Map<String, dynamic>? queryParameters,
   }) async {
     lastRequestWasRateLimited = false;
+    final cooldown = _webApiCooldownUntil;
+    if (cooldown != null && DateTime.now().isBefore(cooldown)) {
+      lastRequestWasRateLimited = true;
+      return null;
+    }
+
     var token = await _getAccessToken();
     if (token == null || token.isEmpty) return null;
 
@@ -213,23 +220,11 @@ class SpotifyMusicProvider implements MusicProvider {
       }
 
       if (res.statusCode == 429) {
+        final retryHeader = int.tryParse(res.headers.value('retry-after') ?? '');
+        final cooldownSec = (retryHeader ?? 60).clamp(30, 120);
+        _webApiCooldownUntil = DateTime.now().add(Duration(seconds: cooldownSec));
         lastRequestWasRateLimited = true;
-        final retryHeader = res.headers.value('retry-after');
-        final waitSec = (int.tryParse(retryHeader ?? '') ?? 2).clamp(1, 3);
-        await Future.delayed(Duration(seconds: waitSec));
-        res = await _dio.get(
-          url,
-          queryParameters: queryParameters,
-          options: Options(
-            headers: buildHeaders(token),
-            validateStatus: (s) => s != null && s < 500,
-          ),
-        );
-        if (res.statusCode == 429) {
-          lastRequestWasRateLimited = true;
-          return null;
-        }
-        lastRequestWasRateLimited = false;
+        return null;
       }
 
       return res;
@@ -496,6 +491,16 @@ class SpotifyMusicProvider implements MusicProvider {
     return getFeaturedTracks();
   }
 
+  /// Runs a single hidden WebView2 sync pass on Windows and persists captured tokens + profile.
+  Future<WebViewAuthSession?> fetchSingleWebViewSyncSession() async {
+    if (!Platform.isWindows) return null;
+    final session = await WebViewAuthBridge().syncSpotifyLibraryViaWebView();
+    if (session != null && session.isSuccess) {
+      await _persistSessionMetadata(session);
+    }
+    return session;
+  }
+
   Future<void> _persistSessionMetadata(WebViewAuthSession session) async {
     if (session.spotifyAccessToken != null &&
         session.spotifyAccessToken!.isNotEmpty) {
@@ -740,19 +745,45 @@ class SpotifyMusicProvider implements MusicProvider {
     final cleanId =
         track.id.startsWith('sp-') ? track.id.replaceFirst('sp-', '') : track.id;
 
-    if (!cleanId.startsWith('sp-') && cleanId.length == 11) {
-      return _innerTubeBridge.resolveAudioStreamUrl(track.copyWith(id: cleanId));
+    if (!cleanId.startsWith('sp-') &&
+        cleanId.length == 11 &&
+        !cleanId.contains(' ') &&
+        RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(cleanId)) {
+      final direct =
+          await _innerTubeBridge.resolveAudioStreamUrl(track.copyWith(id: cleanId));
+      if (direct != null && direct.isNotEmpty) return direct;
     }
 
     try {
       final cleanTitle = track.title
-          .replaceAll(RegExp(r'\s*\(.*?Remaster.*?\)', caseSensitive: false), '')
-          .replaceAll(RegExp(r'\s*-\s*Remaster.*', caseSensitive: false), '')
+          .replaceAll(
+            RegExp(
+              r'\s*[\(\[].*?(feat\.|ft\.|remaster|deluxe|version|live|edit|mix|radio|explicit|from).*?[\)\]]',
+              caseSensitive: false,
+            ),
+            '',
+          )
+          .replaceAll(
+            RegExp(r'\s*[-–]\s*(remaster|live|deluxe|single|radio).*', caseSensitive: false),
+            '',
+          )
           .trim();
-      final searchQuery = '${track.artist} - $cleanTitle audio';
-      final matches = await _innerTubeBridge.search(searchQuery);
-      if (matches.isNotEmpty) {
-        return _innerTubeBridge.resolveAudioStreamUrl(matches.first);
+      final effectiveTitle = cleanTitle.isNotEmpty ? cleanTitle : track.title;
+      final cleanArtist = track.artist
+          .replaceAll(RegExp(r'\s*\b(feat\.|ft\.)\b.*', caseSensitive: false), '')
+          .trim();
+      final effectiveArtist = cleanArtist.isNotEmpty ? cleanArtist : track.artist;
+
+      final searchQuery = '$effectiveArtist $effectiveTitle'.trim();
+      var matches = await _innerTubeBridge.search(searchQuery, songsOnly: true);
+      if (matches.isEmpty) {
+        matches = await _innerTubeBridge.search(searchQuery);
+      }
+      for (final match in matches.take(3)) {
+        final resolved = await _innerTubeBridge.resolveAudioStreamUrl(match);
+        if (resolved != null && resolved.isNotEmpty) {
+          return resolved;
+        }
       }
     } catch (_) {}
 

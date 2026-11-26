@@ -22,6 +22,8 @@ class InnerTubeMusicProvider implements MusicProvider {
   static const String _youtubeiBaseUrl = 'https://music.youtube.com/youtubei/v1';
   static const String _youtubePlayerUrl = 'https://www.youtube.com/youtubei/v1/player';
 
+  static const String _androidUserAgent =
+      'com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip';
   static const String _iosUserAgent =
       'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)';
   static const String _androidVrUserAgent =
@@ -188,14 +190,15 @@ class InnerTubeMusicProvider implements MusicProvider {
   }
 
   @override
-  Future<List<Track>> search(String query) async {
+  Future<List<Track>> search(String query, {bool songsOnly = false}) async {
     if (query.trim().isEmpty) return [];
 
     try {
       final headers = await _buildHeaders();
-      final body = {
+      final body = <String, dynamic>{
         'context': _webRemixContext,
         'query': query,
+        if (songsOnly) 'params': 'EgWKAQIIAWoMEAMQBBAJEAoQBRAV',
       };
 
       final response = await _dio.post(
@@ -525,24 +528,95 @@ class InnerTubeMusicProvider implements MusicProvider {
       return track.streamUrl;
     }
 
-    final videoId = track.id.startsWith('yt-') ? track.id.replaceFirst('yt-', '') : track.id;
+    final videoId =
+        track.id.startsWith('yt-') ? track.id.replaceFirst('yt-', '') : track.id;
 
-    // Strategy 1: iOS client (direct unencrypted audio URLs)
+    // Strategy 1: ANDROID 20.10.38 unauthenticated progressive MP4 (itag=18)
+    // Streams reliably past 1MB via bare HTTP GET without PoToken 403 errors.
+    final androidUrl = await _resolveWithClient(
+      videoId: videoId,
+      clientName: 'ANDROID',
+      clientVersion: '20.10.38',
+      userAgent: _androidUserAgent,
+      androidSdkVersion: 34,
+      sendAuthHeaders: false,
+      preferProgressiveFormats: true,
+    );
+    if (androidUrl != null) return androidUrl;
+
+    // Strategy 2: ANDROID 20.10.38 authenticated (for age/account-gated tracks)
+    final androidAuthedUrl = await _resolveWithClient(
+      videoId: videoId,
+      clientName: 'ANDROID',
+      clientVersion: '20.10.38',
+      userAgent: _androidUserAgent,
+      androidSdkVersion: 34,
+      sendAuthHeaders: true,
+      preferProgressiveFormats: true,
+    );
+    if (androidAuthedUrl != null) return androidAuthedUrl;
+
+    // Strategy 3: IOS client fallback (verified directly playable)
     final iosUrl = await _resolveWithClient(
       videoId: videoId,
       clientName: 'IOS',
       clientVersion: '21.03.1',
       userAgent: _iosUserAgent,
+      sendAuthHeaders: true,
+      preferProgressiveFormats: true,
     );
     if (iosUrl != null) return iosUrl;
 
-    // Strategy 2: ANDROID_VR fallback
+    // Strategy 4: ANDROID_VR fallback
     return _resolveWithClient(
       videoId: videoId,
       clientName: 'ANDROID_VR',
       clientVersion: '1.56.21',
       userAgent: _androidVrUserAgent,
+      sendAuthHeaders: false,
+      preferProgressiveFormats: true,
     );
+  }
+
+  Future<bool> _isUrlDirectlyPlayable(
+    String url, {
+    bool checkPast1Mb = false,
+  }) async {
+    try {
+      final res = await _dio.get<List<int>>(
+        url,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: const {'Range': 'bytes=0-1023'},
+          receiveTimeout: const Duration(seconds: 4),
+          sendTimeout: const Duration(seconds: 4),
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+      if (res.statusCode != 200 && res.statusCode != 206) {
+        return false;
+      }
+      if (checkPast1Mb) {
+        final res2 = await _dio.get<List<int>>(
+          url,
+          options: Options(
+            responseType: ResponseType.bytes,
+            headers: const {'Range': 'bytes=1048576-1049599'},
+            receiveTimeout: const Duration(seconds: 4),
+            sendTimeout: const Duration(seconds: 4),
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+        if (res2.statusCode != 206 &&
+            res2.statusCode != 200 &&
+            res2.statusCode != 416) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<String?> _resolveWithClient({
@@ -550,30 +624,81 @@ class InnerTubeMusicProvider implements MusicProvider {
     required String clientName,
     required String clientVersion,
     required String userAgent,
+    int? androidSdkVersion,
+    bool sendAuthHeaders = true,
+    bool preferProgressiveFormats = false,
   }) async {
     try {
-      final headers = await _buildHeaders(userAgent: userAgent);
-      final body = {
-        'context': {
-          'client': {
-            'clientName': clientName,
-            'clientVersion': clientVersion,
-            'hl': 'en',
-            'gl': 'US',
-          }
+      final headers = sendAuthHeaders
+          ? await _buildHeaders(userAgent: userAgent)
+          : <String, String>{
+              'Content-Type': 'application/json',
+              'User-Agent': userAgent,
+            };
+      final clientMap = <String, dynamic>{
+        'clientName': clientName,
+        'clientVersion': clientVersion,
+        'hl': 'en',
+        'gl': 'US',
+        if (androidSdkVersion != null) ...{
+          'androidSdkVersion': androidSdkVersion,
+          'osName': 'Android',
+          'osVersion': '14',
         },
+      };
+      final body = {
+        'context': {'client': clientMap},
         'videoId': videoId,
       };
 
       final response = await _dio.post(
         _youtubePlayerUrl,
         data: body,
-        options: Options(headers: headers),
+        options: Options(
+          headers: headers,
+          validateStatus: (s) => s != null && s < 500,
+        ),
       );
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
-        final adaptiveFormats = data['streamingData']?['adaptiveFormats'] as List?;
+        final streamingData = data['streamingData'] as Map<String, dynamic>?;
+        if (streamingData == null) return null;
+
+        if (preferProgressiveFormats) {
+          final progressive = streamingData['formats'] as List?;
+          if (progressive != null) {
+            final mp4Candidates = <Map<String, dynamic>>[];
+            for (final fmt in progressive) {
+              if (fmt is Map<String, dynamic>) {
+                final mime = (fmt['mimeType'] as String?) ?? '';
+                final url = fmt['url'] as String?;
+                if (url != null &&
+                    url.isNotEmpty &&
+                    (mime.contains('mp4') || fmt['itag'] == 18)) {
+                  mp4Candidates.add(fmt);
+                }
+              }
+            }
+            // Prefer itag=18 (AAC + H.264 progressive MP4, fast and universally supported)
+            mp4Candidates.sort((a, b) {
+              final aIs18 = a['itag'] == 18;
+              final bIs18 = b['itag'] == 18;
+              if (aIs18 != bIs18) return aIs18 ? -1 : 1;
+              final brA = (a['bitrate'] as num?)?.toInt() ?? 0;
+              final brB = (b['bitrate'] as num?)?.toInt() ?? 0;
+              return brA.compareTo(brB);
+            });
+            for (final candidate in mp4Candidates) {
+              final url = candidate['url'] as String?;
+              if (url != null && await _isUrlDirectlyPlayable(url)) {
+                return url;
+              }
+            }
+          }
+        }
+
+        final adaptiveFormats = streamingData['adaptiveFormats'] as List?;
         if (adaptiveFormats != null) {
           final audioStreams = <Map<String, dynamic>>[];
           for (final fmt in adaptiveFormats) {
@@ -590,15 +715,23 @@ class InnerTubeMusicProvider implements MusicProvider {
             // Windows Media Foundation handles audio/mp4 (AAC M4A) most reliably natively
             audioStreams.sort((a, b) {
               if (Platform.isWindows) {
-                final aMp4 = ((a['mimeType'] as String?) ?? '').contains('audio/mp4');
-                final bMp4 = ((b['mimeType'] as String?) ?? '').contains('audio/mp4');
+                final aMp4 =
+                    ((a['mimeType'] as String?) ?? '').contains('audio/mp4');
+                final bMp4 =
+                    ((b['mimeType'] as String?) ?? '').contains('audio/mp4');
                 if (aMp4 != bMp4) return aMp4 ? -1 : 1;
               }
               final brA = (a['bitrate'] as num?)?.toInt() ?? 0;
               final brB = (b['bitrate'] as num?)?.toInt() ?? 0;
               return brB.compareTo(brA);
             });
-            return audioStreams.first['url'] as String?;
+            for (final candidate in audioStreams.take(2)) {
+              final url = candidate['url'] as String?;
+              if (url != null &&
+                  await _isUrlDirectlyPlayable(url, checkPast1Mb: true)) {
+                return url;
+              }
+            }
           }
         }
       }

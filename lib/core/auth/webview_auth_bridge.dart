@@ -526,10 +526,11 @@ class WebViewAuthBridge {
           : 'https://open.spotify.com/collection/tracks';
       webview.launch(targetUrl);
 
-      final maxTicks = quickTokenOnly ? 10 : 14;
+      final maxTicks = quickTokenOnly ? 6 : 10;
+      bool navigatedLiked = false;
       WebViewAuthSession? captured;
       for (int i = 0; i < maxTicks; i++) {
-        await Future.delayed(const Duration(milliseconds: 650));
+        await Future.delayed(const Duration(milliseconds: 450));
         final raw = await webview.evaluateJavaScript(
           'window.__muxisReadSession ? window.__muxisReadSession() : null',
         );
@@ -564,6 +565,16 @@ class WebViewAuthBridge {
         if (targetPlaylistId == null &&
             playlists.isNotEmpty &&
             liked.isNotEmpty) {
+          break;
+        }
+        // On /collection/tracks, once liked songs arrive OR after ~2.7s with playlists already captured
+        if (targetPlaylistId == null && !navigatedLiked && i >= 3) {
+          navigatedLiked = true;
+          if (!href.contains('/collection/tracks')) {
+            webview.launch('https://open.spotify.com/collection/tracks');
+          }
+        }
+        if (targetPlaylistId == null && i >= 6 && captured != null) {
           break;
         }
       }
@@ -653,67 +664,140 @@ class WebViewAuthBridge {
       webview.addScriptToExecuteOnDocumentCreated(_ytHookScript);
       webview.launch(loginUrl);
 
-      poller = Timer.periodic(const Duration(milliseconds: 750), (_) async {
+      const inlineYtProbe = r'''
+(function() {
+  try {
+    if (window.__muxisReadYtState) return window.__muxisReadYtState();
+    var href = window.location.href || '';
+    var host = window.location.hostname || '';
+    var loggedIn = false;
+    try {
+      if (window.ytcfg && typeof window.ytcfg.get === 'function') {
+        loggedIn = Boolean(window.ytcfg.get('LOGGED_IN'));
+      }
+    } catch (_) {}
+    if (!loggedIn && host.indexOf('music.youtube.com') !== -1 && document.body) {
+      var hasAvatar = Boolean(document.querySelector('#avatar-btn, ytmusic-settings-button, img.yt-img-shadow[src*="googleusercontent"], button[aria-label*="Account"]'));
+      var hasSignIn = Boolean(document.querySelector('a.sign-in-link, a[href*="accounts.google.com/ServiceLogin"]'));
+      if (hasAvatar && !hasSignIn) loggedIn = true;
+    }
+    var blocked = false;
+    if (host.indexOf('accounts.google.com') !== -1 && document.body) {
+      var txt = (document.body.innerText || '').toLowerCase();
+      if (txt.indexOf('browser or app may not be secure') !== -1 ||
+          txt.indexOf('disallowed_useragent') !== -1) {
+        blocked = true;
+      }
+    }
+    return JSON.stringify({
+      url: href,
+      host: host,
+      loggedIn: loggedIn,
+      authUser: window.__muxisYtAuthUser || '0',
+      cookies: document.cookie || '',
+      blocked: blocked
+    });
+  } catch (e) {
+    return JSON.stringify({
+      url: window.location.href || '',
+      host: window.location.hostname || '',
+      loggedIn: false,
+      authUser: '0',
+      cookies: '',
+      blocked: false
+    });
+  }
+})()
+''';
+
+      poller = Timer.periodic(const Duration(milliseconds: 550), (_) async {
         if (finished) return;
         try {
-          final rawJson = await webview.evaluateJavaScript(
-            'window.__muxisReadYtState ? window.__muxisReadYtState() : JSON.stringify({url: window.location.href, host: window.location.hostname, loggedIn: false})',
-          );
+          final rawJson = await webview.evaluateJavaScript(inlineYtProbe);
           final stateMap = _decodeEvalMap(rawJson);
           final href = (stateMap?['url'] as String?) ?? '';
           final host =
               (stateMap?['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
           final ytLoggedIn = stateMap?['loggedIn'] == true;
           final authUser = (stateMap?['authUser'] as String?) ?? '0';
+          final docCookieStr = (stateMap?['cookies'] as String?) ?? '';
           if (stateMap?['blocked'] == true) {
             sawGoogleBlockBanner = true;
           }
 
           if (host.endsWith('music.youtube.com')) {
-            final cookies = await webview.getAllCookies();
             String? sapisid;
-            final cookiePairs = <String>[];
+            final cookieMap = <String, String>{};
             bool hasLoginCookie = false;
 
-            for (final c in cookies) {
-              if (c.domain.contains('youtube.com') ||
-                  c.domain.contains('google.com')) {
-                if (c.value.isNotEmpty) {
-                  cookiePairs.add('${c.name}=${c.value}');
+            // 1. Parse non-HttpOnly cookies straight from document.cookie first (never throws)
+            for (final pair in docCookieStr.split(';')) {
+              final idx = pair.indexOf('=');
+              if (idx <= 0) continue;
+              final k = pair.substring(0, idx).trim();
+              final v = pair.substring(idx + 1).trim();
+              if (k.isEmpty || v.isEmpty) continue;
+              cookieMap[k] = v;
+            }
+
+            // 2. Merge full HttpOnly jar safely (WebviewCookie.fromJson can fail on edge expiry dates)
+            try {
+              final jarCookies = await webview.getAllCookies();
+              for (final c in jarCookies) {
+                if (c.domain.contains('youtube.com') ||
+                    c.domain.contains('google.com')) {
+                  if (c.name.isNotEmpty && c.value.isNotEmpty) {
+                    cookieMap[c.name] = c.value;
+                  }
                 }
-                if (c.name == 'SAPISID' && c.value.isNotEmpty) {
-                  sapisid = c.value;
-                } else if ((c.name == '__Secure-3PAPISID' ||
-                        c.name == '__Secure-1PAPISID') &&
-                    c.value.isNotEmpty &&
-                    (sapisid == null || sapisid.isEmpty)) {
-                  sapisid = c.value;
-                }
-                if (c.name == 'SID' ||
-                    c.name == 'HSID' ||
-                    c.name == 'SSID' ||
-                    c.name == 'APISID' ||
-                    c.name == 'SIDCC' ||
-                    c.name == 'LOGIN_INFO' ||
-                    c.name == '__Secure-1PSID' ||
-                    c.name == '__Secure-3PSID') {
-                  hasLoginCookie = true;
-                }
+              }
+            } catch (_) {}
+
+            sapisid = cookieMap['SAPISID'] ??
+                cookieMap['__Secure-3PAPISID'] ??
+                cookieMap['__Secure-1PAPISID'];
+
+            for (final loginKey in const [
+              'SID',
+              'HSID',
+              'SSID',
+              'APISID',
+              'SIDCC',
+              'LOGIN_INFO',
+              '__Secure-1PSID',
+              '__Secure-3PSID',
+            ]) {
+              if ((cookieMap[loginKey] ?? '').isNotEmpty) {
+                hasLoginCookie = true;
+                break;
               }
             }
 
-            if (sapisid != null &&
-                sapisid.isNotEmpty &&
-                (hasLoginCookie || ytLoggedIn)) {
+            final signedInConfirmed =
+                ((sapisid != null && sapisid.isNotEmpty) &&
+                    (hasLoginCookie || ytLoggedIn)) ||
+                (ytLoggedIn && cookieMap.isNotEmpty);
+
+            if (signedInConfirmed) {
+              // Silence any media inside the popup before closing immediately
+              try {
+                await webview.evaluateJavaScript(
+                  "document.querySelectorAll('video,audio').forEach(function(m){try{m.pause();m.src='';}catch(_){}});",
+                );
+              } catch (_) {}
+
+              final cookieHeader = cookieMap.entries
+                  .map((e) => '${e.key}=${e.value}')
+                  .join('; ');
               final captured = WebViewAuthSession(
                 isSuccess: true,
                 sapisid: sapisid,
-                cookieHeader: cookiePairs.join('; '),
+                cookieHeader: cookieHeader,
                 ytAuthUser: authUser,
               );
               lastCapturedSession = captured;
-              webview.close();
               completeOnce(captured);
+              webview.close();
             }
           }
         } catch (_) {
@@ -801,7 +885,7 @@ class WebViewAuthBridge {
       webview.addScriptToExecuteOnDocumentCreated(_spotifyHookScript);
       webview.launch(loginUrl);
 
-      poller = Timer.periodic(const Duration(milliseconds: 700), (_) async {
+      poller = Timer.periodic(const Duration(milliseconds: 450), (_) async {
         if (finished) return;
         try {
           final rawJson = await webview.evaluateJavaScript(
@@ -830,12 +914,12 @@ class WebViewAuthBridge {
             final elapsedMs =
                 DateTime.now().difference(authDetectedAt!).inMilliseconds;
 
-            // Let Spotify Web Player finish firing libraryV3 + profileAttributes,
-            // then briefly visit /collection/tracks so Liked Songs also populate cleanly.
+            // Let Spotify Web Player fire libraryV3 + profileAttributes briefly,
+            // then visit /collection/tracks once so Liked Songs also populate cleanly.
             if (captured.spotifyPlaylists.isNotEmpty &&
                 captured.spotifyLikedTracks.isEmpty &&
                 !navigatedLiked &&
-                elapsedMs >= 1400) {
+                elapsedMs >= 750) {
               navigatedLiked = true;
               webview.launch('https://open.spotify.com/collection/tracks');
               return;
@@ -843,7 +927,7 @@ class WebViewAuthBridge {
 
             final readyFull = captured.spotifyPlaylists.isNotEmpty &&
                 captured.spotifyLikedTracks.isNotEmpty;
-            if (readyFull || elapsedMs >= 4800) {
+            if (readyFull || elapsedMs >= 3200) {
               webview.close();
               completeOnce(captured);
             }

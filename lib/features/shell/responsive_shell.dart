@@ -122,6 +122,23 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String?>(
+      playbackServiceProvider.select((s) => s.errorMessage),
+      (prev, next) {
+        if (next != null && next.isNotEmpty && next != prev && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      },
+    );
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 768;

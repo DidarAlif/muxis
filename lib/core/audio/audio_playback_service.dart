@@ -204,10 +204,22 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       }
 
       if (playUri == null || playUri.isEmpty) {
-        // If stream resolution fails, attempt fallback query
-        final fallbackTracks = await _innerTubeProvider.search('${track.artist} ${track.title}');
-        if (fallbackTracks.isNotEmpty) {
-          playUri = await _innerTubeProvider.resolveAudioStreamUrl(fallbackTracks.first);
+        // Clean noisy parenthetical tags and retry with InnerTube songs search
+        final cleanedTitle = track.title
+            .replaceAll(
+              RegExp(r'\s*[\(\[].*?(feat\.|ft\.|remaster|deluxe|version|live|edit|mix|radio).*?[\)\]]',
+                  caseSensitive: false),
+              '',
+            )
+            .trim();
+        final cleanQuery = '${track.artist} ${cleanedTitle.isNotEmpty ? cleanedTitle : track.title}'.trim();
+        var fallbackTracks = await _innerTubeProvider.search(cleanQuery, songsOnly: true);
+        if (fallbackTracks.isEmpty) {
+          fallbackTracks = await _innerTubeProvider.search(cleanQuery);
+        }
+        for (final candidate in fallbackTracks.take(2)) {
+          playUri = await _innerTubeProvider.resolveAudioStreamUrl(candidate);
+          if (playUri != null && playUri.isNotEmpty) break;
         }
       }
 
@@ -217,19 +229,9 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
           await _player.stop();
         } catch (_) {}
 
-        if (Platform.isWindows) {
-          // just_audio_windows crashes with 0xc0000005 if custom headers are passed to WinRT MediaPlayer
-          await _player.setUrl(playUri);
-        } else {
-          await _player.setUrl(
-            playUri,
-            headers: {
-              'User-Agent':
-                  'com.google.ios.youtube/21.03.1 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)',
-              'Accept': '*/*',
-            },
-          );
-        }
+        // Resolved ANDROID progressive / verified direct URLs stream cleanly
+        // without custom request headers on Windows, Android, macOS, and Linux.
+        await _player.setUrl(playUri);
         await _player.play();
         _databaseService?.recordHistory(track.id);
       } else {

@@ -1171,7 +1171,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'v1.1.1 (Browser Login, Pathfinder Sync, Dual Stream Hubs & Spectrum)',
+                      'v1.1.2 (Auto-Closing Web Auth, Playable Bridge Streams & Fast Sync)',
                       style: TextStyle(
                         fontSize: 12,
                         color: MuxisColors.textMuted(isDark),

@@ -376,19 +376,22 @@ class StreamingOAuthService {
         ? fallbackProduct
         : 'SPOTIFY AD-FREE BRIDGE';
 
-    try {
-      final profile = await sp.fetchUserProfile();
-      if (profile['displayName'] != null &&
-          profile['displayName']!.isNotEmpty) {
-        displayName = profile['displayName']!;
-      }
-      if (profile['avatarUrl'] != null && profile['avatarUrl']!.isNotEmpty) {
-        avatarUrl = profile['avatarUrl'];
-      }
-      if (profile['product'] != null && profile['product']!.isNotEmpty) {
-        product = profile['product']!;
-      }
-    } catch (_) {}
+    if (fallbackDisplayName == null || fallbackDisplayName.isEmpty) {
+      try {
+        final profile = await sp.fetchUserProfile();
+        if (profile['displayName'] != null &&
+            profile['displayName']!.isNotEmpty) {
+          displayName = profile['displayName']!;
+        }
+        if (profile['avatarUrl'] != null &&
+            profile['avatarUrl']!.isNotEmpty) {
+          avatarUrl = profile['avatarUrl'];
+        }
+        if (profile['product'] != null && profile['product']!.isNotEmpty) {
+          product = profile['product']!;
+        }
+      } catch (_) {}
+    }
 
     await _prefs.saveSpotifyUserProfile(displayName, avatarUrl, product);
     await _prefs.saveActiveSource('spotify');
@@ -402,10 +405,10 @@ class StreamingOAuthService {
         playlistsCount = playlists.length;
         await _savePlaylistsCache(_prefs, playlists, isSpotify: true);
 
-        // Gently hydrate top 5 playlists with pacing to avoid Spotify 429 bursts;
-        // remaining playlists hydrate on-demand when opened in Spotify Hub.
+        // Gently hydrate top 5 playlists via Pathfinder/cached API; stop immediately on 429
         for (final pl in playlists.take(5)) {
-          await Future.delayed(const Duration(milliseconds: 350));
+          if (sp.lastRequestWasRateLimited) break;
+          await Future.delayed(const Duration(milliseconds: 120));
           final tracks = await sp.fetchPlaylistTracks(
             pl.id,
             allowWebViewFallback: false,
@@ -422,9 +425,8 @@ class StreamingOAuthService {
       }
     } catch (_) {}
 
-    if (seedTracksCount == 0) {
+    if (seedTracksCount == 0 && !sp.lastRequestWasRateLimited) {
       try {
-        await Future.delayed(const Duration(milliseconds: 350));
         final liked = await sp.fetchLikedTracks(allowWebViewFallback: false);
         if (liked.isNotEmpty) {
           await _db.saveTracks(liked);
