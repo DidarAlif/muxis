@@ -66,6 +66,32 @@ class WebViewAuthSession {
 /// sessions & live Spotify Web Player data automatically without developer keys
 /// or manual cookie copying.
 class WebViewAuthBridge {
+  static Future<void> _ytProfileLock = Future.value();
+  static Future<void> _spProfileLock = Future.value();
+
+  static Future<T> _withProfileLock<T>(
+    bool isSpotify,
+    Future<T> Function() action,
+  ) {
+    final prev = isSpotify ? _spProfileLock : _ytProfileLock;
+    final completer = Completer<void>();
+    if (isSpotify) {
+      _spProfileLock = completer.future;
+    } else {
+      _ytProfileLock = completer.future;
+    }
+
+    return prev.catchError((_) {}).then((_) => action()).whenComplete(() {
+      if (!completer.isCompleted) completer.complete();
+    });
+  }
+
+  static String _sanitizeAscii(String raw) {
+    return raw
+        .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+        .replaceAll(RegExp(r'[^\x20-\x7E]'), '')
+        .trim();
+  }
   static bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
@@ -519,82 +545,83 @@ class WebViewAuthBridge {
     bool quickTokenOnly = false,
   }) async {
     if (!_isDesktop || !Platform.isWindows) return null;
-    try {
-      if (!await WebviewWindow.isWebviewAvailable()) return null;
-      final webview = await WebviewWindow.create(
-        configuration: const CreateConfiguration(
-          windowWidth: 960,
-          windowHeight: 700,
-          titleBarHeight: 0,
-          title: 'MUXIS Background Sync',
-          openHidden: true,
-          userDataFolderWindows: 'muxis_sp_session',
-        ),
-      );
-
-      webview.addScriptToExecuteOnDocumentCreated(_spotifyHookScript);
-      final targetUrl = targetPlaylistId != null && targetPlaylistId.isNotEmpty
-          ? 'https://open.spotify.com/playlist/$targetPlaylistId'
-          : 'https://open.spotify.com/collection/tracks';
-      webview.launch(targetUrl);
-
-      final maxTicks = quickTokenOnly ? 6 : 10;
-      bool navigatedLiked = false;
-      WebViewAuthSession? captured;
-      for (int i = 0; i < maxTicks; i++) {
-        await Future.delayed(const Duration(milliseconds: 450));
-        final raw = await webview.evaluateJavaScript(
-          'window.__muxisReadSession ? window.__muxisReadSession() : null',
-        );
-        final decoded = _decodeEvalMap(raw);
-        if (decoded == null) continue;
-
-        final href = (decoded['url'] as String?) ?? '';
-        final host = Uri.tryParse(href)?.host ?? '';
-        if (host.contains('accounts.spotify.com')) {
-          // User not logged into saved WebView2 profile anymore
-          break;
-        }
-
-        final token = decoded['token'] as String?;
-        if (token == null || token.isEmpty) continue;
-
-        final playlists = _castMapList(decoded['playlists']);
-        final liked = _castMapList(decoded['likedTracks']);
-        final plTracks = _castPlaylistTracksMap(decoded['playlistTracks']);
-
-        captured = _sessionFromDecodedSpotify(
-          decoded: decoded,
-          spDc: await _extractSpDcCookie(webview),
+    return _withProfileLock<WebViewAuthSession?>(true, () async {
+      try {
+        if (!await WebviewWindow.isWebviewAvailable()) return null;
+        final webview = await WebviewWindow.create(
+          configuration: const CreateConfiguration(
+            windowWidth: 960,
+            windowHeight: 700,
+            titleBarHeight: 0,
+            title: 'MUXIS Background Sync',
+            openHidden: true,
+            userDataFolderWindows: 'muxis_sp_session',
+          ),
         );
 
-        if (quickTokenOnly) break;
-        if (targetPlaylistId != null &&
-            plTracks.containsKey(targetPlaylistId) &&
-            plTracks[targetPlaylistId]!.isNotEmpty) {
-          break;
-        }
-        if (targetPlaylistId == null &&
-            playlists.isNotEmpty &&
-            liked.isNotEmpty) {
-          break;
-        }
-        // On /collection/tracks, once liked songs arrive OR after ~2.7s with playlists already captured
-        if (targetPlaylistId == null && !navigatedLiked && i >= 3) {
-          navigatedLiked = true;
-          if (!href.contains('/collection/tracks')) {
-            webview.launch('https://open.spotify.com/collection/tracks');
+        webview.addScriptToExecuteOnDocumentCreated(_spotifyHookScript);
+        final targetUrl = targetPlaylistId != null && targetPlaylistId.isNotEmpty
+            ? 'https://open.spotify.com/playlist/$targetPlaylistId'
+            : 'https://open.spotify.com/collection/tracks';
+        webview.launch(targetUrl);
+
+        final maxTicks = quickTokenOnly ? 6 : 12;
+        bool navigatedLiked = false;
+        WebViewAuthSession? captured;
+        for (int i = 0; i < maxTicks; i++) {
+          await Future.delayed(const Duration(milliseconds: 450));
+          final raw = await webview.evaluateJavaScript(
+            'window.__muxisReadSession ? window.__muxisReadSession() : null',
+          );
+          final decoded = _decodeEvalMap(raw);
+          if (decoded == null) continue;
+
+          final href = (decoded['url'] as String?) ?? '';
+          final host = Uri.tryParse(href)?.host ?? '';
+          if (host.contains('accounts.spotify.com')) {
+            break;
+          }
+
+          final token = decoded['token'] as String?;
+          if (token == null || token.isEmpty) continue;
+
+          final playlists = _castMapList(decoded['playlists']);
+          final liked = _castMapList(decoded['likedTracks']);
+          final plTracks = _castPlaylistTracksMap(decoded['playlistTracks']);
+
+          captured = _sessionFromDecodedSpotify(
+            decoded: decoded,
+            spDc: await _extractSpDcCookie(webview),
+          );
+
+          if (quickTokenOnly) break;
+          if (targetPlaylistId != null &&
+              plTracks.containsKey(targetPlaylistId) &&
+              plTracks[targetPlaylistId]!.isNotEmpty) {
+            break;
+          }
+          if (targetPlaylistId == null &&
+              playlists.isNotEmpty &&
+              liked.isNotEmpty) {
+            break;
+          }
+          if (targetPlaylistId == null && !navigatedLiked && i >= 3) {
+            navigatedLiked = true;
+            if (!href.contains('/collection/tracks')) {
+              webview.launch('https://open.spotify.com/collection/tracks');
+            }
+          }
+          if (targetPlaylistId == null && i >= 7 && captured != null) {
+            break;
           }
         }
-        if (targetPlaylistId == null && i >= 6 && captured != null) {
-          break;
-        }
+        webview.close();
+        await Future.delayed(const Duration(milliseconds: 350));
+        return captured;
+      } catch (_) {
+        return null;
       }
-      webview.close();
-      return captured;
-    } catch (_) {
-      return null;
-    }
+    });
   }
 
   /// Silently runs a hidden YouTube Music WebView2 sync reusing `muxis_yt_session` cookies
@@ -604,27 +631,29 @@ class WebViewAuthBridge {
     String? targetPlaylistId,
   }) async {
     if (!_isDesktop || !Platform.isWindows) return null;
-    try {
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!await WebviewWindow.isWebviewAvailable()) return null;
-      final webview = await WebviewWindow.create(
-        configuration: const CreateConfiguration(
-          windowWidth: 960,
-          windowHeight: 700,
-          titleBarHeight: 0,
-          title: 'MUXIS YouTube Background Sync',
-          openHidden: true,
-          userDataFolderWindows: 'muxis_yt_session',
-        ),
-      );
+    return _withProfileLock<WebViewAuthSession?>(false, () async {
+      try {
+        await Future.delayed(const Duration(milliseconds: 350));
+        if (!await WebviewWindow.isWebviewAvailable()) return null;
+        final webview = await WebviewWindow.create(
+          configuration: const CreateConfiguration(
+            windowWidth: 960,
+            windowHeight: 700,
+            titleBarHeight: 0,
+            title: 'MUXIS YouTube Background Sync',
+            openHidden: true,
+            userDataFolderWindows: 'muxis_yt_session',
+          ),
+        );
 
-      final targetPl = (targetPlaylistId ?? '').replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
-      final startUrl = targetPl.isNotEmpty
-          ? 'https://music.youtube.com/playlist?list=${targetPl.startsWith('VL') ? targetPl.substring(2) : targetPl}'
-          : 'https://music.youtube.com/';
-      webview.launch(startUrl);
+        final targetPl =
+            (targetPlaylistId ?? '').replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+        final startUrl = targetPl.isNotEmpty
+            ? 'https://music.youtube.com/playlist?list=${targetPl.startsWith('VL') ? targetPl.substring(2) : targetPl}'
+            : 'https://music.youtube.com/';
+        webview.launch(startUrl);
 
-      final ytSyncBootstrap = '''
+        final ytSyncBootstrap = '''
 (function() {
   try {
     if (window.__muxisYtSyncStarted) return JSON.stringify(window.__muxisYtSyncResult || { done: false });
@@ -642,20 +671,35 @@ class WebViewAuthBridge {
         var apiKey = window.ytcfg.get('INNERTUBE_API_KEY') || '';
         var authUser = String(window.ytcfg.get('SESSION_INDEX') || '0');
         var cookieStr = document.cookie || '';
-        var m = cookieStr.match(/(?:^|;\\s*)(?:SAPISID|__Secure-3PAPISID|__Secure-1PAPISID)=([^;]+)/);
-        var sapisid = m ? m[1] : '';
+        var readCookie = function(name) {
+          var rx = new RegExp('(?:^|;\\\\s*)' + name.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\\$&') + '=([^;]+)');
+          var mm = cookieStr.match(rx);
+          return mm ? mm[1] : '';
+        };
+        var sapisid = readCookie('SAPISID') || readCookie('__Secure-3PAPISID') || readCookie('__Secure-1PAPISID');
+        var sapisid1p = readCookie('__Secure-1PAPISID');
+        var sapisid3p = readCookie('__Secure-3PAPISID');
 
         var hdrs = {
           'Content-Type': 'application/json',
           'X-Origin': 'https://music.youtube.com',
           'X-Goog-AuthUser': authUser
         };
-        if (sapisid) {
+        if (ctx && ctx.client && ctx.client.visitorData) {
+          hdrs['X-Goog-Visitor-Id'] = ctx.client.visitorData;
+        }
+        var makeSapisidHash = async function(sid) {
           var ts = Math.floor(Date.now() / 1000);
-          var raw = ts + ' ' + sapisid + ' https://music.youtube.com';
+          var raw = ts + ' ' + sid + ' https://music.youtube.com';
           var buf = await window.crypto.subtle.digest('SHA-1', new TextEncoder().encode(raw));
           var hex = Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
-          hdrs['Authorization'] = 'SAPISIDHASH ' + ts + '_' + hex;
+          return ts + '_' + hex;
+        };
+        if (sapisid) {
+          var parts = ['SAPISIDHASH ' + (await makeSapisidHash(sapisid))];
+          if (sapisid1p) parts.push('SAPISID1PHASH ' + (await makeSapisidHash(sapisid1p)));
+          if (sapisid3p) parts.push('SAPISID3PHASH ' + (await makeSapisidHash(sapisid3p)));
+          hdrs['Authorization'] = parts.join(' ');
         }
 
         var yti = async function(path, payload) {
@@ -687,6 +731,11 @@ class WebViewAuthBridge {
           return null;
         };
 
+        var isPlId = function(bid) {
+          if (!bid || typeof bid !== 'string') return false;
+          return bid.indexOf('VL') === 0 || bid.indexOf('PL') === 0 || bid.indexOf('RDCLAK') === 0 || bid === 'LM';
+        };
+
         var extractPlaylists = function(data) {
           var out = [];
           var seen = {};
@@ -697,7 +746,7 @@ class WebViewAuthBridge {
               var tr = n.musicTwoRowItemRenderer;
               var bid = tr.navigationEndpoint && tr.navigationEndpoint.browseEndpoint && tr.navigationEndpoint.browseEndpoint.browseId;
               var title = tr.title && tr.title.runs && tr.title.runs[0] && tr.title.runs[0].text;
-              if (bid && title && !seen[bid] && (bid.indexOf('VL') === 0 || bid.indexOf('PL') === 0 || bid.indexOf('LM') !== -1 || bid.indexOf('FEmusic') !== 0)) {
+              if (bid && title && !seen[bid] && isPlId(bid)) {
                 seen[bid] = true;
                 var sub = Array.isArray(tr.subtitle && tr.subtitle.runs) ? tr.subtitle.runs.map(function(r){ return r.text || ''; }).join('') : 'YouTube Music Playlist';
                 out.push({ id: bid, title: title, description: sub, artworkUrl: pickThumb(tr.thumbnailRenderer || tr.thumbnail), trackCount: 0 });
@@ -708,7 +757,7 @@ class WebViewAuthBridge {
               var nb = rr.navigationEndpoint && rr.navigationEndpoint.browseEndpoint && rr.navigationEndpoint.browseEndpoint.browseId;
               var fc = rr.flexColumns && rr.flexColumns[0] && rr.flexColumns[0].musicResponsiveListItemFlexColumnRenderer;
               var rt = fc && fc.text && fc.text.runs && fc.text.runs[0] && fc.text.runs[0].text;
-              if (nb && rt && !seen[nb]) {
+              if (nb && rt && !seen[nb] && isPlId(nb)) {
                 seen[nb] = true;
                 out.push({ id: nb, title: rt, description: 'YouTube Music Playlist', artworkUrl: pickThumb(rr.thumbnail), trackCount: 0 });
               }
@@ -821,10 +870,17 @@ class WebViewAuthBridge {
           if (likedVideos) liked = extractTracks(likedVideos, true);
         }
         var home = results[3] ? extractTracks(results[3], false) : [];
+        if (home.length < 4) {
+          var explore = await yti('browse', { browseId: 'FEmusic_explore' });
+          if (explore) {
+            var exTracks = extractTracks(explore, false);
+            if (exTracks.length > home.length) home = exTracks;
+          }
+        }
 
         var plTracksMap = {};
         if (pls.length > 0) {
-          var topPls = pls.slice(0, 4);
+          var topPls = pls.slice(0, 6);
           var plResponses = await Promise.all(topPls.map(function(p) {
             var b = (p.id.indexOf('VL') === 0 || p.id.indexOf('FE') === 0) ? p.id : ('VL' + p.id);
             return yti('browse', { browseId: b });
@@ -861,36 +917,38 @@ class WebViewAuthBridge {
 })()
 ''';
 
-      WebViewAuthSession? captured;
-      for (int i = 0; i < 14; i++) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        final raw = await webview.evaluateJavaScript(ytSyncBootstrap);
-        final decoded = _decodeEvalMap(raw);
-        if (decoded == null) continue;
-        if (decoded['loggedIn'] == false && i >= 5) {
-          break;
+        WebViewAuthSession? captured;
+        for (int i = 0; i < 24; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          final raw = await webview.evaluateJavaScript(ytSyncBootstrap);
+          final decoded = _decodeEvalMap(raw);
+          if (decoded == null) continue;
+          if (decoded['loggedIn'] == false && i >= 10) {
+            break;
+          }
+          if (decoded['done'] == true) {
+            captured = WebViewAuthSession(
+              isSuccess: true,
+              sapisid: _sanitizeAscii(decoded['sapisid']?.toString() ?? ''),
+              cookieHeader: _sanitizeAscii(decoded['cookies']?.toString() ?? ''),
+              ytAuthUser: decoded['authUser']?.toString() ?? '0',
+              ytDisplayName: decoded['displayName']?.toString(),
+              ytAvatarUrl: decoded['avatarUrl']?.toString(),
+              ytPlaylists: _castMapList(decoded['playlists']),
+              ytLikedTracks: _castMapList(decoded['likedTracks']),
+              ytRecommendedTracks: _castMapList(decoded['recommendedTracks']),
+              ytPlaylistTracks: _castPlaylistTracksMap(decoded['playlistTracks']),
+            );
+            break;
+          }
         }
-        if (decoded['done'] == true) {
-          captured = WebViewAuthSession(
-            isSuccess: true,
-            sapisid: decoded['sapisid']?.toString(),
-            cookieHeader: decoded['cookies']?.toString(),
-            ytAuthUser: decoded['authUser']?.toString() ?? '0',
-            ytDisplayName: decoded['displayName']?.toString(),
-            ytAvatarUrl: decoded['avatarUrl']?.toString(),
-            ytPlaylists: _castMapList(decoded['playlists']),
-            ytLikedTracks: _castMapList(decoded['likedTracks']),
-            ytRecommendedTracks: _castMapList(decoded['recommendedTracks']),
-            ytPlaylistTracks: _castPlaylistTracksMap(decoded['playlistTracks']),
-          );
-          break;
-        }
+        webview.close();
+        await Future.delayed(const Duration(milliseconds: 350));
+        return captured;
+      } catch (_) {
+        return null;
       }
-      webview.close();
-      return captured;
-    } catch (_) {
-      return null;
-    }
+    });
   }
 
   /// Clears stored WebView cookies/session cleanly for a single platform.
@@ -905,74 +963,75 @@ class WebViewAuthBridge {
   }
 
   Future<WebViewAuthSession> _authenticateYouTubeDesktop(String loginUrl) async {
-    try {
-      final available = await WebviewWindow.isWebviewAvailable();
-      if (!available) {
-        return const WebViewAuthSession(
-          isSuccess: false,
-          errorMessage:
-              'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
-        );
-      }
-
-      final webview = await WebviewWindow.create(
-        configuration: const CreateConfiguration(
-          windowWidth: 1020,
-          windowHeight: 760,
-          titleBarHeight: 0,
-          title: 'MUXIS — Sign In to YouTube Music',
-          userDataFolderWindows: 'muxis_yt_session',
-        ),
-      );
-
-      final completer = Completer<WebViewAuthSession>();
-      bool finished = false;
-      bool sawGoogleBlockBanner = false;
-      WebViewAuthSession? lastCapturedSession;
-      Timer? poller;
-      Timer? safetyTimer;
-
-      void completeOnce(WebViewAuthSession res) {
-        if (finished) return;
-        finished = true;
-        poller?.cancel();
-        safetyTimer?.cancel();
-        if (!completer.isCompleted) {
-          completer.complete(res);
+    return _withProfileLock<WebViewAuthSession>(false, () async {
+      try {
+        final available = await WebviewWindow.isWebviewAvailable();
+        if (!available) {
+          return const WebViewAuthSession(
+            isSuccess: false,
+            errorMessage:
+                'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
+          );
         }
-      }
 
-      unawaited(
-        webview.onClose.then((_) {
-          if (lastCapturedSession != null) {
-            completeOnce(lastCapturedSession!);
-            return;
+        final webview = await WebviewWindow.create(
+          configuration: const CreateConfiguration(
+            windowWidth: 1020,
+            windowHeight: 760,
+            titleBarHeight: 0,
+            title: 'MUXIS — Sign In to YouTube Music',
+            userDataFolderWindows: 'muxis_yt_session',
+          ),
+        );
+
+        final completer = Completer<WebViewAuthSession>();
+        bool finished = false;
+        bool sawGoogleBlockBanner = false;
+        WebViewAuthSession? lastCapturedSession;
+        Timer? poller;
+        Timer? safetyTimer;
+
+        void completeOnce(WebViewAuthSession res) {
+          if (finished) return;
+          finished = true;
+          poller?.cancel();
+          safetyTimer?.cancel();
+          if (!completer.isCompleted) {
+            completer.complete(res);
           }
-          if (sawGoogleBlockBanner) {
+        }
+
+        unawaited(
+          webview.onClose.then((_) {
+            if (lastCapturedSession != null) {
+              completeOnce(lastCapturedSession!);
+              return;
+            }
+            if (sawGoogleBlockBanner) {
+              completeOnce(
+                const WebViewAuthSession(
+                  isSuccess: false,
+                  isBlockedByGoogleWebView: true,
+                  errorMessage:
+                      'Google blocked embedded sign-in on this account ("This browser or app may not be secure"). Open Connect YouTube Music -> Internal / Advanced Options to connect via OAuth Keys or Session Cookie.',
+                ),
+              );
+              return;
+            }
             completeOnce(
               const WebViewAuthSession(
                 isSuccess: false,
-                isBlockedByGoogleWebView: true,
-                errorMessage:
-                    'Google blocked embedded sign-in on this account ("This browser or app may not be secure"). Open Connect YouTube Music -> Internal / Advanced Options to connect via OAuth Keys or Session Cookie.',
+                isCancelled: true,
+                errorMessage: 'YouTube Music sign-in was cancelled.',
               ),
             );
-            return;
-          }
-          completeOnce(
-            const WebViewAuthSession(
-              isSuccess: false,
-              isCancelled: true,
-              errorMessage: 'YouTube Music sign-in was cancelled.',
-            ),
-          );
-        }),
-      );
+          }),
+        );
 
-      webview.addScriptToExecuteOnDocumentCreated(_ytHookScript);
-      webview.launch(loginUrl);
+        webview.addScriptToExecuteOnDocumentCreated(_ytHookScript);
+        webview.launch(loginUrl);
 
-      const inlineYtProbe = r'''
+        const inlineYtProbe = r'''
 (function() {
   try {
     if (window.__muxisReadYtState) return window.__muxisReadYtState();
@@ -1018,254 +1077,257 @@ class WebViewAuthBridge {
 })()
 ''';
 
-      poller = Timer.periodic(const Duration(milliseconds: 550), (_) async {
-        if (finished) return;
-        try {
-          final rawJson = await webview.evaluateJavaScript(inlineYtProbe);
-          final stateMap = _decodeEvalMap(rawJson);
-          final href = (stateMap?['url'] as String?) ?? '';
-          final host =
-              (stateMap?['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
-          final ytLoggedIn = stateMap?['loggedIn'] == true;
-          final authUser = (stateMap?['authUser'] as String?) ?? '0';
-          final docCookieStr = (stateMap?['cookies'] as String?) ?? '';
-          if (stateMap?['blocked'] == true) {
-            sawGoogleBlockBanner = true;
-          }
-
-          if (host.endsWith('music.youtube.com')) {
-            String? sapisid;
-            final cookieMap = <String, String>{};
-            bool hasLoginCookie = false;
-
-            // 1. Parse non-HttpOnly cookies straight from document.cookie first (never throws)
-            for (final pair in docCookieStr.split(';')) {
-              final idx = pair.indexOf('=');
-              if (idx <= 0) continue;
-              final k = pair.substring(0, idx).trim();
-              final v = pair.substring(idx + 1).trim();
-              if (k.isEmpty || v.isEmpty) continue;
-              cookieMap[k] = v;
+        poller = Timer.periodic(const Duration(milliseconds: 550), (_) async {
+          if (finished) return;
+          try {
+            final rawJson = await webview.evaluateJavaScript(inlineYtProbe);
+            final stateMap = _decodeEvalMap(rawJson);
+            final href = (stateMap?['url'] as String?) ?? '';
+            final host =
+                (stateMap?['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
+            final ytLoggedIn = stateMap?['loggedIn'] == true;
+            final authUser = (stateMap?['authUser'] as String?) ?? '0';
+            final docCookieStr = (stateMap?['cookies'] as String?) ?? '';
+            if (stateMap?['blocked'] == true) {
+              sawGoogleBlockBanner = true;
             }
 
-            // 2. Merge full HttpOnly jar safely (WebviewCookie.fromJson can fail on edge expiry dates)
-            try {
-              final jarCookies = await webview.getAllCookies();
-              for (final c in jarCookies) {
-                if (c.domain.contains('youtube.com') ||
-                    c.domain.contains('google.com')) {
-                  if (c.name.isNotEmpty && c.value.isNotEmpty) {
-                    cookieMap[c.name] = c.value;
+            if (host.endsWith('music.youtube.com')) {
+              String? sapisid;
+              final cookieMap = <String, String>{};
+              bool hasLoginCookie = false;
+
+              // 1. Parse non-HttpOnly cookies from document.cookie first
+              for (final pair in docCookieStr.split(';')) {
+                final idx = pair.indexOf('=');
+                if (idx <= 0) continue;
+                final k = _sanitizeAscii(pair.substring(0, idx));
+                final v = _sanitizeAscii(pair.substring(idx + 1));
+                if (k.isEmpty || v.isEmpty) continue;
+                cookieMap[k] = v;
+              }
+
+              // 2. Merge .youtube.com HttpOnly jar safely without letting accounts.google.com overwrite YT session cookies
+              try {
+                final jarCookies = await webview.getAllCookies();
+                for (final c in jarCookies) {
+                  if (c.domain.contains('youtube.com')) {
+                    final k = _sanitizeAscii(c.name);
+                    final v = _sanitizeAscii(c.value);
+                    if (k.isNotEmpty && v.isNotEmpty) {
+                      cookieMap[k] = v;
+                    }
                   }
                 }
-              }
-            } catch (_) {}
-
-            sapisid = cookieMap['SAPISID'] ??
-                cookieMap['__Secure-3PAPISID'] ??
-                cookieMap['__Secure-1PAPISID'];
-
-            for (final loginKey in const [
-              'SID',
-              'HSID',
-              'SSID',
-              'APISID',
-              'SIDCC',
-              'LOGIN_INFO',
-              '__Secure-1PSID',
-              '__Secure-3PSID',
-            ]) {
-              if ((cookieMap[loginKey] ?? '').isNotEmpty) {
-                hasLoginCookie = true;
-                break;
-              }
-            }
-
-            final signedInConfirmed =
-                ((sapisid != null && sapisid.isNotEmpty) &&
-                    (hasLoginCookie || ytLoggedIn)) ||
-                (ytLoggedIn && cookieMap.isNotEmpty);
-
-            if (signedInConfirmed) {
-              // Silence any media inside the popup before closing immediately
-              try {
-                await webview.evaluateJavaScript(
-                  "document.querySelectorAll('video,audio').forEach(function(m){try{m.pause();m.src='';}catch(_){}});",
-                );
               } catch (_) {}
 
-              final cookieHeader = cookieMap.entries
-                  .map((e) => '${e.key}=${e.value}')
-                  .join('; ');
-              final captured = WebViewAuthSession(
-                isSuccess: true,
-                sapisid: sapisid,
-                cookieHeader: cookieHeader,
-                ytAuthUser: authUser,
-              );
-              lastCapturedSession = captured;
-              completeOnce(captured);
-              webview.close();
+              sapisid = cookieMap['SAPISID'] ??
+                  cookieMap['__Secure-3PAPISID'] ??
+                  cookieMap['__Secure-1PAPISID'];
+
+              for (final loginKey in const [
+                'SID',
+                'HSID',
+                'SSID',
+                'APISID',
+                'SIDCC',
+                'LOGIN_INFO',
+                '__Secure-1PSID',
+                '__Secure-3PSID',
+              ]) {
+                if ((cookieMap[loginKey] ?? '').isNotEmpty) {
+                  hasLoginCookie = true;
+                  break;
+                }
+              }
+
+              final signedInConfirmed =
+                  ((sapisid != null && sapisid.isNotEmpty) &&
+                      (hasLoginCookie || ytLoggedIn)) ||
+                  (ytLoggedIn && cookieMap.isNotEmpty);
+
+              if (signedInConfirmed) {
+                try {
+                  await webview.evaluateJavaScript(
+                    "document.querySelectorAll('video,audio').forEach(function(m){try{m.pause();m.src='';}catch(_){}});",
+                  );
+                } catch (_) {}
+
+                final cookieHeader = cookieMap.entries
+                    .map((e) => '${e.key}=${e.value}')
+                    .join('; ');
+                final captured = WebViewAuthSession(
+                  isSuccess: true,
+                  sapisid: sapisid,
+                  cookieHeader: cookieHeader,
+                  ytAuthUser: authUser,
+                );
+                lastCapturedSession = captured;
+                webview.close();
+                await Future.delayed(const Duration(milliseconds: 350));
+                completeOnce(captured);
+              }
             }
+          } catch (_) {
+            // Page transitioning or window closing
           }
-        } catch (_) {
-          // Page transitioning or window closing
-        }
-      });
+        });
 
-      safetyTimer = Timer(const Duration(minutes: 5), () {
-        if (!finished) {
-          webview.close();
-          completeOnce(
-            const WebViewAuthSession(
-              isSuccess: false,
-              isCancelled: true,
-              errorMessage: 'YouTube Music sign-in timed out. Please try again.',
-            ),
-          );
-        }
-      });
+        safetyTimer = Timer(const Duration(minutes: 5), () {
+          if (!finished) {
+            webview.close();
+            completeOnce(
+              const WebViewAuthSession(
+                isSuccess: false,
+                isCancelled: true,
+                errorMessage: 'YouTube Music sign-in timed out. Please try again.',
+              ),
+            );
+          }
+        });
 
-      return await completer.future;
-    } catch (e) {
-      return WebViewAuthSession(
-        isSuccess: false,
-        errorMessage: 'Browser sign-in window failed to initialize: $e',
-      );
-    }
+        return await completer.future;
+      } catch (e) {
+        return WebViewAuthSession(
+          isSuccess: false,
+          errorMessage: 'Browser sign-in window failed to initialize: $e',
+        );
+      }
+    });
   }
 
   Future<WebViewAuthSession> _authenticateSpotifyDesktop(String loginUrl) async {
-    try {
-      final available = await WebviewWindow.isWebviewAvailable();
-      if (!available) {
-        return const WebViewAuthSession(
-          isSuccess: false,
-          errorMessage:
-              'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
-        );
-      }
-
-      final webview = await WebviewWindow.create(
-        configuration: const CreateConfiguration(
-          windowWidth: 1020,
-          windowHeight: 760,
-          titleBarHeight: 0,
-          title: 'MUXIS — Sign In to Spotify',
-          userDataFolderWindows: 'muxis_sp_session',
-        ),
-      );
-
-      final completer = Completer<WebViewAuthSession>();
-      bool finished = false;
-      DateTime? authDetectedAt;
-      bool navigatedLiked = false;
-      WebViewAuthSession? lastCapturedSession;
-      Timer? poller;
-      Timer? safetyTimer;
-
-      void completeOnce(WebViewAuthSession res) {
-        if (finished) return;
-        finished = true;
-        poller?.cancel();
-        safetyTimer?.cancel();
-        if (!completer.isCompleted) {
-          completer.complete(res);
+    return _withProfileLock<WebViewAuthSession>(true, () async {
+      try {
+        final available = await WebviewWindow.isWebviewAvailable();
+        if (!available) {
+          return const WebViewAuthSession(
+            isSuccess: false,
+            errorMessage:
+                'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
+          );
         }
-      }
 
-      unawaited(
-        webview.onClose.then((_) {
-          if (lastCapturedSession != null) {
-            completeOnce(lastCapturedSession!);
-            return;
+        final webview = await WebviewWindow.create(
+          configuration: const CreateConfiguration(
+            windowWidth: 1020,
+            windowHeight: 760,
+            titleBarHeight: 0,
+            title: 'MUXIS — Sign In to Spotify',
+            userDataFolderWindows: 'muxis_sp_session',
+          ),
+        );
+
+        final completer = Completer<WebViewAuthSession>();
+        bool finished = false;
+        DateTime? authDetectedAt;
+        bool navigatedLiked = false;
+        WebViewAuthSession? lastCapturedSession;
+        Timer? poller;
+        Timer? safetyTimer;
+
+        void completeOnce(WebViewAuthSession res) {
+          if (finished) return;
+          finished = true;
+          poller?.cancel();
+          safetyTimer?.cancel();
+          if (!completer.isCompleted) {
+            completer.complete(res);
           }
-          completeOnce(
-            const WebViewAuthSession(
-              isSuccess: false,
-              isCancelled: true,
-              errorMessage: 'Spotify sign-in was cancelled.',
-            ),
-          );
-        }),
-      );
+        }
 
-      webview.addScriptToExecuteOnDocumentCreated(_spotifyHookScript);
-      webview.launch(loginUrl);
-
-      poller = Timer.periodic(const Duration(milliseconds: 450), (_) async {
-        if (finished) return;
-        try {
-          final rawJson = await webview.evaluateJavaScript(
-            'window.__muxisReadSession ? window.__muxisReadSession() : null',
-          );
-          final sessionMap = _decodeEvalMap(rawJson);
-          if (sessionMap == null) return;
-
-          final href = (sessionMap['url'] as String?) ?? '';
-          final host =
-              (sessionMap['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
-          final bearer = sessionMap['token'] as String?;
-
-          if (host.contains('open.spotify.com') &&
-              !host.contains('accounts.spotify.com') &&
-              bearer != null &&
-              bearer.isNotEmpty) {
-            authDetectedAt ??= DateTime.now();
-            final spDc = await _extractSpDcCookie(webview);
-            final captured = _sessionFromDecodedSpotify(
-              decoded: sessionMap,
-              spDc: spDc,
-            );
-            lastCapturedSession = captured;
-
-            final elapsedMs =
-                DateTime.now().difference(authDetectedAt!).inMilliseconds;
-
-            // Let Spotify Web Player fire libraryV3 + profileAttributes briefly,
-            // then visit /collection/tracks once so Liked Songs also populate cleanly.
-            if (captured.spotifyPlaylists.isNotEmpty &&
-                captured.spotifyLikedTracks.isEmpty &&
-                !navigatedLiked &&
-                elapsedMs >= 750) {
-              navigatedLiked = true;
-              webview.launch('https://open.spotify.com/collection/tracks');
+        unawaited(
+          webview.onClose.then((_) {
+            if (lastCapturedSession != null) {
+              completeOnce(lastCapturedSession!);
               return;
             }
+            completeOnce(
+              const WebViewAuthSession(
+                isSuccess: false,
+                isCancelled: true,
+                errorMessage: 'Spotify sign-in was cancelled.',
+              ),
+            );
+          }),
+        );
 
-            final readyFull = captured.spotifyPlaylists.isNotEmpty &&
-                captured.spotifyLikedTracks.isNotEmpty;
-            if (readyFull || elapsedMs >= 3200) {
-              webview.close();
-              completeOnce(captured);
+        webview.addScriptToExecuteOnDocumentCreated(_spotifyHookScript);
+        webview.launch(loginUrl);
+
+        poller = Timer.periodic(const Duration(milliseconds: 450), (_) async {
+          if (finished) return;
+          try {
+            final rawJson = await webview.evaluateJavaScript(
+              'window.__muxisReadSession ? window.__muxisReadSession() : null',
+            );
+            final sessionMap = _decodeEvalMap(rawJson);
+            if (sessionMap == null) return;
+
+            final href = (sessionMap['url'] as String?) ?? '';
+            final host =
+                (sessionMap['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
+            final bearer = sessionMap['token'] as String?;
+
+            if (host.contains('open.spotify.com') &&
+                !host.contains('accounts.spotify.com') &&
+                bearer != null &&
+                bearer.isNotEmpty) {
+              authDetectedAt ??= DateTime.now();
+              final spDc = await _extractSpDcCookie(webview);
+              final captured = _sessionFromDecodedSpotify(
+                decoded: sessionMap,
+                spDc: spDc,
+              );
+              lastCapturedSession = captured;
+
+              final elapsedMs =
+                  DateTime.now().difference(authDetectedAt!).inMilliseconds;
+
+              if (captured.spotifyPlaylists.isNotEmpty &&
+                  captured.spotifyLikedTracks.isEmpty &&
+                  !navigatedLiked &&
+                  elapsedMs >= 750) {
+                navigatedLiked = true;
+                webview.launch('https://open.spotify.com/collection/tracks');
+                return;
+              }
+
+              final readyFull = captured.spotifyPlaylists.isNotEmpty &&
+                  captured.spotifyLikedTracks.isNotEmpty;
+              if (readyFull || elapsedMs >= 3200) {
+                webview.close();
+                await Future.delayed(const Duration(milliseconds: 350));
+                completeOnce(captured);
+              }
             }
+          } catch (_) {
+            // Page transitioning or window closing
           }
-        } catch (_) {
-          // Page transitioning or window closing
-        }
-      });
+        });
 
-      safetyTimer = Timer(const Duration(minutes: 5), () {
-        if (!finished) {
-          webview.close();
-          completeOnce(
-            lastCapturedSession ??
-                const WebViewAuthSession(
-                  isSuccess: false,
-                  isCancelled: true,
-                  errorMessage: 'Spotify sign-in timed out.',
-                ),
-          );
-        }
-      });
+        safetyTimer = Timer(const Duration(minutes: 5), () {
+          if (!finished) {
+            webview.close();
+            completeOnce(
+              lastCapturedSession ??
+                  const WebViewAuthSession(
+                    isSuccess: false,
+                    isCancelled: true,
+                    errorMessage: 'Spotify sign-in timed out.',
+                  ),
+            );
+          }
+        });
 
-      return await completer.future;
-    } catch (e) {
-      return WebViewAuthSession(
-        isSuccess: false,
-        errorMessage: 'Spotify browser window failed: $e',
-      );
-    }
+        return await completer.future;
+      } catch (e) {
+        return WebViewAuthSession(
+          isSuccess: false,
+          errorMessage: 'Spotify browser window failed: $e',
+        );
+      }
+    });
   }
 
   Future<String?> _extractSpDcCookie(Webview webview) async {

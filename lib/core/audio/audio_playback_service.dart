@@ -45,6 +45,8 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
 
   double _lastUnmutedVolume = 1.0;
   bool _isDisposed = false;
+  int _playRequestId = 0;
+  bool _hasLoadedSource = false;
 
   EqualizerState _currentEq = EqualizerState.initial();
   AudioStudioState _currentStudio = const AudioStudioState();
@@ -156,6 +158,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
 
   void loadInitialTracks(List<Track> tracks) {
     if (tracks.isEmpty) return;
+    _hasLoadedSource = false;
     state = state.copyWith(
       queue: tracks,
       currentIndex: 0,
@@ -166,10 +169,12 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   }
 
   Future<void> playTrack(Track track, {List<Track>? newQueue}) async {
+    final requestId = ++_playRequestId;
     final queue = newQueue ??
         (state.queue.contains(track) ? state.queue : [...state.queue, track]);
     final index = queue.indexOf(track);
 
+    _hasLoadedSource = false;
     state = state.copyWith(
       currentTrack: track,
       queue: queue,
@@ -188,6 +193,8 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       if (track.localFilePath != null && track.localFilePath!.isNotEmpty) {
         // Local music playback
         await _player.setFilePath(track.localFilePath!);
+        if (_isDisposed || requestId != _playRequestId) return;
+        _hasLoadedSource = true;
         await _player.play();
         _databaseService?.recordHistory(track.id);
         return;
@@ -203,25 +210,53 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         playUri = await _innerTubeProvider.resolveAudioStreamUrl(track);
       }
 
-      if (playUri == null || playUri.isEmpty) {
-        // Clean noisy parenthetical tags and retry with InnerTube songs search
+      if (_isDisposed || requestId != _playRequestId) return;
+
+      if ((playUri == null || playUri.isEmpty) &&
+          track.source != MusicSource.spotify) {
+        // Clean noisy parenthetical tags and retry with scored InnerTube songs search
         final cleanedTitle = track.title
             .replaceAll(
-              RegExp(r'\s*[\(\[].*?(feat\.|ft\.|remaster|deluxe|version|live|edit|mix|radio).*?[\)\]]',
-                  caseSensitive: false),
+              RegExp(
+                r'\s*[\(\[].*?(feat\.|ft\.|remaster|deluxe|version|live|edit|mix|radio).*?[\)\]]',
+                caseSensitive: false,
+              ),
               '',
             )
             .trim();
-        final cleanQuery = '${track.artist} ${cleanedTitle.isNotEmpty ? cleanedTitle : track.title}'.trim();
-        var fallbackTracks = await _innerTubeProvider.search(cleanQuery, songsOnly: true);
+        final effectiveTitle = cleanedTitle.isNotEmpty ? cleanedTitle : track.title;
+        final cleanQuery = '${track.artist} $effectiveTitle'.trim();
+        var fallbackTracks =
+            await _innerTubeProvider.search(cleanQuery, songsOnly: true);
         if (fallbackTracks.isEmpty) {
           fallbackTracks = await _innerTubeProvider.search(cleanQuery);
         }
-        for (final candidate in fallbackTracks.take(2)) {
+        if (_isDisposed || requestId != _playRequestId) return;
+
+        final ranked = List<Track>.from(fallbackTracks)
+          ..sort(
+            (a, b) =>
+                SpotifyMusicProvider.scoreMatch(b, effectiveTitle, track.artist)
+                    .compareTo(
+              SpotifyMusicProvider.scoreMatch(a, effectiveTitle, track.artist),
+            ),
+          );
+        for (final candidate in ranked.take(2)) {
+          if (SpotifyMusicProvider.scoreMatch(
+                candidate,
+                effectiveTitle,
+                track.artist,
+              ) <
+              15) {
+            continue;
+          }
           playUri = await _innerTubeProvider.resolveAudioStreamUrl(candidate);
+          if (_isDisposed || requestId != _playRequestId) return;
           if (playUri != null && playUri.isNotEmpty) break;
         }
       }
+
+      if (_isDisposed || requestId != _playRequestId) return;
 
       if (playUri != null && playUri.isNotEmpty) {
         // Stop any active Windows Media Foundation threads safely before attaching new source
@@ -229,9 +264,13 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
           await _player.stop();
         } catch (_) {}
 
+        if (_isDisposed || requestId != _playRequestId) return;
+
         // Resolved ANDROID progressive / verified direct URLs stream cleanly
         // without custom request headers on Windows, Android, macOS, and Linux.
         await _player.setUrl(playUri);
+        if (_isDisposed || requestId != _playRequestId) return;
+        _hasLoadedSource = true;
         await _player.play();
         _databaseService?.recordHistory(track.id);
       } else {
@@ -241,7 +280,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         );
       }
     } catch (e) {
-      if (!_isDisposed) {
+      if (!_isDisposed && requestId == _playRequestId) {
         state = state.copyWith(
           status: PlaybackStatus.error,
           errorMessage: 'Playback error: $e',
@@ -259,6 +298,10 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   }
 
   void play() {
+    if (!_hasLoadedSource && state.currentTrack != null) {
+      playTrack(state.currentTrack!);
+      return;
+    }
     if (!state.hasTrack && state.queue.isNotEmpty) {
       playTrack(state.queue[0]);
       return;
@@ -271,6 +314,8 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   }
 
   void stop() {
+    _playRequestId++;
+    _hasLoadedSource = false;
     _player.stop();
     state = state.copyWith(
       status: PlaybackStatus.idle,

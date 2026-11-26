@@ -62,14 +62,22 @@ class _MuxisSearchFieldState extends State<MuxisSearchField> {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.search_rounded,
-              size: 20,
-              color: _isFocused
-                  ? MuxisColors.electricCyan
-                  : (isDark
-                        ? MuxisColors.textSecondaryDark
-                        : MuxisColors.textSecondaryLight),
+            GestureDetector(
+              onTap: () => widget.onSubmitted?.call(widget.controller.text),
+              child: MouseRegion(
+                cursor: widget.onSubmitted != null
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: _isFocused
+                      ? MuxisColors.electricCyan
+                      : (isDark
+                            ? MuxisColors.textSecondaryDark
+                            : MuxisColors.textSecondaryLight),
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(

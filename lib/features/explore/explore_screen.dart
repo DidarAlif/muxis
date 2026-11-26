@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../core/auth/streaming_accounts_controller.dart';
 import '../../providers/innertube_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
@@ -50,7 +51,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final audioService = ref.read(playbackServiceProvider.notifier);
+    final accounts = ref.watch(streamingAccountsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final spotifySpotlight = _featuredSpotify.isNotEmpty
+        ? _featuredSpotify
+        : (accounts.spotify.recommendedTracks.isNotEmpty
+            ? accounts.spotify.recommendedTracks
+            : accounts.spotify.likedTracks);
 
     final moods = [
       {
@@ -208,6 +215,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
         if (_loading)
           const Center(child: CircularProgressIndicator())
+        else if (_featuredYt.isEmpty)
+          Text(
+            'Unable to fetch live charts right now. Use Atmospheric Stations above or Search.',
+            style: TextStyle(fontSize: 13, color: MuxisColors.textSecondary(isDark)),
+          )
         else
           SizedBox(
             height: 230,
@@ -228,47 +240,48 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             ),
           ),
 
-        const SizedBox(height: 36),
+        if (!_loading && spotifySpotlight.isNotEmpty) ...[
+          const SizedBox(height: 36),
 
-        // Spotify Featured Bridge
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Featured Spotify Spotlight',
-              style: MuxisTypography.sectionHeading(isDark: isDark),
-            ),
-            const Text(
-              'Bridged Direct Audio',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 11,
-                color: Color(0xFF1DB954),
+          // Spotify Featured Bridge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Your Spotify Spotlight',
+                style: MuxisTypography.sectionHeading(isDark: isDark),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
+              const Text(
+                'Bridged Direct Audio',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  color: Color(0xFF1DB954),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
 
-        if (!_loading && _featuredSpotify.isNotEmpty)
           SizedBox(
             height: 230,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _featuredSpotify.length,
+              itemCount: spotifySpotlight.length,
               separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (context, i) {
-                final t = _featuredSpotify[i];
+                final t = spotifySpotlight[i];
                 return MuxisCard(
                   title: t.title,
                   subtitle: t.artist,
                   artworkUrl: t.artworkUrl,
-                  onTap: () => audioService.playTrack(t, newQueue: _featuredSpotify),
-                  onPlayTap: () => audioService.playTrack(t, newQueue: _featuredSpotify),
+                  onTap: () => audioService.playTrack(t, newQueue: spotifySpotlight),
+                  onPlayTap: () => audioService.playTrack(t, newQueue: spotifySpotlight),
                 );
               },
             ),
           ),
+        ],
       ],
     );
   }

@@ -70,13 +70,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
         switch (_filterSource) {
           case SearchFilterSource.youtube:
-            searchResults = await _ytProvider.search(trimmed, songsOnly: true);
+            searchResults = await _ytProvider.search(trimmed);
             break;
           case SearchFilterSource.spotify:
             searchResults = await _spotifyProvider.search(trimmed);
             break;
           case SearchFilterSource.all:
-            final ytFuture = _ytProvider.search(trimmed, songsOnly: true);
+            final ytFuture = _ytProvider.search(trimmed);
             final spFuture = _spotifyProvider.search(trimmed);
             final res = await Future.wait([ytFuture, spFuture]);
             final ytTracks = res[0];

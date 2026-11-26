@@ -1171,7 +1171,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'v1.1.3 (Real Catalog Search, WebView2 YT Library Sync & Exact Bridge Play)',
+                      'v1.1.4 (Real Catalog Search, WebView2 YT Library Sync & Exact Bridge Play)',
                       style: TextStyle(
                         fontSize: 12,
                         color: MuxisColors.textMuted(isDark),

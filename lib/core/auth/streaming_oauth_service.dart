@@ -179,10 +179,14 @@ class StreamingOAuthService {
     }
 
     if (session.cookieHeader != null && session.cookieHeader!.isNotEmpty) {
-      await _prefs.saveYtCookie(session.cookieHeader!);
+      await _prefs.saveYtCookie(
+        InnerTubeMusicProvider.sanitizeHeaderValue(session.cookieHeader!),
+      );
     }
     if (session.sapisid != null && session.sapisid!.isNotEmpty) {
-      await _prefs.saveYtSapisid(session.sapisid!);
+      await _prefs.saveYtSapisid(
+        InnerTubeMusicProvider.sanitizeHeaderValue(session.sapisid!),
+      );
     }
     if (session.ytAuthUser != null && session.ytAuthUser!.isNotEmpty) {
       await _prefs.saveYtAuthUser(session.ytAuthUser!);
@@ -212,19 +216,23 @@ class StreamingOAuthService {
       liked = await ytProvider.fetchLikedTracks();
     } catch (_) {}
 
-    // On Windows desktop, Edge WebView2 owns full HttpOnly Google cookies (SID/__Secure-3PSID)
-    // seamlessly inside the saved profile, so run a single hidden sync pass if needed.
-    if (playlists.isEmpty || liked.isEmpty || displayName == 'YouTube Music Listener') {
+    // On Windows desktop, Edge WebView2 owns live HttpOnly Google cookies cleanly inside the saved profile.
+    if (playlists.isEmpty ||
+        liked.isEmpty ||
+        displayName == 'YouTube Music Listener') {
       final wvSession = await WebViewAuthBridge().syncYouTubeLibraryViaWebView();
       if (wvSession != null && wvSession.isSuccess) {
-        if (wvSession.ytDisplayName != null && wvSession.ytDisplayName!.isNotEmpty) {
+        if (wvSession.ytDisplayName != null &&
+            wvSession.ytDisplayName!.isNotEmpty) {
           displayName = wvSession.ytDisplayName!;
         }
         if (wvSession.ytAvatarUrl != null && wvSession.ytAvatarUrl!.isNotEmpty) {
           avatarUrl = wvSession.ytAvatarUrl;
         }
         if (wvSession.ytPlaylists.isNotEmpty) {
-          playlists = InnerTubeMusicProvider.playlistsFromWebViewMaps(wvSession.ytPlaylists);
+          playlists = InnerTubeMusicProvider.playlistsFromWebViewMaps(
+            wvSession.ytPlaylists,
+          );
         }
         if (wvSession.ytLikedTracks.isNotEmpty) {
           liked = InnerTubeMusicProvider.tracksFromWebViewMaps(
@@ -238,11 +246,16 @@ class StreamingOAuthService {
                 InnerTubeMusicProvider.tracksFromWebViewMaps(entry.value);
           }
         }
-        if (wvSession.cookieHeader != null && wvSession.cookieHeader!.isNotEmpty) {
-          await _prefs.saveYtCookie(wvSession.cookieHeader!);
+        if (wvSession.cookieHeader != null &&
+            wvSession.cookieHeader!.isNotEmpty) {
+          await _prefs.saveYtCookie(
+            InnerTubeMusicProvider.sanitizeHeaderValue(wvSession.cookieHeader!),
+          );
         }
         if (wvSession.sapisid != null && wvSession.sapisid!.isNotEmpty) {
-          await _prefs.saveYtSapisid(wvSession.sapisid!);
+          await _prefs.saveYtSapisid(
+            InnerTubeMusicProvider.sanitizeHeaderValue(wvSession.sapisid!),
+          );
         }
         if (wvSession.ytAuthUser != null && wvSession.ytAuthUser!.isNotEmpty) {
           await _prefs.saveYtAuthUser(wvSession.ytAuthUser!);
@@ -257,7 +270,8 @@ class StreamingOAuthService {
     final hydratedPlaylists = <Playlist>[];
 
     for (final pl in playlists.take(15)) {
-      final tracks = wvPlaylistTracks[pl.id] ?? await ytProvider.fetchPlaylistTracks(pl.id);
+      final tracks =
+          wvPlaylistTracks[pl.id] ?? await ytProvider.fetchPlaylistTracks(pl.id);
       if (tracks.isNotEmpty) {
         tracksCount += tracks.length;
         await _db.saveTracks(tracks);
@@ -265,7 +279,9 @@ class StreamingOAuthService {
           pl.title,
           tracks.map((t) => t.id).toList(),
         );
-        hydratedPlaylists.add(pl.copyWith(tracks: tracks, trackCount: tracks.length));
+        hydratedPlaylists.add(
+          pl.copyWith(tracks: tracks, trackCount: tracks.length),
+        );
       } else {
         hydratedPlaylists.add(pl);
       }

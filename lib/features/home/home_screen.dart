@@ -325,6 +325,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         if (_loadingTrending)
           const Center(child: CircularProgressIndicator())
+        else if (_trendingTracks.isEmpty)
+          MuxisGlassCard(
+            padding: const EdgeInsets.all(20),
+            borderRadius: 16,
+            child: Text(
+              'Unable to load live trending tracks right now. Try Search or sync a streaming account above.',
+              style: TextStyle(
+                fontSize: 13,
+                color: MuxisColors.textSecondary(isDark),
+              ),
+            ),
+          )
         else
           SizedBox(
             height: 230,

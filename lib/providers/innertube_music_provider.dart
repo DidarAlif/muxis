@@ -47,12 +47,25 @@ class InnerTubeMusicProvider implements MusicProvider {
       };
 
   /// Sanitizes any HTTP header value to printable ASCII to avoid dart:io HttpHeaders FormatException.
-  static String _sanitizeHeaderValue(String? raw) {
+  static String sanitizeHeaderValue(String? raw) {
     if (raw == null || raw.isEmpty) return '';
     return raw
         .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
         .replaceAll(RegExp(r'[^\x20-\x7E]'), '')
         .trim();
+  }
+
+  static String? _extractCookieValue(String cookieHeader, List<String> keys) {
+    for (final key in keys) {
+      final match = RegExp(
+        '(?:^|;\\s*)${RegExp.escape(key)}=([^;\\s]+)',
+      ).firstMatch(cookieHeader);
+      if (match != null) {
+        final val = match.group(1)?.trim() ?? '';
+        if (val.isNotEmpty) return val;
+      }
+    }
+    return null;
   }
 
   /// Builds context headers with optional user cookie and SAPISID auth.
@@ -76,16 +89,42 @@ class InnerTubeMusicProvider implements MusicProvider {
     final rawSapisid = await _prefs.getYtSapisid();
     final rawAuthUser = await _prefs.getYtAuthUser();
 
-    final cookie = _sanitizeHeaderValue(rawCookie);
-    final sapisid = _sanitizeHeaderValue(rawSapisid);
+    final cookie = sanitizeHeaderValue(rawCookie);
+    var sapisid = sanitizeHeaderValue(rawSapisid);
+    if (sapisid.isEmpty && cookie.isNotEmpty) {
+      sapisid = _extractCookieValue(
+            cookie,
+            const ['SAPISID', '__Secure-3PAPISID', '__Secure-1PAPISID'],
+          ) ??
+          '';
+    }
     final authUser =
         RegExp(r'^\d+$').hasMatch(rawAuthUser.trim()) ? rawAuthUser.trim() : '0';
 
     if (sapisid.isNotEmpty) {
       final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
-      final raw = '$timestamp $sapisid $_youtubeMusicOrigin';
-      final hash = sha1.convert(utf8.encode(raw)).toString();
-      headers['Authorization'] = 'SAPISIDHASH ${timestamp}_$hash';
+      final authParts = <String>[];
+      final sapisid1p = cookie.isNotEmpty
+          ? _extractCookieValue(cookie, const ['__Secure-1PAPISID'])
+          : null;
+      final sapisid3p = cookie.isNotEmpty
+          ? _extractCookieValue(cookie, const ['__Secure-3PAPISID'])
+          : null;
+
+      String hashFor(String sid) {
+        final raw = '$timestamp $sid $_youtubeMusicOrigin';
+        return sha1.convert(utf8.encode(raw)).toString();
+      }
+
+      authParts.add('SAPISIDHASH ${timestamp}_${hashFor(sapisid)}');
+      if (sapisid1p != null && sapisid1p.isNotEmpty) {
+        authParts.add('SAPISID1PHASH ${timestamp}_${hashFor(sapisid1p)}');
+      }
+      if (sapisid3p != null && sapisid3p.isNotEmpty) {
+        authParts.add('SAPISID3PHASH ${timestamp}_${hashFor(sapisid3p)}');
+      }
+
+      headers['Authorization'] = authParts.join(' ');
       headers['X-Origin'] = _youtubeMusicOrigin;
       headers['X-Goog-AuthUser'] = authUser;
 
@@ -102,7 +141,20 @@ class InnerTubeMusicProvider implements MusicProvider {
     return headers;
   }
 
-  /// Fetches real signed-in Google / YouTube account display name and avatar via InnerTube account_menu
+  Map<String, dynamic>? _decodeJsonMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  /// Fetches real signed-in Google / YouTube account display name and avatar via InnerTube account_menu.
   Future<Map<String, String?>> fetchUserProfile() async {
     try {
       final headers = await _buildHeaders();
@@ -112,39 +164,6 @@ class InnerTubeMusicProvider implements MusicProvider {
       final res = await _dio.post(
         '$_youtubeiBaseUrl/account/account_menu',
         data: {'context': _webRemixContext},
-        options: Options(headers: headers),
-      );
-
-      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
-        final data = res.data as Map<String, dynamic>;
-        final header = data['actions']?[0]?['openPopupAction']?['popup']
-            ?['multiPageMenuRenderer']?['header']?['activeAccountHeaderRenderer'];
-        if (header is Map<String, dynamic>) {
-          final nameRuns = header['accountName']?['runs'] as List?;
-          final name = nameRuns != null && nameRuns.isNotEmpty
-              ? nameRuns[0]['text'] as String?
-              : null;
-          final thumbs = header['accountPhoto']?['thumbnails'] as List?;
-          final avatar = thumbs != null && thumbs.isNotEmpty
-              ? thumbs.last['url'] as String?
-              : null;
-          return {'displayName': name, 'avatarUrl': avatar};
-        }
-      }
-    } catch (_) {}
-    return {};
-  }
-
-  /// Fetches the authenticated user's personal YouTube Music playlists
-  Future<List<Playlist>> fetchUserPlaylists() async {
-    try {
-      final headers = await _buildHeaders();
-      final res = await _dio.post(
-        '$_youtubeiBaseUrl/browse',
-        data: {
-          'context': _webRemixContext,
-          'browseId': 'FEmusic_liked_playlists',
-        },
         options: Options(
           headers: headers,
           validateStatus: (s) => s != null && s < 500,
@@ -152,16 +171,65 @@ class InnerTubeMusicProvider implements MusicProvider {
       );
 
       if (res.statusCode == 200 && res.data != null) {
-        final decoded = res.data is String ? jsonDecode(res.data as String) : res.data;
-        if (decoded is Map<String, dynamic>) {
-          return _extractPlaylistsFromBrowse(decoded);
+        final data = _decodeJsonMap(res.data);
+        if (data == null) return {};
+        final actions = data['actions'] as List?;
+        dynamic header;
+        if (actions != null && actions.isNotEmpty) {
+          header = actions[0]?['openPopupAction']?['popup']
+              ?['multiPageMenuRenderer']?['header']
+              ?['activeAccountHeaderRenderer'];
+        }
+        if (header is Map) {
+          final nameRuns = header['accountName']?['runs'] as List?;
+          final name = nameRuns != null && nameRuns.isNotEmpty
+              ? nameRuns[0]['text'] as String?
+              : null;
+          final thumbs = header['accountPhoto']?['thumbnails'] as List?;
+          String? avatar;
+          if (thumbs != null && thumbs.isNotEmpty) {
+            final last = thumbs.last;
+            if (last is Map) {
+              avatar = last['url']?.toString();
+            }
+          }
+          return {'displayName': name, 'avatarUrl': avatar};
         }
       }
     } catch (_) {}
+    return {};
+  }
+
+  /// Fetches the authenticated user's personal YouTube Music playlists.
+  Future<List<Playlist>> fetchUserPlaylists() async {
+    for (final browseId in const ['FEmusic_liked_playlists', 'FEmusic_library_landing']) {
+      try {
+        final headers = await _buildHeaders();
+        final res = await _dio.post(
+          '$_youtubeiBaseUrl/browse',
+          data: {
+            'context': _webRemixContext,
+            'browseId': browseId,
+          },
+          options: Options(
+            headers: headers,
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+
+        if (res.statusCode == 200 && res.data != null) {
+          final decoded = _decodeJsonMap(res.data);
+          if (decoded != null) {
+            final pls = _extractPlaylistsFromBrowse(decoded);
+            if (pls.isNotEmpty) return pls;
+          }
+        }
+      } catch (_) {}
+    }
     return [];
   }
 
-  /// Fetches tracks inside any YouTube Music playlist (`VL...` or raw playlist ID)
+  /// Fetches tracks inside any YouTube Music playlist (`VL...`, `FE...`, or raw playlist ID).
   Future<List<Track>> fetchPlaylistTracks(String playlistId) async {
     try {
       final browseId = (playlistId.startsWith('VL') || playlistId.startsWith('FE'))
@@ -181,8 +249,8 @@ class InnerTubeMusicProvider implements MusicProvider {
       );
 
       if (res.statusCode == 200 && res.data != null) {
-        final decoded = res.data is String ? jsonDecode(res.data as String) : res.data;
-        if (decoded is Map<String, dynamic>) {
+        final decoded = _decodeJsonMap(res.data);
+        if (decoded != null) {
           return _extractTracksFromBrowse(decoded);
         }
       }
@@ -190,16 +258,18 @@ class InnerTubeMusicProvider implements MusicProvider {
     return [];
   }
 
-  /// Fetches authenticated user's Liked Music tracks
+  /// Fetches authenticated user's Liked Music tracks.
   Future<List<Track>> fetchLikedTracks() async {
-    final likedFromPlaylist = await fetchPlaylistTracks('LM');
-    if (likedFromPlaylist.isNotEmpty) {
-      return likedFromPlaylist.map((t) => t.copyWith(isFavorite: true)).toList();
+    for (final id in const ['LM', 'FEmusic_liked_videos']) {
+      final tracks = await fetchPlaylistTracks(id);
+      if (tracks.isNotEmpty) {
+        return tracks.map((t) => t.copyWith(isFavorite: true)).toList();
+      }
     }
     return [];
   }
 
-  /// Fetches personalized Home Quick Picks & Recommendations (falls back to live Explore/Charts)
+  /// Fetches personalized Home Quick Picks & Recommendations (falls back to live Explore/Charts).
   Future<List<Track>> fetchHomeRecommendations() async {
     try {
       final headers = await _buildHeaders();
@@ -216,40 +286,38 @@ class InnerTubeMusicProvider implements MusicProvider {
       );
 
       if (res.statusCode == 200 && res.data != null) {
-        final decoded = res.data is String
-            ? jsonDecode(res.data as String)
-            : res.data;
-        if (decoded is Map<String, dynamic>) {
+        final decoded = _decodeJsonMap(res.data);
+        if (decoded != null) {
           final tracks = _extractTracksFromBrowse(decoded);
           if (tracks.length >= 4) return tracks;
         }
       }
     } catch (_) {}
 
-    // Live public Explore tracks (real playable songs/MVs when personalized Home is unavailable)
-    try {
-      final headers = await _buildHeaders(authenticated: false);
-      final exploreRes = await _dio.post(
-        '$_youtubeiBaseUrl/browse',
-        data: {
-          'context': _webRemixContext,
-          'browseId': 'FEmusic_explore',
-        },
-        options: Options(
-          headers: headers,
-          validateStatus: (s) => s != null && s < 500,
-        ),
-      );
-      if (exploreRes.statusCode == 200 && exploreRes.data != null) {
-        final decoded = exploreRes.data is String
-            ? jsonDecode(exploreRes.data as String)
-            : exploreRes.data;
-        if (decoded is Map<String, dynamic>) {
-          final tracks = _extractTracksFromBrowse(decoded);
-          if (tracks.isNotEmpty) return tracks;
+    // Live public Explore & Charts tracks (real playable songs/MVs, never fake demo data)
+    for (final browseId in const ['FEmusic_explore', 'FEmusic_charts']) {
+      try {
+        final headers = await _buildHeaders(authenticated: false);
+        final res = await _dio.post(
+          '$_youtubeiBaseUrl/browse',
+          data: {
+            'context': _webRemixContext,
+            'browseId': browseId,
+          },
+          options: Options(
+            headers: headers,
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final decoded = _decodeJsonMap(res.data);
+          if (decoded != null) {
+            final tracks = _extractTracksFromBrowse(decoded);
+            if (tracks.isNotEmpty) return tracks;
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // Live Global Top chart playlist fallback
     final chartTracks =
@@ -258,7 +326,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       return chartTracks.take(25).toList();
     }
 
-    return getFeaturedTracks();
+    return [];
   }
 
   static List<Playlist> playlistsFromWebViewMaps(
@@ -356,10 +424,8 @@ class InnerTubeMusicProvider implements MusicProvider {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final rawData = response.data is String
-            ? jsonDecode(response.data as String)
-            : response.data;
-        if (rawData is Map<String, dynamic>) {
+        final rawData = _decodeJsonMap(response.data);
+        if (rawData != null) {
           final tracks = <Track>[];
           _extractTracksFromSearch(rawData, tracks);
           return tracks;
@@ -370,7 +436,6 @@ class InnerTubeMusicProvider implements MusicProvider {
   }
 
   Future<List<Track>> _searchStandardYouTube(String query) async {
-    // Try ANDROID client first, then desktop WEB client
     for (final cfg in [
       {
         'headers': <String, String>{
@@ -415,9 +480,8 @@ class InnerTubeMusicProvider implements MusicProvider {
           ),
         );
         if (res.statusCode == 200 && res.data != null) {
-          final rawData =
-              res.data is String ? jsonDecode(res.data as String) : res.data;
-          if (rawData is Map<String, dynamic>) {
+          final rawData = _decodeJsonMap(res.data);
+          if (rawData != null) {
             final extracted = _extractStandardVideoResults(rawData);
             if (extracted.isNotEmpty) return extracted;
           }
@@ -467,9 +531,13 @@ class InnerTubeMusicProvider implements MusicProvider {
           );
           final len = runsText(vRenderer['lengthText']);
           final thumbs = vRenderer['thumbnail']?['thumbnails'] as List?;
-          final thumbUrl = (thumbs != null && thumbs.isNotEmpty)
-              ? (thumbs.last as Map?)?['url']?.toString()
-              : null;
+          String? thumbUrl;
+          if (thumbs != null && thumbs.isNotEmpty) {
+            final lastThumb = thumbs.last;
+            if (lastThumb is Map) {
+              thumbUrl = lastThumb['url']?.toString();
+            }
+          }
           results.add(
             Track(
               id: vid,
@@ -496,6 +564,14 @@ class InnerTubeMusicProvider implements MusicProvider {
     return results;
   }
 
+  static bool _isPlaylistBrowseId(String browseId) {
+    if (browseId.isEmpty) return false;
+    return browseId.startsWith('VL') ||
+        browseId.startsWith('PL') ||
+        browseId.startsWith('RDCLAK') ||
+        browseId == 'LM';
+  }
+
   List<Playlist> _extractPlaylistsFromBrowse(Map<String, dynamic> data) {
     final playlists = <Playlist>[];
     final seenIds = <String>{};
@@ -520,10 +596,14 @@ class InnerTubeMusicProvider implements MusicProvider {
 
       final resp = node['musicResponsiveListItemRenderer'];
       if (resp is Map<String, dynamic>) {
-        final navBrowse = resp['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
+        final navBrowse =
+            resp['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
         final title = resp['flexColumns']?[0]?['musicResponsiveListItemFlexColumnRenderer']
             ?['text']?['runs']?[0]?['text'] as String?;
-        if (navBrowse != null && title != null && !seenIds.contains(navBrowse)) {
+        if (navBrowse != null &&
+            _isPlaylistBrowseId(navBrowse) &&
+            title != null &&
+            !seenIds.contains(navBrowse)) {
           seenIds.add(navBrowse);
           playlists.add(
             Playlist(
@@ -551,7 +631,9 @@ class InnerTubeMusicProvider implements MusicProvider {
       final runs = twoRow['title']?['runs'] as List?;
       final title = runs != null && runs.isNotEmpty ? runs[0]['text'] as String? : null;
       final browseId = twoRow['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
-      if (title == null || browseId == null) return null;
+      if (title == null || browseId == null || !_isPlaylistBrowseId(browseId)) {
+        return null;
+      }
 
       final subRuns = twoRow['subtitle']?['runs'] as List?;
       final subtitle = subRuns != null && subRuns.isNotEmpty
@@ -838,13 +920,15 @@ class InnerTubeMusicProvider implements MusicProvider {
   }
 
   String? _extractThumbnail(dynamic thumbData) {
-    if (thumbData is! Map<String, dynamic>) return null;
+    if (thumbData is! Map) return null;
     final thumbs = thumbData['musicThumbnailRenderer']?['thumbnail']?['thumbnails'] as List? ??
         thumbData['croppedSquareThumbnailRenderer']?['thumbnail']?['thumbnails'] as List? ??
         thumbData['thumbnails'] as List?;
     if (thumbs != null && thumbs.isNotEmpty) {
-      final last = thumbs.last as Map<String, dynamic>?;
-      return last?['url'] as String?;
+      final last = thumbs.last;
+      if (last is Map) {
+        return last['url']?.toString();
+      }
     }
     return null;
   }
@@ -1004,7 +1088,8 @@ class InnerTubeMusicProvider implements MusicProvider {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
+        final data = _decodeJsonMap(response.data);
+        if (data == null) return null;
         final streamingData = data['streamingData'] as Map<String, dynamic>?;
         if (streamingData == null) return null;
 
@@ -1084,94 +1169,48 @@ class InnerTubeMusicProvider implements MusicProvider {
 
   @override
   Future<List<Track>> getFeaturedTracks() async {
-    return const [
-      Track(
-        id: '5NV6Rdv1a3I',
-        title: 'Get Lucky',
-        artist: 'Daft Punk ft. Pharrell Williams',
-        album: 'Random Access Memories',
-        duration: Duration(minutes: 4, seconds: 8),
-        artworkUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
-        source: MusicSource.youtube,
-        audioFormat: 'AAC 130kbps / 44.1kHz',
-      ),
-      Track(
-        id: 'fJ9rUzIMcZQ',
-        title: 'Bohemian Rhapsody',
-        artist: 'Queen',
-        album: 'A Night at the Opera',
-        duration: Duration(minutes: 5, seconds: 55),
-        artworkUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
-        source: MusicSource.youtube,
-        audioFormat: 'AAC 130kbps / 44.1kHz',
-      ),
-      Track(
-        id: '4NRXx6U8ABQ',
-        title: 'Blinding Lights',
-        artist: 'The Weeknd',
-        album: 'After Hours',
-        duration: Duration(minutes: 3, seconds: 20),
-        artworkUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
-        source: MusicSource.youtube,
-        audioFormat: 'AAC 130kbps / 44.1kHz',
-      ),
-      Track(
-        id: 'kJQP7kiw5Fk',
-        title: 'Despacito',
-        artist: 'Luis Fonsi ft. Daddy Yankee',
-        album: 'VIDA',
-        duration: Duration(minutes: 4, seconds: 41),
-        artworkUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80',
-        source: MusicSource.youtube,
-        audioFormat: 'AAC 130kbps / 44.1kHz',
-      ),
-    ];
+    return fetchHomeRecommendations();
   }
 
   @override
   Future<List<Album>> getFeaturedAlbums() async {
-    return const [
-      Album(
-        id: 'MPREb_9u3R81b',
-        title: 'Random Access Memories',
-        artist: 'Daft Punk',
-        year: 2013,
-        trackCount: 13,
-        artworkUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
-      ),
-      Album(
-        id: 'MPREb_kZ3Qx',
-        title: 'After Hours',
-        artist: 'The Weeknd',
-        year: 2020,
-        trackCount: 14,
-        artworkUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
-      ),
-    ];
+    return const [];
   }
 
   @override
   Future<List<Playlist>> getCuratedPlaylists() async {
-    return const [
-      Playlist(
-        id: 'RDCLAK5uy_kmPRjHDECIcuVwnKsx2NgGGeQQ5HKKUJ8',
-        title: 'Today\'s Hits — Global 50',
-        description: 'The biggest streaming hits in the world, updated live.',
-        artworkUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
-        trackCount: 50,
-      ),
-      Playlist(
-        id: 'RDCLAK5uy_n622sX0g8j37YyQ',
-        title: 'Synthwave & Cyberpunk Frequency',
-        description: 'Retro-futuristic electronic waves, neon arpeggios, and atmospheric pulses.',
-        artworkUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80',
-        trackCount: 40,
-      ),
-    ];
+    for (final browseId in const ['FEmusic_charts', 'FEmusic_explore']) {
+      try {
+        final headers = await _buildHeaders(authenticated: false);
+        final res = await _dio.post(
+          '$_youtubeiBaseUrl/browse',
+          data: {
+            'context': _webRemixContext,
+            'browseId': browseId,
+          },
+          options: Options(
+            headers: headers,
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+
+        if (res.statusCode == 200 && res.data != null) {
+          final decoded = _decodeJsonMap(res.data);
+          if (decoded != null) {
+            final playlists = _extractPlaylistsFromBrowse(decoded);
+            if (playlists.isNotEmpty) return playlists.take(10).toList();
+          }
+        }
+      } catch (_) {}
+    }
+
+    return const [];
   }
 
   @override
   Future<List<Track>> getRadioStation(String genreOrMood) async {
-    return getFeaturedTracks();
+    final results = await search(genreOrMood, songsOnly: true);
+    if (results.isNotEmpty) return results.take(20).toList();
+    return search(genreOrMood);
   }
 }

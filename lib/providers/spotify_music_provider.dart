@@ -248,8 +248,8 @@ class SpotifyMusicProvider implements MusicProvider {
       return null;
     }
 
-    try {
-      final res = await _dio.post(
+    Future<Response<dynamic>> sendPost(String bearer) {
+      return _dio.post(
         _pathfinderUrl,
         data: {
           'operationName': operationName,
@@ -263,8 +263,8 @@ class SpotifyMusicProvider implements MusicProvider {
         },
         options: Options(
           headers: {
-            'Authorization': 'Bearer $token',
-            'client-token': clientToken,
+            'Authorization': 'Bearer $bearer',
+            'client-token': clientToken!,
             'app-platform': 'WebPlayer',
             'Content-Type': 'application/json;charset=UTF-8',
             'Accept': 'application/json',
@@ -275,6 +275,17 @@ class SpotifyMusicProvider implements MusicProvider {
           validateStatus: (s) => s != null && s < 500,
         ),
       );
+    }
+
+    try {
+      var res = await sendPost(token);
+      if (res.statusCode == 401) {
+        final refreshed = await _getAccessToken(forceRefresh: true);
+        if (refreshed != null && refreshed.isNotEmpty) {
+          token = refreshed;
+          res = await sendPost(token);
+        }
+      }
       if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
         return res.data as Map<String, dynamic>;
       }
@@ -473,7 +484,7 @@ class SpotifyMusicProvider implements MusicProvider {
     return [];
   }
 
-  /// Fetches personalized top tracks or falls back cleanly to catalog highlights.
+  /// Fetches personalized top tracks, recently played, or liked songs without hardcoded demo data.
   Future<List<Track>> fetchTopTracks() async {
     final res = await _authorizedGet(
       'https://api.spotify.com/v1/me/top/tracks',
@@ -488,7 +499,31 @@ class SpotifyMusicProvider implements MusicProvider {
             .toList();
       }
     }
-    return getFeaturedTracks();
+
+    final recentRes = await _authorizedGet(
+      'https://api.spotify.com/v1/me/player/recently-played',
+      queryParameters: {'limit': '20'},
+    );
+    if (recentRes?.statusCode == 200 && recentRes?.data != null) {
+      final items = recentRes!.data['items'] as List?;
+      if (items != null && items.isNotEmpty) {
+        final out = <Track>[];
+        final seen = <String>{};
+        for (final row in items) {
+          final trackMap = row is Map ? row['track'] : null;
+          if (trackMap is Map<String, dynamic>) {
+            final parsed = parseSpotifyTrack(trackMap);
+            if (seen.add(parsed.id)) out.add(parsed);
+          }
+        }
+        if (out.isNotEmpty) return out;
+      }
+    }
+
+    final liked = await fetchLikedTracks(allowWebViewFallback: false);
+    if (liked.isNotEmpty) return liked.take(20).toList();
+
+    return [];
   }
 
   /// Runs a single hidden WebView2 sync pass on Windows and persists captured tokens + profile.
@@ -707,7 +742,7 @@ class SpotifyMusicProvider implements MusicProvider {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) return [];
 
-    // 1. Spotify REST Search (only if not rate-limited)
+    // 1. Spotify REST Search (auto-refreshes token if expired; respects 429 cooldown)
     final res = await _authorizedGet(
       'https://api.spotify.com/v1/search',
       queryParameters: {
@@ -727,7 +762,7 @@ class SpotifyMusicProvider implements MusicProvider {
       }
     }
 
-    // 2. Spotify Pathfinder searchDesktop (if hash was captured during browser login)
+    // 2. Spotify Pathfinder searchDesktop (if hash was captured during browser session)
     final pf = await _pathfinderPost('searchDesktop', {
       'searchTerm': cleanQuery,
       'offset': 0,
@@ -743,9 +778,12 @@ class SpotifyMusicProvider implements MusicProvider {
       return pfTracks;
     }
 
-    // 3. Bridge fallback: query clean InnerTube Songs catalog (returns real YT Music IDs)
+    // 3. Clean InnerTube Music catalog bridge fallback (real YT Music catalog, zero fake tracks)
     try {
-      final ytResults = await _innerTubeBridge.search(cleanQuery, songsOnly: true);
+      var ytResults = await _innerTubeBridge.search(cleanQuery, songsOnly: true);
+      if (ytResults.isEmpty) {
+        ytResults = await _innerTubeBridge.search(cleanQuery);
+      }
       return ytResults.map((t) {
         return t.copyWith(
           id: 'sp-${t.id}',
@@ -771,26 +809,34 @@ class SpotifyMusicProvider implements MusicProvider {
     return out;
   }
 
-  int _scoreMatch(Track candidate, String targetTitle, String targetArtist) {
+  static int scoreMatch(Track candidate, String targetTitle, String targetArtist) {
     int score = 0;
-    final cTitle = candidate.title.toLowerCase();
-    final cArtist = candidate.artist.toLowerCase();
-    final tLower = targetTitle.toLowerCase();
-    final aLower = targetArtist.toLowerCase();
+    final cTitle = candidate.title.toLowerCase().trim();
+    final cArtist = candidate.artist.toLowerCase().trim();
+    final tLower = targetTitle.toLowerCase().trim();
+    final aLower = targetArtist.toLowerCase().trim();
 
     if (cTitle == tLower) score += 60;
-    if (cTitle.contains(tLower) || tLower.contains(cTitle)) score += 30;
+    if (tLower.isNotEmpty && (cTitle.contains(tLower) || tLower.contains(cTitle))) {
+      score += 30;
+    }
     for (final w in tLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
       if (cTitle.contains(w)) score += 10;
     }
-    for (final w in aLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
-      if (cArtist.contains(w) || cTitle.contains(w)) score += 12;
+    if (aLower.isNotEmpty &&
+        aLower != 'unknown artist' &&
+        aLower != 'various artists') {
+      if (cArtist == aLower || cArtist.contains(aLower)) score += 35;
+      for (final w in aLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
+        if (cArtist.contains(w) || cTitle.contains(w)) score += 12;
+      }
     }
-    if (RegExp(r'\b(cover|karaoke|8d|slowed|reverb|nightcore|sped up|instrumental)\b')
-        .hasMatch(cTitle) &&
-        !RegExp(r'\b(cover|karaoke|8d|slowed|reverb|nightcore|sped up|instrumental)\b')
-            .hasMatch(tLower)) {
-      score -= 40;
+
+    final noisyVariant = RegExp(
+      r'\b(cover|karaoke|8d|slowed|reverb|nightcore|sped up|instrumental|techno|tribute|reaction|type beat|piano version|tutorial)\b',
+    );
+    if (noisyVariant.hasMatch(cTitle) && !noisyVariant.hasMatch(tLower)) {
+      score -= 55;
     }
     return score;
   }
@@ -832,15 +878,39 @@ class SpotifyMusicProvider implements MusicProvider {
       final effectiveArtist = cleanArtist.isNotEmpty ? cleanArtist : track.artist;
 
       final searchQuery = '$effectiveArtist $effectiveTitle'.trim();
-      var matches = await _innerTubeBridge.search(searchQuery, songsOnly: true);
-      if (matches.isEmpty) {
-        matches = await _innerTubeBridge.search('$effectiveTitle $effectiveArtist');
+      final matches = <Track>[];
+      final seenIds = <String>{};
+
+      void addMatches(List<Track> list) {
+        for (final t in list) {
+          if (t.id.isNotEmpty && seenIds.add(t.id)) {
+            matches.add(t);
+          }
+        }
       }
+
+      addMatches(await _innerTubeBridge.search(searchQuery, songsOnly: true));
+      final bestSongsScore = matches.isNotEmpty
+          ? matches
+              .map((m) => scoreMatch(m, effectiveTitle, effectiveArtist))
+              .reduce((a, b) => a > b ? a : b)
+          : -999;
+
+      // Also search unfiltered YT Music if Songs filter yielded nothing or low-confidence hits
+      if (matches.isEmpty || bestSongsScore < 45) {
+        addMatches(await _innerTubeBridge.search(searchQuery, songsOnly: false));
+      }
+      if (matches.isEmpty) {
+        addMatches(await _innerTubeBridge.search('$effectiveTitle $effectiveArtist'));
+      }
+
       if (matches.isNotEmpty) {
         final ranked = List<Track>.from(matches)
-          ..sort((a, b) => _scoreMatch(b, effectiveTitle, effectiveArtist)
-              .compareTo(_scoreMatch(a, effectiveTitle, effectiveArtist)));
-        for (final match in ranked.take(3)) {
+          ..sort(
+            (a, b) => scoreMatch(b, effectiveTitle, effectiveArtist)
+                .compareTo(scoreMatch(a, effectiveTitle, effectiveArtist)),
+          );
+        for (final match in ranked.take(4)) {
           final resolved = await _innerTubeBridge.resolveAudioStreamUrl(match);
           if (resolved != null && resolved.isNotEmpty) {
             return resolved;
@@ -854,63 +924,21 @@ class SpotifyMusicProvider implements MusicProvider {
 
   @override
   Future<List<Track>> getFeaturedTracks() async {
-    return const [
-      Track(
-        id: 'sp-starboy',
-        title: 'Starboy',
-        artist: 'The Weeknd ft. Daft Punk',
-        album: 'Starboy',
-        duration: Duration(minutes: 3, seconds: 50),
-        artworkUrl:
-            'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
-        source: MusicSource.spotify,
-        audioFormat: 'Spotify 320kbps Bridge',
-      ),
-      Track(
-        id: 'sp-midnight-city',
-        title: 'Midnight City',
-        artist: 'M83',
-        album: 'Hurry Up, We\'re Dreaming',
-        duration: Duration(minutes: 4, seconds: 3),
-        artworkUrl:
-            'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
-        source: MusicSource.spotify,
-        audioFormat: 'Spotify 320kbps Bridge',
-      ),
-    ];
+    return fetchTopTracks();
   }
 
   @override
   Future<List<Album>> getFeaturedAlbums() async {
-    return const [
-      Album(
-        id: 'sp-alb-starboy',
-        title: 'Starboy',
-        artist: 'The Weeknd',
-        year: 2016,
-        trackCount: 18,
-        artworkUrl:
-            'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
-      ),
-    ];
+    return const [];
   }
 
   @override
   Future<List<Playlist>> getCuratedPlaylists() async {
-    return const [
-      Playlist(
-        id: 'sp-pl-discover-weekly',
-        title: 'Discover Weekly',
-        description: 'Your weekly mixtape of fresh music. Updated every Monday.',
-        artworkUrl:
-            'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
-        trackCount: 30,
-      ),
-    ];
+    return fetchUserPlaylists(allowWebViewFallback: false);
   }
 
   @override
   Future<List<Track>> getRadioStation(String genreOrMood) async {
-    return getFeaturedTracks();
+    return search(genreOrMood);
   }
 }

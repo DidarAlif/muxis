@@ -206,7 +206,12 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
     );
 
     if (triggerBackgroundSync) {
-      if (hasYt && state.youtube.playlists.isEmpty && !_syncingYouTube) {
+      final ytNeedsSync = hasYt &&
+          (state.youtube.playlists.isEmpty ||
+              state.youtube.displayName == null ||
+              state.youtube.displayName!.isEmpty ||
+              state.youtube.displayName == 'YouTube Music Listener');
+      if (ytNeedsSync && !_syncingYouTube) {
         syncYouTubeLive();
       }
       if (hasSp && state.spotify.playlists.isEmpty && !_syncingSpotify) {
@@ -287,7 +292,29 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
     final res = await _oauth.signInWithYouTubeWeb(context);
     await refreshFromStorage(triggerBackgroundSync: false);
     if (res.isSuccess) {
-      await syncYouTubeLive();
+      if (state.youtube.playlists.isEmpty && state.youtube.likedTracks.isEmpty) {
+        await syncYouTubeLive();
+      } else {
+        if (state.youtube.recommendedTracks.isEmpty) {
+          try {
+            final yt = InnerTubeMusicProvider(prefs: _prefs);
+            final home = await yt.fetchHomeRecommendations();
+            final bestHome = home.isNotEmpty
+                ? home
+                : (state.youtube.likedTracks.isNotEmpty
+                    ? state.youtube.likedTracks
+                    : state.youtube.recommendedTracks);
+            if (bestHome.isNotEmpty) {
+              state = state.copyWith(
+                youtube: state.youtube.copyWith(recommendedTracks: bestHome),
+              );
+            }
+          } catch (_) {}
+        }
+        state = state.copyWith(
+          youtube: state.youtube.copyWith(isSyncing: false),
+        );
+      }
     } else {
       state = state.copyWith(
         youtube: state.youtube.copyWith(isSyncing: false),
@@ -371,6 +398,15 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
               wvPlaylistTracks[entry.key] =
                   InnerTubeMusicProvider.tracksFromWebViewMaps(entry.value);
             }
+          }
+          if (wvYt.cookieHeader != null && wvYt.cookieHeader!.isNotEmpty) {
+            await _prefs.saveYtCookie(wvYt.cookieHeader!);
+          }
+          if (wvYt.sapisid != null && wvYt.sapisid!.isNotEmpty) {
+            await _prefs.saveYtSapisid(wvYt.sapisid!);
+          }
+          if (wvYt.ytAuthUser != null && wvYt.ytAuthUser!.isNotEmpty) {
+            await _prefs.saveYtAuthUser(wvYt.ytAuthUser!);
           }
         }
       }
@@ -576,13 +612,11 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
         ...liked,
         for (final pl in hydratedPlaylists) ...pl.tracks,
       ];
-      final bestSpRecommended = (topTracks.length > 2)
+      final bestSpRecommended = topTracks.isNotEmpty
           ? topTracks
           : (libraryTracks.isNotEmpty
               ? libraryTracks.take(20).toList()
-              : (topTracks.isNotEmpty
-                  ? topTracks
-                  : state.spotify.recommendedTracks));
+              : state.spotify.recommendedTracks);
 
       state = state.copyWith(
         spotify: state.spotify.copyWith(

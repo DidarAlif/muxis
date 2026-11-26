@@ -69,6 +69,25 @@ class DatabaseService {
               }
             }
           }
+
+          // Clean up any synthetic demo/fallback entries saved by earlier versions
+          final staleFakeIds = _tracks
+              .where((t) =>
+                  t.id == 'sp-starboy' ||
+                  t.id == 'sp-midnight-city' ||
+                  t.artist == 'Muxis Frequency Studio' ||
+                  t.title.endsWith(' (Prismatic Mix)'))
+              .map((t) => t.id)
+              .toSet();
+          if (staleFakeIds.isNotEmpty) {
+            _tracks.removeWhere((t) => staleFakeIds.contains(t.id));
+            _favoriteIds.removeWhere(staleFakeIds.contains);
+            _historyIds.removeWhere(staleFakeIds.contains);
+            for (final list in _playlists.values) {
+              list.removeWhere(staleFakeIds.contains);
+            }
+            await _persist();
+          }
         }
       }
     } catch (_) {

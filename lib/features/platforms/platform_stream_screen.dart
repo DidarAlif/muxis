@@ -63,7 +63,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     super.dispose();
   }
 
-  void _onSearch(String raw) {
+  void _onSearch(String raw, {bool immediate = false}) {
     _debounce?.cancel();
     final q = raw.trim();
     if (q.isEmpty) {
@@ -75,11 +75,11 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     }
 
     setState(() => _isSearching = true);
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
+    Future<void> runSearch() async {
       try {
         final tracks = _isSpotify
             ? await _spotifyProvider.search(q)
-            : await _ytProvider.search(q, songsOnly: true);
+            : await _ytProvider.search(q);
         if (mounted && _searchCtrl.text.trim() == q) {
           setState(() {
             _searchResults = tracks;
@@ -89,7 +89,13 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
       } catch (_) {
         if (mounted) setState(() => _isSearching = false);
       }
-    });
+    }
+
+    if (immediate) {
+      runSearch();
+    } else {
+      _debounce = Timer(const Duration(milliseconds: 300), runSearch);
+    }
   }
 
   @override
@@ -465,7 +471,9 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
         // --- PLATFORM-SCOPED INSTANT SEARCH ---
         TextField(
           controller: _searchCtrl,
+          textInputAction: TextInputAction.search,
           onChanged: _onSearch,
+          onSubmitted: (q) => _onSearch(q, immediate: true),
           style: TextStyle(
             color: MuxisColors.textPrimary(isDark),
             fontSize: 14,
@@ -476,13 +484,16 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
               color: MuxisColors.textMuted(isDark),
               fontSize: 13,
             ),
-            prefixIcon: Icon(Icons.search_rounded, color: brandColor),
+            prefixIcon: IconButton(
+              icon: Icon(Icons.search_rounded, color: brandColor),
+              onPressed: () => _onSearch(_searchCtrl.text, immediate: true),
+            ),
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.close_rounded, size: 18),
                     onPressed: () {
                       _searchCtrl.clear();
-                      _onSearch('');
+                      _onSearch('', immediate: true);
                     },
                   )
                 : null,
