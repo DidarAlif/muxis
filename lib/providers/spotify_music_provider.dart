@@ -645,9 +645,9 @@ class SpotifyMusicProvider implements MusicProvider {
     }
 
     final alb = tr['albumOfTrack'] ?? tr['albumV2']?['data'] ?? {};
-    final albumName = (alb is Map ? alb['name']?.toString() : null) ?? 'Single';
-    final artSources =
-        (alb is Map ? alb['coverArt']?['sources'] : null) as List?;
+    final albMap = alb is Map ? alb : null;
+    final albumName = albMap?['name']?.toString() ?? 'Single';
+    final artSources = albMap?['coverArt']?['sources'] as List?;
     final artUrl = artSources != null && artSources.isNotEmpty
         ? artSources.last['url']?.toString()
         : null;
