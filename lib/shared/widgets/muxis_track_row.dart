@@ -4,6 +4,7 @@ import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../models/track.dart';
 import 'muxis_badge.dart';
+import 'muxis_liquid_surface.dart';
 
 class MuxisTrackRow extends StatefulWidget {
   final Track track;
@@ -37,33 +38,30 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
+      child: MuxisLiquidSurface(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: widget.isPlaying
-                ? (isDark
-                      ? MuxisColors.elevatedSurface.withOpacity(0.85)
-                      : Colors.white.withOpacity(0.85))
-                : (_isHovered
-                      ? (isDark
-                            ? MuxisColors.hoverSurface.withOpacity(0.55)
-                            : Colors.white.withOpacity(0.55))
-                      : Colors.transparent),
-            borderRadius: BorderRadius.circular(10),
-            border: widget.isPlaying
-                ? Border.all(
-                    color: MuxisColors.accent(isDark).withOpacity(0.45),
-                    width: 1,
-                  )
-                : null,
-          ),
-          child: Row(
+        enableGlass: false,
+        blurSigma: 0,
+        borderRadius: 12,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        colorOverride: widget.isPlaying
+            ? (isDark
+                  ? MuxisColors.elevatedSurface.withOpacity(0.85)
+                  : Colors.white.withOpacity(0.85))
+            : (_isHovered
+                  ? (isDark
+                        ? MuxisColors.hoverSurface.withOpacity(0.50)
+                        : Colors.white.withOpacity(0.55))
+                  : Colors.transparent),
+        borderOverride: widget.isPlaying
+            ? Border.all(
+                color: MuxisColors.accent(isDark).withOpacity(0.45),
+                width: 1,
+              )
+            : null,
+        child: Row(
             children: [
               // Index or Playing Equalizer Indicator
               SizedBox(
@@ -252,8 +250,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildEqualizerIndicator() {

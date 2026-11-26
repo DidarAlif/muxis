@@ -14,7 +14,8 @@ import '../../core/local_scanner/local_library_scanner.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
-import '../../shared/widgets/muxis_card.dart';
+import '../../shared/widgets/muxis_liquid_surface.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
@@ -398,53 +399,58 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       },
       child: Stack(
         children: [
-          ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            children: [
-              // Header & Scan Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Your Library', style: MuxisTypography.pageTitle(isDark: isDark)),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${allTracks.length} Saved Tracks • ${playlists.length} Playlists • Offline-First Engine',
-                        style: TextStyle(fontSize: 13, color: MuxisColors.textSecondary(isDark)),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      MuxisButton(
-                        label: _isScanning ? 'Importing...' : 'Import Music',
-                        icon: _isScanning
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: MuxisColors.electricCyan),
-                              )
-                            : const Icon(Icons.add_circle_outline_rounded, size: 18),
-                        variant: MuxisButtonVariant.liquidGlass,
-                        onPressed: _isScanning ? null : _showImportDialog,
-                      ),
-                      const SizedBox(width: 12),
-                      MuxisButton(
-                        label: 'Play All',
-                        icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
-                        variant: MuxisButtonVariant.primary,
-                        onPressed: () {
-                          if (allTracks.isNotEmpty) {
-                            audioService.playTrack(allTracks[0], newQueue: allTracks);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+          MuxisScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header & Scan Actions
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Your Library', style: MuxisTypography.pageTitle(isDark: isDark)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${allTracks.length} Saved Tracks • ${playlists.length} Playlists • Offline-First Engine',
+                          style: TextStyle(fontSize: 13, color: MuxisColors.textSecondary(isDark)),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        MuxisButton(
+                          label: _isScanning ? 'Importing...' : 'Import Music',
+                          icon: _isScanning
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: MuxisColors.electricCyan),
+                                )
+                              : const Icon(Icons.add_circle_outline_rounded, size: 18),
+                          variant: MuxisButtonVariant.liquidGlass,
+                          onPressed: _isScanning ? null : _showImportDialog,
+                        ),
+                        MuxisButton(
+                          label: 'Play All',
+                          icon: Icon(Icons.play_arrow_rounded, color: isDark ? Colors.black : Colors.white),
+                          variant: MuxisButtonVariant.primary,
+                          onPressed: () {
+                            if (allTracks.isNotEmpty) {
+                              audioService.playTrack(allTracks[0], newQueue: allTracks);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               const SizedBox(height: 24),
 
               // Filter Tabs (All Tracks, Playlists, Albums, Artists, Favorites, Recently Played)
@@ -500,7 +506,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 audioService: audioService,
                 db: db,
               ),
-            ],
+              ],
+            ),
           ),
 
           // Drag-and-drop Overlay
@@ -551,48 +558,45 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget _buildTabChip(int index, String label, IconData icon, bool isDark) {
     final isSelected = _tabIndex == index;
     final accent = MuxisColors.accent(isDark);
-    return InkWell(
+    return MuxisLiquidSurface(
       onTap: () => setState(() {
         _tabIndex = index;
         _selectedAlbum = null;
         _selectedArtist = null;
         _selectedPlaylist = null;
       }),
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? accent.withOpacity(isDark ? 0.20 : 0.16)
-              : (isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.72)),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? accent : MuxisColors.border(isDark),
-            width: isSelected ? 1.5 : 1,
+      enableGlass: false,
+      blurSigma: 0,
+      borderRadius: 20,
+      accentColor: accent,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      colorOverride: isSelected
+          ? accent.withOpacity(isDark ? 0.20 : 0.16)
+          : (isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.72)),
+      borderOverride: Border.all(
+        color: isSelected ? accent : MuxisColors.border(isDark),
+        width: isSelected ? 1.5 : 1,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isSelected ? accent : MuxisColors.textMuted(isDark),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? accent : MuxisColors.textMuted(isDark),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected
+                  ? MuxisColors.textPrimary(isDark)
+                  : MuxisColors.textSecondary(isDark),
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected
-                    ? MuxisColors.textPrimary(isDark)
-                    : MuxisColors.textSecondary(isDark),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -770,80 +774,70 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 220,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: playlistEntries.length + 1,
-          itemBuilder: (ctx, i) {
-            if (i == 0) {
-              // Create playlist card
-              return InkWell(
-                onTap: _showCreatePlaylistDialog,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: MuxisColors.surface(isDark).withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: MuxisColors.border(isDark), style: BorderStyle.solid),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_circle_outline_rounded, size: 40, color: MuxisColors.accent(isDark)),
-                      const SizedBox(height: 12),
-                      Text('Create Playlist', style: TextStyle(color: isDark ? Colors.white : MuxisColors.textPrimaryLight, fontWeight: FontWeight.w600, fontSize: 14)),
-                    ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardW = _responsiveWrapWidth(constraints.maxWidth, 180);
+            return Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                SizedBox(
+                  width: cardW,
+                  height: cardW * 1.15,
+                  child: MuxisLiquidSurface(
+                    onTap: _showCreatePlaylistDialog,
+                    borderRadius: 16,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_circle_outline_rounded, size: 40, color: MuxisColors.accent(isDark)),
+                        const SizedBox(height: 12),
+                        Text('Create Playlist', style: TextStyle(color: isDark ? Colors.white : MuxisColors.textPrimaryLight, fontWeight: FontWeight.w600, fontSize: 14)),
+                      ],
+                    ),
                   ),
                 ),
-              );
-            }
-
-            final pl = playlistEntries[i - 1];
-            return InkWell(
-              onTap: () => setState(() => _selectedPlaylist = pl.key),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: MuxisColors.surface(isDark),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: MuxisColors.border(isDark)),
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: MuxisGradients.prismaticPrimary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.playlist_play_rounded, size: 42, color: Colors.black),
-                        ),
+                ...playlistEntries.map((pl) {
+                  return SizedBox(
+                    width: cardW,
+                    height: cardW * 1.15,
+                    child: MuxisLiquidSurface(
+                      onTap: () => setState(() => _selectedPlaylist = pl.key),
+                      borderRadius: 16,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: MuxisGradients.prismaticPrimary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.playlist_play_rounded, size: 42, color: Colors.black),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            pl.key,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : MuxisColors.textPrimaryLight),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${pl.value.length} songs',
+                            style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      pl.key,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : MuxisColors.textPrimaryLight),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${pl.value.length} songs',
-                      style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
+                  );
+                }),
+              ],
             );
           },
         ),
@@ -906,71 +900,64 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     final albumEntries = albums.entries.toList();
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: albumEntries.length,
-      itemBuilder: (ctx, i) {
-        final entry = albumEntries[i];
-        final firstTrack = entry.value.first;
-
-        return InkWell(
-          onTap: () => setState(() => _selectedAlbum = entry.key),
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            decoration: BoxDecoration(
-              color: MuxisColors.surface(isDark),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: MuxisColors.border(isDark)),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      gradient: MuxisGradients.auroraSpectrum,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardW = _responsiveWrapWidth(constraints.maxWidth, 174);
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: albumEntries.map((entry) {
+            final firstTrack = entry.value.first;
+            return SizedBox(
+              width: cardW,
+              height: cardW * 1.24,
+              child: MuxisLiquidSurface(
+                onTap: () => setState(() => _selectedAlbum = entry.key),
+                borderRadius: 16,
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          gradient: MuxisGradients.auroraSpectrum,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: firstTrack.artworkUrl != null
+                            ? Image.network(
+                                firstTrack.artworkUrl!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.album_rounded, size: 48, color: Colors.black45),
+                                ),
+                              )
+                            : const Center(
+                                child: Icon(Icons.album_rounded, size: 48, color: Colors.black45),
+                              ),
+                      ),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: firstTrack.artworkUrl != null
-                        ? Image.network(
-                            firstTrack.artworkUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.album_rounded, size: 48, color: Colors.black45),
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(Icons.album_rounded, size: 48, color: Colors.black45),
-                          ),
-                  ),
+                    const SizedBox(height: 10),
+                    Text(
+                      entry.key,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : MuxisColors.textPrimaryLight),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${entry.value.length} tracks • ${firstTrack.artist}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 11),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  entry.key,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : MuxisColors.textPrimaryLight),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${entry.value.length} tracks • ${firstTrack.artist}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 11),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          }).toList(),
         );
       },
     );
@@ -1031,62 +1018,70 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     final artistEntries = artists.entries.toList();
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 180,
-        mainAxisSpacing: 18,
-        crossAxisSpacing: 18,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: artistEntries.length,
-      itemBuilder: (ctx, i) {
-        final entry = artistEntries[i];
-
-        return InkWell(
-          onTap: () => setState(() => _selectedArtist = entry.key),
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: MuxisGradients.auroraSpectrum,
-                  border: Border.all(color: MuxisColors.accent(isDark), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: MuxisColors.accent(isDark).withOpacity(0.2),
-                      blurRadius: 16,
-                      spreadRadius: 2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardW = _responsiveWrapWidth(constraints.maxWidth, 160);
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: artistEntries.map((entry) {
+            return SizedBox(
+              width: cardW,
+              child: MuxisLiquidSurface(
+                onTap: () => setState(() => _selectedArtist = entry.key),
+                borderRadius: 16,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: MuxisGradients.auroraSpectrum,
+                        border: Border.all(color: MuxisColors.accent(isDark), width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: MuxisColors.accent(isDark).withOpacity(0.2),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.mic_rounded, size: 42, color: Colors.black),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      entry.key,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : MuxisColors.textPrimaryLight),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${entry.value.length} songs',
+                      style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 11),
                     ),
                   ],
                 ),
-                child: const Center(
-                  child: Icon(Icons.mic_rounded, size: 44, color: Colors.black),
-                ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                entry.key,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : MuxisColors.textPrimaryLight),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${entry.value.length} songs',
-                style: TextStyle(color: MuxisColors.textSecondary(isDark), fontSize: 11),
-              ),
-            ],
-          ),
+            );
+          }).toList(),
         );
       },
     );
+  }
+
+  static double _responsiveWrapWidth(double availableWidth, double target) {
+    const spacing = 16.0;
+    final cols = ((availableWidth + spacing) / (target + spacing))
+        .floor()
+        .clamp(2, 7);
+    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(140.0, 220.0);
   }
 
   // --- TAB 4: FAVORITES ---

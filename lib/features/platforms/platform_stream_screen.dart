@@ -14,6 +14,8 @@ import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_card.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
+import '../../shared/widgets/muxis_liquid_surface.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
 /// Dedicated Interactive Streaming Space for a Linked Platform (YouTube Music OR Spotify).
@@ -186,9 +188,10 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     // If browsing inside a specific synced playlist
     if (_openPlaylist != null) {
       final pl = _openPlaylist!;
-      return ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        children: [
+      return MuxisScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -335,13 +338,15 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                 onAddToQueueTap: () => audioService.addToQueue(track),
               );
             }),
-        ],
+          ],
+        ),
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      children: [
+    return MuxisScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // --- PLATFORM ACCOUNT HERO HEADER ---
         Container(
           padding: const EdgeInsets.all(24),
@@ -603,7 +608,8 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
               platformName,
             ),
         ],
-      ],
+        ],
+      ),
     );
   }
 
@@ -615,43 +621,40 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     bool isDark,
   ) {
     final selected = _subTab == index;
-    return InkWell(
+    return MuxisLiquidSurface(
       onTap: () => setState(() => _subTab = index),
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? brandColor.withOpacity(isDark ? 0.22 : 0.16)
-              : (isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.white.withOpacity(0.75)),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? brandColor : MuxisColors.border(isDark),
-            width: selected ? 1.5 : 1,
+      enableGlass: false,
+      blurSigma: 0,
+      borderRadius: 20,
+      accentColor: brandColor,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      colorOverride: selected
+          ? brandColor.withOpacity(isDark ? 0.22 : 0.16)
+          : (isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.white.withOpacity(0.75)),
+      borderOverride: Border.all(
+        color: selected ? brandColor : MuxisColors.border(isDark),
+        width: selected ? 1.5 : 1,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: selected ? brandColor : MuxisColors.textMuted(isDark),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: selected ? brandColor : MuxisColors.textMuted(isDark),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: MuxisColors.textPrimary(isDark),
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: MuxisColors.textPrimary(isDark),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -674,23 +677,24 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 232,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: tracks.take(12).length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, i) {
-              final t = tracks[i];
-              return MuxisCard(
-                title: t.title,
-                subtitle: t.artist,
-                artworkUrl: t.artworkUrl,
-                onTap: () => audioService.playTrack(t, newQueue: tracks),
-                onPlayTap: () => audioService.playTrack(t, newQueue: tracks),
-              );
-            },
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+            return Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: tracks.take(8).map((t) {
+                return MuxisCard(
+                  width: cardWidth,
+                  title: t.title,
+                  subtitle: t.artist,
+                  artworkUrl: t.artworkUrl,
+                  onTap: () => audioService.playTrack(t, newQueue: tracks),
+                  onPlayTap: () => audioService.playTrack(t, newQueue: tracks),
+                );
+              }).toList(),
+            );
+          },
         ),
         const SizedBox(height: 28),
         Text(
@@ -730,77 +734,84 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 210,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.82,
-      ),
-      itemCount: playlists.length,
-      itemBuilder: (ctx, i) {
-        final pl = playlists[i];
-        return InkWell(
-          onTap: () => _openAndHydratePlaylist(pl),
-          borderRadius: BorderRadius.circular(16),
-          child: MuxisGlassCard(
-            padding: const EdgeInsets.all(12),
-            borderRadius: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: brandGradient,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: playlists.map((pl) {
+            return SizedBox(
+              width: cardWidth,
+              height: cardWidth * 1.24,
+              child: MuxisGlassCard(
+                onTap: () => _openAndHydratePlaylist(pl),
+                padding: const EdgeInsets.all(12),
+                borderRadius: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: brandGradient,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: pl.artworkUrl != null && pl.artworkUrl!.isNotEmpty
+                            ? Image.network(
+                                pl.artworkUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.playlist_play_rounded,
+                                  size: 42,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.playlist_play_rounded,
+                                size: 42,
+                                color: Colors.white,
+                              ),
+                      ),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: pl.artworkUrl != null && pl.artworkUrl!.isNotEmpty
-                        ? Image.network(
-                            pl.artworkUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.playlist_play_rounded,
-                              size: 42,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.playlist_play_rounded,
-                            size: 42,
-                            color: Colors.white,
-                          ),
-                  ),
+                    const SizedBox(height: 10),
+                    Text(
+                      pl.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: MuxisColors.textPrimary(isDark),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: MuxisColors.textSecondary(isDark),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  pl.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: MuxisColors.textPrimary(isDark),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: MuxisColors.textSecondary(isDark),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          }).toList(),
         );
       },
     );
+  }
+
+  static double _responsiveCardWidth(double availableWidth) {
+    const double spacing = 16.0;
+    const double target = 178.0;
+    final cols = ((availableWidth + spacing) / (target + spacing))
+        .floor()
+        .clamp(2, 7);
+    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(146.0, 220.0);
   }
 
   Widget _buildLikedTracksView(

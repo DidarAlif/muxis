@@ -55,6 +55,24 @@ class InnerTubeMusicProvider implements MusicProvider {
         .trim();
   }
 
+  /// Sanitizes to ASCII and deduplicates `Cookie:` key=value pairs so Google/InnerTube
+  /// never downgrades requests to a signed-out shell due to duplicate cookie names or NUL bytes.
+  static String sanitizeAndDeduplicateCookie(String? raw) {
+    final cleaned = sanitizeHeaderValue(raw);
+    if (cleaned.isEmpty) return '';
+    final dedup = <String, String>{};
+    for (final part in cleaned.split(';')) {
+      final idx = part.indexOf('=');
+      if (idx <= 0) continue;
+      final k = part.substring(0, idx).trim();
+      final v = part.substring(idx + 1).trim();
+      if (k.isNotEmpty && v.isNotEmpty) {
+        dedup[k] = v;
+      }
+    }
+    return dedup.entries.map((e) => '${e.key}=${e.value}').join('; ');
+  }
+
   static String? _extractCookieValue(String cookieHeader, List<String> keys) {
     for (final key in keys) {
       final match = RegExp(
@@ -89,7 +107,7 @@ class InnerTubeMusicProvider implements MusicProvider {
     final rawSapisid = await _prefs.getYtSapisid();
     final rawAuthUser = await _prefs.getYtAuthUser();
 
-    final cookie = sanitizeHeaderValue(rawCookie);
+    final cookie = sanitizeAndDeduplicateCookie(rawCookie);
     var sapisid = sanitizeHeaderValue(rawSapisid);
     if (sapisid.isEmpty && cookie.isNotEmpty) {
       sapisid = _extractCookieValue(
@@ -154,6 +172,41 @@ class InnerTubeMusicProvider implements MusicProvider {
     return null;
   }
 
+  Map? _findRendererRecursive(dynamic node, String key) {
+    if (node is List) {
+      for (final item in node) {
+        final hit = _findRendererRecursive(item, key);
+        if (hit != null) return hit;
+      }
+    } else if (node is Map) {
+      if (node[key] is Map) return node[key] as Map;
+      for (final val in node.values) {
+        final hit = _findRendererRecursive(val, key);
+        if (hit != null) return hit;
+      }
+    }
+    return null;
+  }
+
+  String? _extractContinuationToken(dynamic node) {
+    if (node is List) {
+      for (final item in node) {
+        final tok = _extractContinuationToken(item);
+        if (tok != null && tok.isNotEmpty) return tok;
+      }
+    } else if (node is Map) {
+      final nextCont = node['nextContinuationData']?['continuation']?.toString();
+      if (nextCont != null && nextCont.isNotEmpty) return nextCont;
+      final cmdCont = node['continuationCommand']?['token']?.toString();
+      if (cmdCont != null && cmdCont.isNotEmpty) return cmdCont;
+      for (final val in node.values) {
+        final tok = _extractContinuationToken(val);
+        if (tok != null && tok.isNotEmpty) return tok;
+      }
+    }
+    return null;
+  }
+
   /// Fetches real signed-in Google / YouTube account display name and avatar via InnerTube account_menu.
   Future<Map<String, String?>> fetchUserProfile() async {
     try {
@@ -180,6 +233,7 @@ class InnerTubeMusicProvider implements MusicProvider {
               ?['multiPageMenuRenderer']?['header']
               ?['activeAccountHeaderRenderer'];
         }
+        header ??= _findRendererRecursive(data, 'activeAccountHeaderRenderer');
         if (header is Map) {
           final nameRuns = header['accountName']?['runs'] as List?;
           final name = nameRuns != null && nameRuns.isNotEmpty
@@ -229,8 +283,24 @@ class InnerTubeMusicProvider implements MusicProvider {
     return [];
   }
 
-  /// Fetches tracks inside any YouTube Music playlist (`VL...`, `FE...`, or raw playlist ID).
-  Future<List<Track>> fetchPlaylistTracks(String playlistId) async {
+  /// Fetches tracks inside any YouTube Music playlist (`VL...`, `FE...`, or raw playlist ID),
+  /// automatically following continuation tokens so larger playlists sync completely.
+  Future<List<Track>> fetchPlaylistTracks(
+    String playlistId, {
+    int maxPages = 6,
+  }) async {
+    final allTracks = <Track>[];
+    final seenIds = <String>{};
+    final seenTokens = <String>{};
+
+    void appendTracks(List<Track> incoming) {
+      for (final t in incoming) {
+        if (t.id.isNotEmpty && seenIds.add(t.id)) {
+          allTracks.add(t);
+        }
+      }
+    }
+
     try {
       final browseId = (playlistId.startsWith('VL') || playlistId.startsWith('FE'))
           ? playlistId
@@ -251,17 +321,47 @@ class InnerTubeMusicProvider implements MusicProvider {
       if (res.statusCode == 200 && res.data != null) {
         final decoded = _decodeJsonMap(res.data);
         if (decoded != null) {
-          return _extractTracksFromBrowse(decoded);
+          appendTracks(_extractTracksFromBrowse(decoded));
+          var contToken = _extractContinuationToken(decoded);
+          for (int page = 1;
+              page < maxPages &&
+                  contToken != null &&
+                  contToken.isNotEmpty &&
+                  seenTokens.add(contToken);
+              page++) {
+            final pageRes = await _dio.post(
+              '$_youtubeiBaseUrl/browse',
+              queryParameters: {
+                'continuation': contToken,
+                'type': 'next',
+              },
+              data: {
+                'context': _webRemixContext,
+                'continuation': contToken,
+              },
+              options: Options(
+                headers: headers,
+                validateStatus: (s) => s != null && s < 500,
+              ),
+            );
+            if (pageRes.statusCode != 200 || pageRes.data == null) break;
+            final pageDecoded = _decodeJsonMap(pageRes.data);
+            if (pageDecoded == null) break;
+            final pageTracks = _extractTracksFromBrowse(pageDecoded);
+            if (pageTracks.isEmpty) break;
+            appendTracks(pageTracks);
+            contToken = _extractContinuationToken(pageDecoded);
+          }
         }
       }
     } catch (_) {}
-    return [];
+    return allTracks;
   }
 
   /// Fetches authenticated user's Liked Music tracks.
   Future<List<Track>> fetchLikedTracks() async {
-    for (final id in const ['LM', 'FEmusic_liked_videos']) {
-      final tracks = await fetchPlaylistTracks(id);
+    for (final id in const ['VLLM', 'LM', 'FEmusic_liked_videos']) {
+      final tracks = await fetchPlaylistTracks(id, maxPages: 4);
       if (tracks.isNotEmpty) {
         return tracks.map((t) => t.copyWith(isFavorite: true)).toList();
       }
@@ -269,30 +369,45 @@ class InnerTubeMusicProvider implements MusicProvider {
     return [];
   }
 
-  /// Fetches personalized Home Quick Picks & Recommendations (falls back to live Explore/Charts).
+  /// Fetches personalized Home Quick Picks & Recommendations (falls back to History, Explore, Charts).
   Future<List<Track>> fetchHomeRecommendations() async {
-    try {
-      final headers = await _buildHeaders();
-      final res = await _dio.post(
-        '$_youtubeiBaseUrl/browse',
-        data: {
-          'context': _webRemixContext,
-          'browseId': 'FEmusic_home',
-        },
-        options: Options(
-          headers: headers,
-          validateStatus: (s) => s != null && s < 500,
-        ),
-      );
+    final collected = <Track>[];
+    final seenIds = <String>{};
 
-      if (res.statusCode == 200 && res.data != null) {
-        final decoded = _decodeJsonMap(res.data);
-        if (decoded != null) {
-          final tracks = _extractTracksFromBrowse(decoded);
-          if (tracks.length >= 4) return tracks;
+    void addUnique(List<Track> list) {
+      for (final t in list) {
+        if (t.id.isNotEmpty && seenIds.add(t.id)) {
+          collected.add(t);
         }
       }
-    } catch (_) {}
+    }
+
+    for (final browseId in const ['FEmusic_home', 'FEmusic_history']) {
+      try {
+        final headers = await _buildHeaders();
+        final res = await _dio.post(
+          '$_youtubeiBaseUrl/browse',
+          data: {
+            'context': _webRemixContext,
+            'browseId': browseId,
+          },
+          options: Options(
+            headers: headers,
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+
+        if (res.statusCode == 200 && res.data != null) {
+          final decoded = _decodeJsonMap(res.data);
+          if (decoded != null) {
+            addUnique(_extractTracksFromBrowse(decoded));
+            if (collected.length >= 12) return collected.take(30).toList();
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (collected.length >= 4) return collected;
 
     // Live public Explore & Charts tracks (real playable songs/MVs, never fake demo data)
     for (final browseId in const ['FEmusic_explore', 'FEmusic_charts']) {
@@ -312,8 +427,8 @@ class InnerTubeMusicProvider implements MusicProvider {
         if (res.statusCode == 200 && res.data != null) {
           final decoded = _decodeJsonMap(res.data);
           if (decoded != null) {
-            final tracks = _extractTracksFromBrowse(decoded);
-            if (tracks.isNotEmpty) return tracks;
+            addUnique(_extractTracksFromBrowse(decoded));
+            if (collected.isNotEmpty) return collected.take(30).toList();
           }
         }
       } catch (_) {}
@@ -326,7 +441,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       return chartTracks.take(25).toList();
     }
 
-    return [];
+    return collected;
   }
 
   static List<Playlist> playlistsFromWebViewMaps(

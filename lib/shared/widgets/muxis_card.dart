@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_shadows.dart';
+import 'muxis_liquid_surface.dart';
 
 class MuxisCard extends StatefulWidget {
   final String title;
@@ -37,37 +38,18 @@ class _MuxisCardState extends State<MuxisCard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: widget.width,
+      child: SizedBox(
+        width: widget.width,
+        child: MuxisLiquidSurface(
+          onTap: widget.onTap,
+          borderRadius: 18,
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? (isDark
-                      ? MuxisColors.hoverSurface.withOpacity(0.88)
-                      : Colors.white.withOpacity(0.92))
-                : (isDark
-                      ? MuxisColors.elevatedSurface.withOpacity(0.74)
-                      : Colors.white.withOpacity(0.72)),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _isHovered
-                  ? MuxisColors.accent(isDark).withOpacity(0.55)
-                  : (isDark
-                        ? Colors.white.withOpacity(0.10)
-                        : Colors.white.withOpacity(0.90)),
-              width: 1.2,
-            ),
-            boxShadow: _isHovered
-                ? (isDark ? MuxisShadows.cardHover : MuxisShadows.cardHoverLight)
-                : (isDark ? MuxisShadows.card : MuxisShadows.cardLight),
-          ),
+          blurSigma: 20,
+          boxShadowOverride: _isHovered
+              ? (isDark ? MuxisShadows.cardHover : MuxisShadows.cardHoverLight)
+              : (isDark ? MuxisShadows.card : MuxisShadows.cardLight),
           child: Column(
             crossAxisAlignment: widget.isCircular
                 ? CrossAxisAlignment.center
@@ -91,7 +73,7 @@ class _MuxisCardState extends State<MuxisCard> {
                       gradient: MuxisGradients.auroraSpectrum,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.35),
+                          color: Colors.black.withOpacity(0.32),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),

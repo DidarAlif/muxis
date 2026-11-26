@@ -9,6 +9,8 @@ import '../../core/storage/preferences_service.dart';
 import '../../providers/innertube_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
+import '../../shared/widgets/muxis_liquid_surface.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_search_field.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
@@ -118,9 +120,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final audioService = ref.read(playbackServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      children: [
+    return MuxisScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         Text('Search & Discovery', style: MuxisTypography.pageTitle(isDark: isDark)),
         const SizedBox(height: 16),
 
@@ -134,12 +137,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         const SizedBox(height: 14),
 
         // Source Filter Chips
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             _buildSourceChip('All Sources', SearchFilterSource.all, isDark),
-            const SizedBox(width: 8),
             _buildSourceChip('YouTube Music', SearchFilterSource.youtube, isDark, icon: Icons.smart_display_rounded),
-            const SizedBox(width: 8),
             _buildSourceChip('Spotify', SearchFilterSource.spotify, isDark, icon: Icons.graphic_eq_rounded),
           ],
         ),
@@ -267,52 +270,51 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ],
       ],
+      ),
     );
   }
 
   Widget _buildSourceChip(String label, SearchFilterSource source, bool isDark, {IconData? icon}) {
     final isSelected = _filterSource == source;
-    return GestureDetector(
+    return MuxisLiquidSurface(
       onTap: () {
         setState(() => _filterSource = source);
         if (_controller.text.isNotEmpty) {
-          _onSearch(_controller.text);
+          _onSearch(_controller.text, immediate: true);
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? MuxisColors.electricCyan.withOpacity(0.2) : MuxisColors.electricCyan.withOpacity(0.15))
-              : (isDark ? MuxisColors.elevatedSurface : MuxisColors.secondarySurface),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? MuxisColors.electricCyan
-                : (isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 14,
-                color: isSelected ? MuxisColors.electricCyan : (isDark ? Colors.white70 : Colors.black54),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? MuxisColors.electricCyan : (isDark ? Colors.white70 : Colors.black87),
-              ),
+      enableGlass: false,
+      blurSigma: 0,
+      borderRadius: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      colorOverride: isSelected
+          ? (isDark ? MuxisColors.electricCyan.withOpacity(0.2) : MuxisColors.electricCyan.withOpacity(0.15))
+          : (isDark ? MuxisColors.elevatedSurface : MuxisColors.secondarySurface),
+      borderOverride: Border.all(
+        color: isSelected
+            ? MuxisColors.electricCyan
+            : (isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? MuxisColors.electricCyan : (isDark ? Colors.white70 : Colors.black54),
             ),
+            const SizedBox(width: 6),
           ],
-        ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? MuxisColors.electricCyan : (isDark ? Colors.white70 : Colors.black87),
+            ),
+          ),
+        ],
       ),
     );
   }

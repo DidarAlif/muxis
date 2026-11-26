@@ -180,7 +180,9 @@ class StreamingOAuthService {
 
     if (session.cookieHeader != null && session.cookieHeader!.isNotEmpty) {
       await _prefs.saveYtCookie(
-        InnerTubeMusicProvider.sanitizeHeaderValue(session.cookieHeader!),
+        InnerTubeMusicProvider.sanitizeAndDeduplicateCookie(
+          session.cookieHeader!,
+        ),
       );
     }
     if (session.sapisid != null && session.sapisid!.isNotEmpty) {
@@ -216,10 +218,8 @@ class StreamingOAuthService {
       liked = await ytProvider.fetchLikedTracks();
     } catch (_) {}
 
-    // On Windows desktop, Edge WebView2 owns live HttpOnly Google cookies cleanly inside the saved profile.
-    if (playlists.isEmpty ||
-        liked.isEmpty ||
-        displayName == 'YouTube Music Listener') {
+    // On Windows desktop, fall back to hidden Edge WebView2 session only if HTTP lacked profile/playlists.
+    if (playlists.isEmpty || displayName == 'YouTube Music Listener') {
       final wvSession = await WebViewAuthBridge().syncYouTubeLibraryViaWebView();
       if (wvSession != null && wvSession.isSuccess) {
         if (wvSession.ytDisplayName != null &&
@@ -249,7 +249,9 @@ class StreamingOAuthService {
         if (wvSession.cookieHeader != null &&
             wvSession.cookieHeader!.isNotEmpty) {
           await _prefs.saveYtCookie(
-            InnerTubeMusicProvider.sanitizeHeaderValue(wvSession.cookieHeader!),
+            InnerTubeMusicProvider.sanitizeAndDeduplicateCookie(
+              wvSession.cookieHeader!,
+            ),
           );
         }
         if (wvSession.sapisid != null && wvSession.sapisid!.isNotEmpty) {

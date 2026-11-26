@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
@@ -12,6 +13,7 @@ import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_card.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -83,9 +85,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final accounts = ref.watch(streamingAccountsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      children: [
+    return MuxisScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // --- 1. HERO FEATURED PRISMATIC BANNER ---
         Container(
           padding: const EdgeInsets.all(28),
@@ -193,22 +196,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(width: 24),
               Container(
-                width: 128,
-                height: 128,
+                width: 118,
+                height: 118,
+                padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: (isDark ? Colors.black : Colors.white).withOpacity(0.16),
+                  color: (isDark ? Colors.black : Colors.white).withOpacity(0.18),
                   border: Border.all(
-                    color: (isDark ? Colors.black : Colors.white).withOpacity(0.32),
+                    color: (isDark ? Colors.black : Colors.white).withOpacity(0.36),
                     width: 2,
                   ),
                 ),
-                child: Center(
-                  child: Icon(
-                    Icons.graphic_eq_rounded,
-                    size: 60,
-                    color: isDark ? Colors.black : Colors.white,
-                  ),
+                child: SvgPicture.asset(
+                  isDark
+                      ? 'assets/brand/muxis_monogram.svg'
+                      : 'assets/brand/variants/muxis_monogram_light.svg',
                 ),
               ),
             ],
@@ -229,38 +231,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: MuxisTypography.sectionHeading(isDark: isDark),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (!accounts.youtube.isConnected)
-                    Expanded(
-                      child: _buildConnectPlatformCard(
-                        title: 'YouTube Music',
-                        subtitle:
-                            'Browser sign-in • Sync playlists, likes & ad-free 256kbps',
-                        icon: Icons.smart_display_rounded,
-                        gradient: MuxisGradients.youtubePlatformGradient,
-                        isLoading: accounts.youtube.isSyncing,
-                        isDark: isDark,
-                        onConnect: () => _connectPlatform('youtube'),
-                      ),
-                    ),
-                  if (!accounts.youtube.isConnected &&
-                      !accounts.spotify.isConnected)
-                    const SizedBox(width: 16),
-                  if (!accounts.spotify.isConnected)
-                    Expanded(
-                      child: _buildConnectPlatformCard(
-                        title: 'Spotify',
-                        subtitle:
-                            'Browser sign-in • Import your playlists & stream via audio bridge',
-                        icon: Icons.graphic_eq_rounded,
-                        gradient: MuxisGradients.spotifyPlatformGradient,
-                        isLoading: accounts.spotify.isSyncing,
-                        isDark: isDark,
-                        onConnect: () => _connectPlatform('spotify'),
-                      ),
-                    ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final both = !accounts.youtube.isConnected &&
+                      !accounts.spotify.isConnected;
+                  final twoCols = both && constraints.maxWidth >= 680;
+                  final cardWidth = twoCols
+                      ? (constraints.maxWidth - 16) / 2
+                      : constraints.maxWidth;
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 14,
+                    children: [
+                      if (!accounts.youtube.isConnected)
+                        SizedBox(
+                          width: cardWidth,
+                          child: _buildConnectPlatformCard(
+                            title: 'YouTube Music',
+                            subtitle:
+                                'Browser sign-in • Sync playlists, likes & ad-free 256kbps',
+                            icon: Icons.smart_display_rounded,
+                            gradient: MuxisGradients.youtubePlatformGradient,
+                            isLoading: accounts.youtube.isSyncing,
+                            isDark: isDark,
+                            onConnect: () => _connectPlatform('youtube'),
+                          ),
+                        ),
+                      if (!accounts.spotify.isConnected)
+                        SizedBox(
+                          width: cardWidth,
+                          child: _buildConnectPlatformCard(
+                            title: 'Spotify',
+                            subtitle:
+                                'Browser sign-in • Import your playlists & stream via audio bridge',
+                            icon: Icons.graphic_eq_rounded,
+                            gradient: MuxisGradients.spotifyPlatformGradient,
+                            isLoading: accounts.spotify.isSyncing,
+                            isDark: isDark,
+                            onConnect: () => _connectPlatform('spotify'),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 30),
             ],
@@ -338,25 +351,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           )
         else
-          SizedBox(
-            height: 230,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _trendingTracks.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (context, i) {
-                final track = _trendingTracks[i];
-                return MuxisCard(
-                  title: track.title,
-                  subtitle: track.artist,
-                  artworkUrl: track.artworkUrl,
-                  onTap: () =>
-                      audioService.playTrack(track, newQueue: _trendingTracks),
-                  onPlayTap: () =>
-                      audioService.playTrack(track, newQueue: _trendingTracks),
-                );
-              },
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final visible = _trendingTracks.take(12).toList();
+              final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: visible.map((track) {
+                  return MuxisCard(
+                    width: cardWidth,
+                    title: track.title,
+                    subtitle: track.artist,
+                    artworkUrl: track.artworkUrl,
+                    onTap: () =>
+                        audioService.playTrack(track, newQueue: _trendingTracks),
+                    onPlayTap: () =>
+                        audioService.playTrack(track, newQueue: _trendingTracks),
+                  );
+                }).toList(),
+              );
+            },
           ),
 
         const SizedBox(height: 36),
@@ -443,8 +458,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
             );
           }),
-      ],
+        ],
+      ),
     );
+  }
+
+  static double _responsiveCardWidth(double availableWidth) {
+    const double spacing = 16.0;
+    const double target = 172.0;
+    final cols = ((availableWidth + spacing) / (target + spacing))
+        .floor()
+        .clamp(2, 7);
+    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(146.0, 210.0);
   }
 
   Widget _heroBadge(String text) {
@@ -606,15 +631,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             )
           else
-            SizedBox(
-              height: 222,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  ...playlists.take(6).map((pl) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 14),
-                      child: MuxisCard(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                return Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  children: [
+                    ...playlists.take(6).map((pl) {
+                      return MuxisCard(
+                        width: cardWidth,
                         title: pl.title,
                         subtitle:
                             'Playlist • ${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks',
@@ -626,24 +652,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   newQueue: pl.tracks,
                                 )
                             : () => widget.onNavigate(navDestination),
-                      ),
-                    );
-                  }),
-                  ...tracks.take(8).map((t) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 14),
-                      child: MuxisCard(
+                      );
+                    }),
+                    ...tracks.take(8).map((t) {
+                      return MuxisCard(
+                        width: cardWidth,
                         title: t.title,
                         subtitle: t.artist,
                         artworkUrl: t.artworkUrl,
                         onTap: () => audioService.playTrack(t, newQueue: tracks),
                         onPlayTap: () =>
                             audioService.playTrack(t, newQueue: tracks),
-                      ),
-                    );
-                  }),
-                ],
-              ),
+                      );
+                    }),
+                  ],
+                );
+              },
             ),
         ],
       ),

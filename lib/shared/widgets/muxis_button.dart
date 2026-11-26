@@ -1,9 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_shadows.dart';
+import 'muxis_liquid_surface.dart';
 
 enum MuxisButtonVariant { primary, secondary, liquidGlass, ghost, iconOnly }
 
@@ -46,67 +46,68 @@ class _MuxisButtonState extends State<MuxisButton> {
 
     final isGlassVariant = widget.variant == MuxisButtonVariant.liquidGlass ||
         widget.variant == MuxisButtonVariant.secondary;
+    final dec = _buildDecoration(isDark, isEnabled);
 
-    Widget content = Center(
-      child: widget.isLoading
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  widget.variant == MuxisButtonVariant.primary
-                      ? (isDark ? Colors.black : Colors.white)
-                      : MuxisColors.accent(isDark),
-                ),
-              ),
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.icon != null) ...[
-                  widget.icon!,
-                  if (widget.label != null) const SizedBox(width: 8),
-                ],
-                if (widget.label != null)
-                  Text(
-                    widget.label!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
-                      color: _getTextColor(isDark, isEnabled),
-                    ),
-                  ),
-              ],
-            ),
-    );
-
-    Widget buttonSurface = Container(
+    Widget content = SizedBox(
       width: widget.width,
       height: widget.height,
+      child: Center(
+        child: widget.isLoading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    widget.variant == MuxisButtonVariant.primary
+                        ? (isDark ? Colors.black : Colors.white)
+                        : MuxisColors.accent(isDark),
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (widget.icon != null) ...[
+                    widget.icon!,
+                    if (widget.label != null) const SizedBox(width: 8),
+                  ],
+                  if (widget.label != null)
+                    Text(
+                      widget.label!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                        color: _getTextColor(isDark, isEnabled),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+
+    Widget buttonSurface = MuxisLiquidSurface(
+      borderRadius: widget.borderRadius,
       padding: widget.variant == MuxisButtonVariant.iconOnly
           ? EdgeInsets.zero
           : const EdgeInsets.symmetric(horizontal: 18),
-      decoration: _buildDecoration(isDark, isEnabled),
+      enableGlass: isGlassVariant && isEnabled,
+      blurSigma: isGlassVariant && isEnabled ? 18 : 0,
+      enableHoverWave: isEnabled,
+      enableDropRipple: isEnabled,
+      colorOverride: dec.color,
+      gradientOverride: dec.gradient,
+      borderOverride: dec.border,
+      boxShadowOverride: dec.boxShadow,
+      useClickCursor: isEnabled,
       child: content,
     );
 
-    // Apply frosted blur filter for Apple liquid glass variants
-    if (isGlassVariant && isEnabled) {
-      buttonSurface = ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: buttonSurface,
-        ),
-      );
-    }
-
     // Spring micro-interaction
     Widget animatedButton = AnimatedScale(
-      scale: _isPressed && isEnabled ? 0.94 : (_isHovered && isEnabled ? 1.02 : 1.0),
+      scale: _isPressed && isEnabled ? 0.95 : (_isHovered && isEnabled ? 1.02 : 1.0),
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOutBack,
       child: buttonSurface,

@@ -1,22 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 52" width="210" height="52">
   <defs>
-    <linearGradient id="sidebarLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="sidePrism" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00FF88"/>
-      <stop offset="50%" stop-color="#10FFA0"/>
-      <stop offset="100%" stop-color="#00E676"/>
+      <stop offset="50%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#9D6BFF"/>
     </linearGradient>
   </defs>
+  <g transform="translate(2, 2) scale(0.092)">
 
-  <!-- Left Monogram Icon -->
-  <g transform="translate(0, 4) scale(0.08)">
-    <path d="M 88 128 C 88 106, 118 106, 118 128 L 118 384 C 118 406, 88 406, 88 384 Z" fill="url(#sidebarLogoGrad)"/>
-    <path d="M 394 128 C 394 106, 424 106, 424 128 L 424 384 C 424 406, 394 406, 394 384 Z" fill="url(#sidebarLogoGrad)"/>
-    <path d="M 148 190 C 148 168, 172 156, 190 170 L 244 214 C 251 220, 261 220, 268 214 L 322 170 C 340 156, 364 168, 364 190 L 364 260 C 364 274, 356 288, 344 296 L 270 348 C 261 354, 251 354, 242 348 L 168 296 C 156 288, 148 274, 148 260 Z" fill="url(#sidebarLogoGrad)"/>
-    <circle cx="256" cy="154" r="14" fill="#00FF88"/>
-    <circle cx="256" cy="154" r="6" fill="#FFFFFF"/>
-    <rect x="236" y="376" width="40" height="12" rx="6" fill="#00FF88"/>
+    <!-- Outer harmonic water-wave resonance arcs -->
+    <path d="M 74 218 C 52 240, 52 278, 74 302" fill="none" stroke="url(#sidePrism)" stroke-width="14" stroke-linecap="round" opacity="0.55"/>
+    <path d="M 438 218 C 460 240, 460 278, 438 302" fill="none" stroke="url(#sidePrism)" stroke-width="14" stroke-linecap="round" opacity="0.55"/>
+
+    <!-- Continuous Liquid-Wave 'M' Acoustic Crest Ribbon -->
+    <path d="M 106 362
+             L 106 184
+             C 106 142, 152 126, 184 156
+             L 242 214
+             C 250 222, 262 222, 270 214
+             L 328 156
+             C 360 126, 406 142, 406 184
+             L 406 362
+             C 406 382, 370 382, 370 362
+             L 370 198
+             C 370 180, 352 174, 340 186
+             L 278 248
+             C 265 261, 247 261, 234 248
+             L 172 186
+             C 160 174, 142 180, 142 198
+             L 142 362
+             C 142 382, 106 382, 106 362
+             Z"
+          fill="url(#sidePrism)"/>
+
+    <!-- Sculpted Inner Wave Bridge (turns negative space into an unmistakable sonic wave + M crest) -->
+    <path d="M 178 292
+             Q 216 266, 256 300
+             Q 296 334, 334 292"
+          fill="none" stroke="url(#sidePrism)" stroke-width="22" stroke-linecap="round" opacity="0.95"/>
+
+    <!-- Floating Liquid Prism Droplet Orb above the 'M' crest -->
+    <path d="M 256 102
+             C 272 122, 280 136, 280 148
+             C 280 162, 269 173, 256 173
+             C 243 173, 232 162, 232 148
+             C 232 136, 240 122, 256 102
+             Z"
+          fill="url(#sidePrism)"/>
+    <circle cx="250" cy="146" r="6" fill="#FFFFFF" opacity="0.92"/>
+
   </g>
-
-  <!-- Brand Typography -->
-  <text x="50" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Plus Jakarta Sans', sans-serif" font-size="22" font-weight="900" letter-spacing="4" fill="#FFFFFF">MUXIS</text>
+  <text x="58" y="34" font-family="'Plus Jakarta Sans', 'Segoe UI', -apple-system, sans-serif" font-size="22" font-weight="900" letter-spacing="4" fill="#F8FAFC">MUXIS</text>
 </svg>

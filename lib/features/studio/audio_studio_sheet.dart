@@ -8,6 +8,7 @@ import '../../core/audio/audio_playback_service.dart';
 import '../../core/audio/dsp/equalizer_node.dart';
 import '../../core/audio/dsp/vocal_remover.dart';
 import '../../shared/widgets/muxis_button.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_slider.dart';
 
 class AudioStudioSheet extends ConsumerStatefulWidget {
@@ -174,8 +175,11 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
 
               // Content Body
               Expanded(
-                child: ListView(
-                  children: [
+                child: MuxisScrollView(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     // --- SECTION 1: INTERACTIVE FREQUENCY RESPONSE VISUALIZER ---
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
@@ -248,45 +252,41 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                     ),
                     const SizedBox(height: 8),
 
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: presets.map((p) {
-                          final isSelected = eq.activePreset == p;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(
-                                p,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? (isDark ? Colors.black : Colors.white)
-                                      : (isDark
-                                          ? MuxisColors.textPrimaryDark
-                                          : MuxisColors.textPrimaryLight),
-                                ),
-                              ),
-                              selected: isSelected,
-                              selectedColor: MuxisColors.accent(isDark),
-                              backgroundColor: isDark
-                                  ? MuxisColors.elevatedSurface
-                                  : MuxisColors.secondarySurface,
-                              side: BorderSide(
-                                color: isSelected
-                                    ? MuxisColors.accent(isDark)
-                                    : (isDark
-                                        ? MuxisColors.subtleBorderDark
-                                        : MuxisColors.subtleBorderLight),
-                              ),
-                              onSelected: (_) => eqNotifier.applyPreset(p),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: presets.map((p) {
+                        final isSelected = eq.activePreset == p;
+                        return ChoiceChip(
+                          label: Text(
+                            p,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? (isDark ? Colors.black : Colors.white)
+                                  : (isDark
+                                      ? MuxisColors.textPrimaryDark
+                                      : MuxisColors.textPrimaryLight),
                             ),
-                          );
-                        }).toList(),
-                      ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: MuxisColors.accent(isDark),
+                          backgroundColor: isDark
+                              ? MuxisColors.elevatedSurface
+                              : MuxisColors.secondarySurface,
+                          side: BorderSide(
+                            color: isSelected
+                                ? MuxisColors.accent(isDark)
+                                : (isDark
+                                    ? MuxisColors.subtleBorderDark
+                                    : MuxisColors.subtleBorderLight),
+                          ),
+                          onSelected: (_) => eqNotifier.applyPreset(p),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 18),
 
@@ -609,7 +609,8 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                         ),
                       ],
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

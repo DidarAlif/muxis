@@ -1,14 +1,15 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/muxis_colors.dart';
-import '../../app/theme/muxis_gradients.dart';
+import 'muxis_liquid_surface.dart';
 
 class MuxisGlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final VoidCallback? onTap;
+  final Color? accentColor;
+  final double blurSigma;
 
   const MuxisGlassCard({
     super.key,
@@ -16,75 +17,20 @@ class MuxisGlassCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 18,
     this.onTap,
+    this.accentColor,
+    this.blurSigma = 22,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final cardContent = Container(
+    return MuxisLiquidSurface(
       padding: padding,
-      decoration: BoxDecoration(
-        color: isDark
-            ? MuxisColors.elevatedSurface.withOpacity(0.55)
-            : Colors.white.withOpacity(0.68),
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.14)
-              : Colors.white.withOpacity(0.92),
-          width: 1.2,
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  Colors.white.withOpacity(0.08),
-                  MuxisColors.elevatedSurface.withOpacity(0.55),
-                  MuxisColors.neonGreen.withOpacity(0.04),
-                ]
-              : [
-                  Colors.white.withOpacity(0.88),
-                  const Color(0xCCF2FDFB),
-                  const Color(0xB8F3EEFF),
-                ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.45)
-                : const Color(0x140F172A),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-          if (!isDark)
-            BoxShadow(
-              color: MuxisColors.neonGreenLight.withOpacity(0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 2),
-            ),
-        ],
-      ),
+      borderRadius: borderRadius,
+      onTap: onTap,
+      accentColor: accentColor,
+      blurSigma: blurSigma,
       child: child,
     );
-
-    final glassWrapper = ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: cardContent,
-      ),
-    );
-
-    if (onTap != null) {
-      return MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(onTap: onTap, child: glassWrapper),
-      );
-    }
-
-    return glassWrapper;
   }
 }
 

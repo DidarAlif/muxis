@@ -8,6 +8,7 @@ import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/theme_controller.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
 import '../../core/auth/supabase_auth_service.dart';
+import '../../shared/widgets/muxis_liquid_surface.dart';
 import '../auth/account_dialog.dart';
 import '../auth/auth_dialog.dart';
 
@@ -29,6 +30,13 @@ class MuxisSidebar extends ConsumerStatefulWidget {
 
 class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
   bool _isCollapsed = false;
+  final ScrollController _navScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _navScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,28 +83,63 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                       if (!_isCollapsed)
                         Row(
                           children: [
-                            SvgPicture.asset(
-                              'assets/brand/muxis_monogram.svg',
-                              width: 32,
-                              height: 32,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'MUXIS',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 4.0,
-                                color: MuxisColors.textPrimary(isDark),
+                            Container(
+                              width: 36,
+                              height: 36,
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(11),
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.06)
+                                    : Colors.white.withOpacity(0.85),
+                                border: Border.all(
+                                  color: MuxisColors.accent(isDark)
+                                      .withOpacity(0.35),
+                                ),
                               ),
+                              child: SvgPicture.asset(
+                                isDark
+                                    ? 'assets/brand/muxis_monogram.svg'
+                                    : 'assets/brand/variants/muxis_monogram_light.svg',
+                              ),
+                            ),
+                            const SizedBox(width: 11),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'MUXIS',
+                                  style: TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 3.6,
+                                    height: 1.0,
+                                    color: MuxisColors.textPrimary(isDark),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'LIQUID AUDIO',
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.8,
+                                    color: MuxisColors.accent(isDark),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         )
                       else
                         SvgPicture.asset(
-                          'assets/brand/muxis_monogram.svg',
-                          width: 32,
-                          height: 32,
+                          isDark
+                              ? 'assets/brand/muxis_monogram.svg'
+                              : 'assets/brand/variants/muxis_monogram_light.svg',
+                          width: 34,
+                          height: 34,
                         ),
                       if (!_isCollapsed)
                         IconButton(
@@ -129,9 +172,16 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
 
                 // Navigation Links
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    children: [
+                  child: Scrollbar(
+                    controller: _navScrollController,
+                    interactive: true,
+                    thickness: 4,
+                    radius: const Radius.circular(6),
+                    child: ListView(
+                      controller: _navScrollController,
+                      primary: false,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      children: [
                       if (!_isCollapsed) _buildGroupHeader('DISCOVER', isDark),
                       _buildNavItem(0, Icons.home_filled, 'Home', isDark),
                       _buildNavItem(1, Icons.explore_rounded, 'Explore', isDark),
@@ -219,6 +269,7 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                       ),
                     ],
                   ),
+                ),
                 ),
 
                 // Footer Profile & Theme Toggle
@@ -345,92 +396,82 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => widget.onDestinationSelected(index),
-          borderRadius: BorderRadius.circular(10),
-          hoverColor: isDark
-              ? MuxisColors.hoverSurface.withOpacity(0.7)
-              : Colors.white.withOpacity(0.6),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: EdgeInsets.symmetric(
-              horizontal: _isCollapsed ? 12 : 14,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (isDark
-                        ? activeAccent.withOpacity(0.16)
-                        : Colors.white.withOpacity(0.85))
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              border: isSelected
-                  ? Border.all(
-                      color: activeAccent.withOpacity(isDark ? 0.45 : 0.60),
-                      width: 1,
-                    )
-                  : null,
-              boxShadow: isSelected && !isDark
-                  ? [
-                      BoxShadow(
-                        color: activeAccent.withOpacity(0.16),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisAlignment: _isCollapsed
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.start,
-              children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: isSelected
-                      ? activeAccent
-                      : (accentOverride?.withOpacity(0.85) ??
-                          MuxisColors.textSecondary(isDark)),
+      child: MuxisLiquidSurface(
+        onTap: () => widget.onDestinationSelected(index),
+        enableGlass: false,
+        blurSigma: 0,
+        borderRadius: 12,
+        accentColor: activeAccent,
+        padding: EdgeInsets.symmetric(
+          horizontal: _isCollapsed ? 12 : 14,
+          vertical: 10,
+        ),
+        colorOverride: isSelected
+            ? (isDark
+                  ? activeAccent.withOpacity(0.16)
+                  : Colors.white.withOpacity(0.85))
+            : Colors.transparent,
+        borderOverride: isSelected
+            ? Border.all(
+                color: activeAccent.withOpacity(isDark ? 0.48 : 0.65),
+                width: 1,
+              )
+            : null,
+        boxShadowOverride: isSelected && !isDark
+            ? [
+                BoxShadow(
+                  color: activeAccent.withOpacity(0.16),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-                if (!_isCollapsed) ...[
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected
-                            ? MuxisColors.textPrimary(isDark)
-                            : MuxisColors.textSecondary(isDark),
-                      ),
-                    ),
-                  ),
-                  if (showLiveDot)
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: activeAccent,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: activeAccent.withOpacity(0.6),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ],
+              ]
+            : null,
+        child: Row(
+          mainAxisAlignment: _isCollapsed
+              ? MainAxisAlignment.center
+              : MainAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected
+                  ? activeAccent
+                  : (accentOverride?.withOpacity(0.85) ??
+                      MuxisColors.textSecondary(isDark)),
             ),
-          ),
+            if (!_isCollapsed) ...[
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected
+                        ? MuxisColors.textPrimary(isDark)
+                        : MuxisColors.textSecondary(isDark),
+                  ),
+                ),
+              ),
+              if (showLiveDot)
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: activeAccent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeAccent.withOpacity(0.6),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
         ),
       ),
     );
@@ -445,48 +486,43 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          hoverColor: isDark
-              ? MuxisColors.hoverSurface.withOpacity(0.7)
-              : Colors.white.withOpacity(0.6),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isCollapsed ? 12 : 14,
-              vertical: 10,
+      child: MuxisLiquidSurface(
+        onTap: onTap,
+        enableGlass: false,
+        blurSigma: 0,
+        borderRadius: 12,
+        accentColor: accentOverride,
+        padding: EdgeInsets.symmetric(
+          horizontal: _isCollapsed ? 12 : 14,
+          vertical: 10,
+        ),
+        colorOverride: Colors.transparent,
+        child: Row(
+          mainAxisAlignment: _isCollapsed
+              ? MainAxisAlignment.center
+              : MainAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: accentOverride ?? MuxisColors.textSecondary(isDark),
             ),
-            child: Row(
-              mainAxisAlignment: _isCollapsed
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.start,
-              children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: accentOverride ?? MuxisColors.textSecondary(isDark),
-                ),
-                if (!_isCollapsed) ...[
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: accentOverride ??
-                            MuxisColors.textSecondary(isDark),
-                      ),
-                    ),
+            if (!_isCollapsed) ...[
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: accentOverride ?? MuxisColors.textSecondary(isDark),
                   ),
-                ],
-              ],
-            ),
-          ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

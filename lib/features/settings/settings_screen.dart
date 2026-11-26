@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
@@ -11,6 +12,8 @@ import '../../core/database/database_service.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
+import '../../shared/widgets/muxis_liquid_surface.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -536,65 +539,84 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final hasYt = accounts.youtube.isConnected;
     final hasSp = accounts.spotify.isConnected;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      children: [
-        Text('Settings', style: MuxisTypography.pageTitle(isDark: isDark)),
-        const SizedBox(height: 24),
+    return MuxisScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Settings', style: MuxisTypography.pageTitle(isDark: isDark)),
+          const SizedBox(height: 24),
 
-        // --- SECTION 1: ACTIVE STREAMING PLATFORM ---
-        _buildSectionTitle('ACTIVE STREAMING PLATFORM', isDark),
-        _buildCard(
-          isDark,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Choose your default search & quick-play source. Linking 1 or 2 platforms unlocks dedicated Streaming Hub sections directly in your navigation.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: MuxisColors.textSecondary(isDark),
-                    height: 1.4,
+          // --- SECTION 1: ACTIVE STREAMING PLATFORM ---
+          _buildSectionTitle('ACTIVE STREAMING PLATFORM', isDark),
+          _buildCard(
+            isDark,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Choose your default search & quick-play source. Linking 1 or 2 platforms unlocks dedicated Streaming Hub sections directly in your navigation.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: MuxisColors.textSecondary(isDark),
+                      height: 1.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _buildPlatformChoice(
-                      id: 'youtube',
-                      title: 'YouTube Music',
-                      icon: Icons.smart_display_rounded,
-                      activeColor: MuxisColors.youtubeRed,
-                      subtitle: hasYt
-                          ? 'Signed In • Ad-Free'
-                          : 'Anonymous • Ad-Free',
-                    ),
-                    const SizedBox(width: 12),
-                    _buildPlatformChoice(
-                      id: 'spotify',
-                      title: 'Spotify',
-                      icon: Icons.graphic_eq_rounded,
-                      activeColor: MuxisColors.spotifyGreen,
-                      subtitle: hasSp
-                          ? 'Connected • Ad-Free Bridge'
-                          : 'Connect via Browser',
-                    ),
-                    const SizedBox(width: 12),
-                    _buildPlatformChoice(
-                      id: 'local',
-                      title: 'Local Library Only',
-                      icon: Icons.folder_special_rounded,
-                      activeColor: MuxisColors.violet(isDark),
-                      subtitle: '100% Offline Playback',
-                    ),
-                  ],
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const gap = 12.0;
+                      final cols = constraints.maxWidth >= 620 ? 3 : 1;
+                      final itemW = cols == 1
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - gap * 2) / 3;
+                      return Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: [
+                          SizedBox(
+                            width: itemW,
+                            child: _buildPlatformChoice(
+                              id: 'youtube',
+                              title: 'YouTube Music',
+                              icon: Icons.smart_display_rounded,
+                              activeColor: MuxisColors.youtubeRed,
+                              subtitle: hasYt
+                                  ? 'Signed In • Ad-Free'
+                                  : 'Anonymous • Ad-Free',
+                            ),
+                          ),
+                          SizedBox(
+                            width: itemW,
+                            child: _buildPlatformChoice(
+                              id: 'spotify',
+                              title: 'Spotify',
+                              icon: Icons.graphic_eq_rounded,
+                              activeColor: MuxisColors.spotifyGreen,
+                              subtitle: hasSp
+                                  ? 'Connected • Ad-Free Bridge'
+                                  : 'Connect via Browser',
+                            ),
+                          ),
+                          SizedBox(
+                            width: itemW,
+                            child: _buildPlatformChoice(
+                              id: 'local',
+                              title: 'Local Library Only',
+                              icon: Icons.folder_special_rounded,
+                              activeColor: MuxisColors.violet(isDark),
+                              subtitle: '100% Offline Playback',
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
 
         const SizedBox(height: 24),
 
@@ -1160,6 +1182,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 Row(
                   children: [
+                    SvgPicture.asset(
+                      isDark
+                          ? 'assets/brand/muxis_monogram.svg'
+                          : 'assets/brand/variants/muxis_monogram_light.svg',
+                      width: 28,
+                      height: 28,
+                    ),
+                    const SizedBox(width: 10),
                     Text(
                       'MUXIS',
                       style: TextStyle(
@@ -1170,11 +1200,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      'v1.1.4 (Real Catalog Search, WebView2 YT Library Sync & Exact Bridge Play)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: MuxisColors.textMuted(isDark),
+                    Expanded(
+                      child: Text(
+                        'v1.1.5 (Liquid Aurora Glass, Enhanced YT Sync & Wrapped Desktop UX)',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: MuxisColors.textMuted(isDark),
+                        ),
                       ),
                     ),
                   ],
@@ -1192,7 +1225,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1205,67 +1239,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _activeSource == id;
-    return Expanded(
-      child: InkWell(
-        onTap: () async {
-          setState(() => _activeSource = id);
-          await ref
-              .read(streamingAccountsProvider.notifier)
-              .setActiveSource(id);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color:
-                isSelected ? activeColor.withOpacity(0.14) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? activeColor : MuxisColors.border(isDark),
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return MuxisLiquidSurface(
+      onTap: () async {
+        setState(() => _activeSource = id);
+        await ref
+            .read(streamingAccountsProvider.notifier)
+            .setActiveSource(id);
+      },
+      enableGlass: false,
+      blurSigma: 0,
+      borderRadius: 12,
+      accentColor: activeColor,
+      padding: const EdgeInsets.all(14),
+      colorOverride:
+          isSelected ? activeColor.withOpacity(0.14) : Colors.transparent,
+      borderOverride: Border.all(
+        color: isSelected ? activeColor : MuxisColors.border(isDark),
+        width: isSelected ? 1.5 : 1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: 18,
-                    color:
-                        isSelected ? activeColor : MuxisColors.textMuted(isDark),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: isSelected
-                            ? MuxisColors.textPrimary(isDark)
-                            : MuxisColors.textSecondary(isDark),
-                      ),
-                    ),
-                  ),
-                ],
+              Icon(
+                icon,
+                size: 18,
+                color:
+                    isSelected ? activeColor : MuxisColors.textMuted(isDark),
               ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color:
-                      isSelected ? activeColor : MuxisColors.textMuted(isDark),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isSelected
+                        ? MuxisColors.textPrimary(isDark)
+                        : MuxisColors.textSecondary(isDark),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 11,
+              color:
+                  isSelected ? activeColor : MuxisColors.textMuted(isDark),
+            ),
+          ),
+        ],
       ),
     );
   }

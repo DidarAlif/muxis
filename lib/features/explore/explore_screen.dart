@@ -9,6 +9,8 @@ import '../../providers/innertube_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_card.dart';
+import '../../shared/widgets/muxis_liquid_surface.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -86,203 +88,244 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       },
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      children: [
-        Text(
-          'Explore & Discover',
-          style: MuxisTypography.pageTitle(isDark: isDark),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Browse curated genre stations, new lossless releases, and atmospheric soundscapes.',
-          style: TextStyle(fontSize: 14, color: MuxisColors.textSecondary(isDark)),
-        ),
-        const SizedBox(height: 28),
-
-        // Mood & Atmosphere Stations Grid
-        Text(
-          'Atmospheric Stations',
-          style: MuxisTypography.sectionHeading(isDark: isDark),
-        ),
-        const SizedBox(height: 14),
-
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            childAspectRatio: 1.8,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+    return MuxisScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Explore & Discover',
+            style: MuxisTypography.pageTitle(isDark: isDark),
           ),
-          itemCount: moods.length,
-          itemBuilder: (context, i) {
-            final mood = moods[i];
-            final color = mood['color'] as Color;
-            final query = mood['query'] as String;
+          const SizedBox(height: 6),
+          Text(
+            'Browse curated genre stations, new lossless releases, and atmospheric soundscapes.',
+            style: TextStyle(fontSize: 14, color: MuxisColors.textSecondary(isDark)),
+          ),
+          const SizedBox(height: 28),
 
-            return InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () async {
-                final tracks = await _ytProvider.search(query);
-                if (tracks.isNotEmpty) {
-                  audioService.playTrack(tracks.first, newQueue: tracks);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isDark
-                        ? [color.withOpacity(0.22), color.withOpacity(0.08)]
-                        : [color.withOpacity(0.22), Colors.white.withOpacity(0.75)],
-                  ),
-                  border: Border.all(
-                    color: color.withOpacity(isDark ? 0.45 : 0.65),
-                    width: 1.2,
-                  ),
-                  boxShadow: isDark
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: color.withOpacity(0.16),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
+          // Mood & Atmosphere Stations Grid (Responsive Wrap)
+          Text(
+            'Atmospheric Stations',
+            style: MuxisTypography.sectionHeading(isDark: isDark),
+          ),
+          const SizedBox(height: 14),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 14.0;
+              final cols = constraints.maxWidth >= 960
+                  ? 4
+                  : (constraints.maxWidth >= 560 ? 2 : 1);
+              final tileWidth =
+                  (constraints.maxWidth - spacing * (cols - 1)) / cols;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: moods.map((mood) {
+                  final color = mood['color'] as Color;
+                  final query = mood['query'] as String;
+                  return SizedBox(
+                    width: tileWidth,
+                    child: MuxisLiquidSurface(
+                      borderRadius: 16,
+                      padding: const EdgeInsets.all(18),
+                      accentColor: color,
+                      blurSigma: 18,
+                      gradientOverride: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark
+                            ? [color.withOpacity(0.24), color.withOpacity(0.08)]
+                            : [
+                                color.withOpacity(0.22),
+                                Colors.white.withOpacity(0.80),
+                              ],
+                      ),
+                      borderOverride: Border.all(
+                        color: color.withOpacity(isDark ? 0.45 : 0.65),
+                        width: 1.2,
+                      ),
+                      boxShadowOverride: isDark
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: color.withOpacity(0.16),
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                      onTap: () async {
+                        final tracks = await _ytProvider.search(query);
+                        if (tracks.isNotEmpty) {
+                          audioService.playTrack(
+                            tracks.first,
+                            newQueue: tracks,
+                          );
+                        }
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            mood['title'] as String,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : MuxisColors.textPrimaryLight,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  mood['subtitle'] as String,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : MuxisColors.textSecondaryLight,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.play_circle_fill,
+                                size: 22,
+                                color: isDark ? Colors.white : color,
+                              ),
+                            ],
                           ),
                         ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      mood['title'] as String,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : MuxisColors.textPrimaryLight,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          mood['subtitle'] as String,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white70 : MuxisColors.textSecondaryLight,
-                          ),
-                        ),
-                        Icon(
-                          Icons.play_circle_fill,
-                          size: 20,
-                          color: isDark ? Colors.white : color,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-
-        const SizedBox(height: 36),
-
-        // YouTube Music Curated Hits
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Trending Global Hits (Ad-Free YouTube Music)',
-              style: MuxisTypography.sectionHeading(isDark: isDark),
-            ),
-            const Text(
-              'High Fidelity Streams',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 11,
-                color: MuxisColors.electricCyan,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        if (_loading)
-          const Center(child: CircularProgressIndicator())
-        else if (_featuredYt.isEmpty)
-          Text(
-            'Unable to fetch live charts right now. Use Atmospheric Stations above or Search.',
-            style: TextStyle(fontSize: 13, color: MuxisColors.textSecondary(isDark)),
-          )
-        else
-          SizedBox(
-            height: 230,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _featuredYt.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (context, i) {
-                final t = _featuredYt[i];
-                return MuxisCard(
-                  title: t.title,
-                  subtitle: t.artist,
-                  artworkUrl: t.artworkUrl,
-                  onTap: () => audioService.playTrack(t, newQueue: _featuredYt),
-                  onPlayTap: () => audioService.playTrack(t, newQueue: _featuredYt),
-                );
-              },
-            ),
+                  );
+                }).toList(),
+              );
+            },
           ),
 
-        if (!_loading && spotifySpotlight.isNotEmpty) ...[
           const SizedBox(height: 36),
 
-          // Spotify Featured Bridge
+          // YouTube Music Curated Hits
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Your Spotify Spotlight',
+                'Trending Global Hits (Ad-Free YouTube Music)',
                 style: MuxisTypography.sectionHeading(isDark: isDark),
               ),
               const Text(
-                'Bridged Direct Audio',
+                'High Fidelity Streams',
                 style: TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: 11,
-                  color: Color(0xFF1DB954),
+                  color: MuxisColors.electricCyan,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
 
-          SizedBox(
-            height: 230,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: spotifySpotlight.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (context, i) {
-                final t = spotifySpotlight[i];
-                return MuxisCard(
-                  title: t.title,
-                  subtitle: t.artist,
-                  artworkUrl: t.artworkUrl,
-                  onTap: () => audioService.playTrack(t, newQueue: spotifySpotlight),
-                  onPlayTap: () => audioService.playTrack(t, newQueue: spotifySpotlight),
+          if (_loading)
+            const Center(child: CircularProgressIndicator())
+          else if (_featuredYt.isEmpty)
+            Text(
+              'Unable to fetch live charts right now. Use Atmospheric Stations above or Search.',
+              style: TextStyle(
+                fontSize: 13,
+                color: MuxisColors.textSecondary(isDark),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: _featuredYt.take(12).map((t) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: t.title,
+                      subtitle: t.artist,
+                      artworkUrl: t.artworkUrl,
+                      onTap: () =>
+                          audioService.playTrack(t, newQueue: _featuredYt),
+                      onPlayTap: () =>
+                          audioService.playTrack(t, newQueue: _featuredYt),
+                    );
+                  }).toList(),
                 );
               },
             ),
-          ),
+
+          if (!_loading && spotifySpotlight.isNotEmpty) ...[
+            const SizedBox(height: 36),
+
+            // Spotify Featured Bridge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Your Spotify Spotlight',
+                  style: MuxisTypography.sectionHeading(isDark: isDark),
+                ),
+                const Text(
+                  'Bridged Direct Audio',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 11,
+                    color: Color(0xFF1DB954),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: spotifySpotlight.take(12).map((t) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: t.title,
+                      subtitle: t.artist,
+                      artworkUrl: t.artworkUrl,
+                      onTap: () => audioService.playTrack(
+                        t,
+                        newQueue: spotifySpotlight,
+                      ),
+                      onPlayTap: () => audioService.playTrack(
+                        t,
+                        newQueue: spotifySpotlight,
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
         ],
-      ],
+      ),
     );
+  }
+
+  static double _responsiveCardWidth(double availableWidth) {
+    const double spacing = 16.0;
+    const double target = 172.0;
+    final cols = ((availableWidth + spacing) / (target + spacing))
+        .floor()
+        .clamp(2, 7);
+    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(146.0, 210.0);
   }
 }

@@ -121,7 +121,15 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
 
   /// Hydrates linked accounts and locally persisted platform playlists/tracks immediately.
   Future<void> refreshFromStorage({bool triggerBackgroundSync = true}) async {
-    final ytCookie = await _prefs.getYtCookie();
+    var ytCookie = await _prefs.getYtCookie();
+    if (ytCookie != null && ytCookie.isNotEmpty) {
+      final cleanedYtCookie =
+          InnerTubeMusicProvider.sanitizeAndDeduplicateCookie(ytCookie);
+      if (cleanedYtCookie.isNotEmpty && cleanedYtCookie != ytCookie) {
+        ytCookie = cleanedYtCookie;
+        await _prefs.saveYtCookie(cleanedYtCookie);
+      }
+    }
     final ytSapisid = await _prefs.getYtSapisid();
     final ytName = await _prefs.getYtUserName();
     final ytAvatar = await _prefs.getYtUserAvatar();
@@ -210,7 +218,8 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
           (state.youtube.playlists.isEmpty ||
               state.youtube.displayName == null ||
               state.youtube.displayName!.isEmpty ||
-              state.youtube.displayName == 'YouTube Music Listener');
+              state.youtube.displayName == 'YouTube Music Listener' ||
+              state.youtube.recommendedTracks.isEmpty);
       if (ytNeedsSync && !_syncingYouTube) {
         syncYouTubeLive();
       }
@@ -367,9 +376,7 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       var home = await yt.fetchHomeRecommendations();
       final wvPlaylistTracks = <String, List<Track>>{};
 
-      if (playlists.isEmpty ||
-          liked.isEmpty ||
-          (profile['displayName'] ?? '').isEmpty) {
+      if (playlists.isEmpty || (profile['displayName'] ?? '').isEmpty) {
         final wvYt = await WebViewAuthBridge().syncYouTubeLibraryViaWebView();
         if (wvYt != null && wvYt.isSuccess) {
           if (wvYt.ytDisplayName != null && wvYt.ytDisplayName!.isNotEmpty) {
@@ -400,10 +407,16 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
             }
           }
           if (wvYt.cookieHeader != null && wvYt.cookieHeader!.isNotEmpty) {
-            await _prefs.saveYtCookie(wvYt.cookieHeader!);
+            await _prefs.saveYtCookie(
+              InnerTubeMusicProvider.sanitizeAndDeduplicateCookie(
+                wvYt.cookieHeader!,
+              ),
+            );
           }
           if (wvYt.sapisid != null && wvYt.sapisid!.isNotEmpty) {
-            await _prefs.saveYtSapisid(wvYt.sapisid!);
+            await _prefs.saveYtSapisid(
+              InnerTubeMusicProvider.sanitizeHeaderValue(wvYt.sapisid!),
+            );
           }
           if (wvYt.ytAuthUser != null && wvYt.ytAuthUser!.isNotEmpty) {
             await _prefs.saveYtAuthUser(wvYt.ytAuthUser!);
@@ -420,9 +433,12 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
       }
 
       final hydratedPlaylists = <Playlist>[];
-      for (final pl in playlists.take(10)) {
-        final plTracks =
+      for (final pl in playlists.take(15)) {
+        var plTracks =
             wvPlaylistTracks[pl.id] ?? await yt.fetchPlaylistTracks(pl.id);
+        if (plTracks.isEmpty && pl.id == 'VLLM' && liked.isNotEmpty) {
+          plTracks = liked;
+        }
         if (plTracks.isNotEmpty) {
           await _db.saveTracks(plTracks);
           await _db.setPlaylist(pl.title, plTracks.map((t) => t.id).toList());
@@ -434,8 +450,8 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
           ),
         );
       }
-      if (playlists.length > 10) {
-        hydratedPlaylists.addAll(playlists.skip(10));
+      if (playlists.length > 15) {
+        hydratedPlaylists.addAll(playlists.skip(15));
       }
 
       if (hydratedPlaylists.isNotEmpty) {
@@ -474,6 +490,11 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
 
       final countPl = state.youtube.playlists.length;
       final countLiked = state.youtube.likedTracks.length;
+      if (countPl == 0 &&
+          countLiked == 0 &&
+          (profile['displayName'] == null || profile['displayName']!.isEmpty)) {
+        return 'YouTube Music session could not be authenticated. Click Manage / Sign In via Browser to refresh.';
+      }
       return 'YouTube Music synced: $countPl playlists & $countLiked liked songs.';
     } catch (e) {
       state = state.copyWith(

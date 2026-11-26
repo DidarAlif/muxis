@@ -7,6 +7,7 @@ import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../../shared/models/playlist.dart';
 import '../../shared/widgets/muxis_button.dart';
+import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
 class PlaylistDetailScreen extends ConsumerWidget {
@@ -25,9 +26,10 @@ class PlaylistDetailScreen extends ConsumerWidget {
     final audioService = ref.read(playbackServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      children: [
+    return MuxisScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // Back Button
         Align(
           alignment: Alignment.centerLeft,
@@ -164,7 +166,8 @@ class PlaylistDetailScreen extends ConsumerWidget {
             onAddToQueueTap: () => audioService.addToQueue(track),
           );
         }),
-      ],
+        ],
+      ),
     );
   }
 

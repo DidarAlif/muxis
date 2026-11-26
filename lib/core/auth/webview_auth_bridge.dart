@@ -92,6 +92,87 @@ class WebViewAuthBridge {
         .replaceAll(RegExp(r'[^\x20-\x7E]'), '')
         .trim();
   }
+
+  /// Resolves a version-independent WebView2 user-data directory under AppData
+  /// on Windows so login sessions persist across app updates (`v1.1.4` -> `v1.1.5+`).
+  static String _resolvePersistentSessionDir(String folderName) {
+    if (!Platform.isWindows) return folderName;
+    try {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        final sessionDir = Directory(
+          '$appData${Platform.pathSeparator}app.muxis${Platform.pathSeparator}muxis${Platform.pathSeparator}webview_sessions${Platform.pathSeparator}$folderName',
+        );
+        if (!sessionDir.existsSync()) {
+          sessionDir.createSync(recursive: true);
+        }
+        return sessionDir.path;
+      }
+    } catch (_) {}
+    return folderName;
+  }
+
+  /// Merges `document.cookie` and `.youtube.com` HttpOnly jar cookies into a single
+  /// deduplicated ASCII `Cookie:` header string without NUL bytes or conflicting duplicates.
+  static ({String cookieHeader, String? sapisid, bool hasLoginCookie})
+      _buildCleanYouTubeCookieBundle(
+    String docCookieStr,
+    List<dynamic> jarCookies,
+  ) {
+    final cookieMap = <String, String>{};
+
+    void putCookie(String rawKey, String rawVal) {
+      final k = _sanitizeAscii(rawKey);
+      final v = _sanitizeAscii(rawVal);
+      if (k.isNotEmpty && v.isNotEmpty) {
+        cookieMap[k] = v;
+      }
+    }
+
+    for (final pair in docCookieStr.split(';')) {
+      final idx = pair.indexOf('=');
+      if (idx <= 0) continue;
+      putCookie(pair.substring(0, idx), pair.substring(idx + 1));
+    }
+
+    for (final c in jarCookies) {
+      try {
+        final domain = c.domain?.toString() ?? '';
+        if (domain.contains('youtube.com')) {
+          putCookie(c.name?.toString() ?? '', c.value?.toString() ?? '');
+        }
+      } catch (_) {}
+    }
+
+    final sapisid = cookieMap['SAPISID'] ??
+        cookieMap['__Secure-3PAPISID'] ??
+        cookieMap['__Secure-1PAPISID'];
+
+    bool hasLoginCookie = false;
+    for (final loginKey in const [
+      'SID',
+      'HSID',
+      'SSID',
+      'APISID',
+      'SIDCC',
+      'LOGIN_INFO',
+      '__Secure-1PSID',
+      '__Secure-3PSID',
+    ]) {
+      if ((cookieMap[loginKey] ?? '').isNotEmpty) {
+        hasLoginCookie = true;
+        break;
+      }
+    }
+
+    final header =
+        cookieMap.entries.map((e) => '${e.key}=${e.value}').join('; ');
+    return (
+      cookieHeader: header,
+      sapisid: sapisid,
+      hasLoginCookie: hasLoginCookie,
+    );
+  }
   static bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
@@ -549,13 +630,13 @@ class WebViewAuthBridge {
       try {
         if (!await WebviewWindow.isWebviewAvailable()) return null;
         final webview = await WebviewWindow.create(
-          configuration: const CreateConfiguration(
+          configuration: CreateConfiguration(
             windowWidth: 960,
             windowHeight: 700,
             titleBarHeight: 0,
             title: 'MUXIS Background Sync',
             openHidden: true,
-            userDataFolderWindows: 'muxis_sp_session',
+            userDataFolderWindows: _resolvePersistentSessionDir('muxis_sp_session'),
           ),
         );
 
@@ -636,13 +717,13 @@ class WebViewAuthBridge {
         await Future.delayed(const Duration(milliseconds: 350));
         if (!await WebviewWindow.isWebviewAvailable()) return null;
         final webview = await WebviewWindow.create(
-          configuration: const CreateConfiguration(
+          configuration: CreateConfiguration(
             windowWidth: 960,
             windowHeight: 700,
             titleBarHeight: 0,
             title: 'MUXIS YouTube Background Sync',
             openHidden: true,
-            userDataFolderWindows: 'muxis_yt_session',
+            userDataFolderWindows: _resolvePersistentSessionDir('muxis_yt_session'),
           ),
         );
 
@@ -831,11 +912,54 @@ class WebViewAuthBridge {
           return out;
         };
 
+        var findCont = function(n) {
+          if (!n || typeof n !== 'object') return null;
+          if (Array.isArray(n)) {
+            for (var i = 0; i < n.length; i++) {
+              var c = findCont(n[i]);
+              if (c) return c;
+            }
+            return null;
+          }
+          if (n.nextContinuationData && n.nextContinuationData.continuation) return String(n.nextContinuationData.continuation);
+          if (n.continuationCommand && n.continuationCommand.token) return String(n.continuationCommand.token);
+          var vals = Object.values(n);
+          for (var j = 0; j < vals.length; j++) {
+            var c2 = findCont(vals[j]);
+            if (c2) return c2;
+          }
+          return null;
+        };
+
+        var fetchAllPlaylistTracks = async function(bid, fav, maxPages) {
+          var first = await yti('browse', { browseId: bid });
+          if (!first) return [];
+          var all = extractTracks(first, fav);
+          var seenIds = {};
+          all.forEach(function(t) { seenIds[t.id] = true; });
+          var seenToks = {};
+          var cont = findCont(first);
+          for (var pg = 1; pg < (maxPages || 4) && cont && !seenToks[cont]; pg++) {
+            seenToks[cont] = true;
+            var nxt = await yti('browse?continuation=' + encodeURIComponent(cont) + '&type=next', { continuation: cont });
+            if (!nxt) break;
+            var more = extractTracks(nxt, fav);
+            if (!more.length) break;
+            more.forEach(function(t) {
+              if (!seenIds[t.id]) {
+                seenIds[t.id] = true;
+                all.push(t);
+              }
+            });
+            cont = findCont(nxt);
+          }
+          return all;
+        };
+
         var targetPid = '$targetPl';
         if (targetPid) {
           var bid = (targetPid.indexOf('VL') === 0 || targetPid.indexOf('FE') === 0) ? targetPid : ('VL' + targetPid);
-          var plData = await yti('browse', { browseId: bid });
-          var plTracks = plData ? extractTracks(plData, false) : [];
+          var plTracks = await fetchAllPlaylistTracks(bid, false, 6);
           var plMap = {};
           plMap[targetPid] = plTracks;
           window.__muxisYtSyncResult = { done: true, playlists: [], likedTracks: [], recommendedTracks: [], playlistTracks: plMap, sapisid: sapisid, authUser: authUser, cookies: cookieStr };
@@ -845,7 +969,7 @@ class WebViewAuthBridge {
         var results = await Promise.all([
           yti('account/account_menu', {}),
           yti('browse', { browseId: 'FEmusic_liked_playlists' }),
-          yti('browse', { browseId: 'VLLM' }),
+          fetchAllPlaylistTracks('VLLM', true, 4),
           yti('browse', { browseId: 'FEmusic_home' })
         ]);
 
@@ -864,12 +988,18 @@ class WebViewAuthBridge {
           var libLanding = await yti('browse', { browseId: 'FEmusic_library_landing' });
           if (libLanding) pls = extractPlaylists(libLanding);
         }
-        var liked = results[2] ? extractTracks(results[2], true) : [];
+        var liked = Array.isArray(results[2]) ? results[2] : [];
         if (liked.length === 0) {
-          var likedVideos = await yti('browse', { browseId: 'FEmusic_liked_videos' });
-          if (likedVideos) liked = extractTracks(likedVideos, true);
+          liked = await fetchAllPlaylistTracks('FEmusic_liked_videos', true, 4);
         }
         var home = results[3] ? extractTracks(results[3], false) : [];
+        if (home.length < 6) {
+          var hist = await yti('browse', { browseId: 'FEmusic_history' });
+          if (hist) {
+            var hTracks = extractTracks(hist, false);
+            if (hTracks.length > home.length) home = hTracks;
+          }
+        }
         if (home.length < 4) {
           var explore = await yti('browse', { browseId: 'FEmusic_explore' });
           if (explore) {
@@ -880,14 +1010,14 @@ class WebViewAuthBridge {
 
         var plTracksMap = {};
         if (pls.length > 0) {
-          var topPls = pls.slice(0, 6);
+          var topPls = pls.slice(0, 8);
           var plResponses = await Promise.all(topPls.map(function(p) {
             var b = (p.id.indexOf('VL') === 0 || p.id.indexOf('FE') === 0) ? p.id : ('VL' + p.id);
-            return yti('browse', { browseId: b });
+            return fetchAllPlaylistTracks(b, false, 4);
           }));
           for (var j = 0; j < topPls.length; j++) {
-            if (plResponses[j]) {
-              var trList = extractTracks(plResponses[j], false);
+            var trList = plResponses[j] || [];
+            if (trList.length > 0) {
               plTracksMap[topPls[j].id] = trList;
               topPls[j].trackCount = trList.length;
             }
@@ -927,10 +1057,19 @@ class WebViewAuthBridge {
             break;
           }
           if (decoded['done'] == true) {
+            List<dynamic> jarCookies = const [];
+            try {
+              jarCookies = await webview.getAllCookies();
+            } catch (_) {}
+            final bundle = _buildCleanYouTubeCookieBundle(
+              decoded['cookies']?.toString() ?? '',
+              jarCookies,
+            );
+            final rawSap = _sanitizeAscii(decoded['sapisid']?.toString() ?? '');
             captured = WebViewAuthSession(
               isSuccess: true,
-              sapisid: _sanitizeAscii(decoded['sapisid']?.toString() ?? ''),
-              cookieHeader: _sanitizeAscii(decoded['cookies']?.toString() ?? ''),
+              sapisid: rawSap.isNotEmpty ? rawSap : bundle.sapisid,
+              cookieHeader: bundle.cookieHeader,
               ytAuthUser: decoded['authUser']?.toString() ?? '0',
               ytDisplayName: decoded['displayName']?.toString(),
               ytAvatarUrl: decoded['avatarUrl']?.toString(),
@@ -954,12 +1093,12 @@ class WebViewAuthBridge {
   /// Clears stored WebView cookies/session cleanly for a single platform.
   Future<void> clearPlatformSession(String platform) async {
     if (!_isDesktop || !Platform.isWindows) return;
-    try {
-      await WebviewWindow.clearAll(
-        userDataFolderWindows:
-            platform == 'spotify' ? 'muxis_sp_session' : 'muxis_yt_session',
-      );
-    } catch (_) {}
+    final folder = platform == 'spotify' ? 'muxis_sp_session' : 'muxis_yt_session';
+    for (final dir in <String>[_resolvePersistentSessionDir(folder), folder]) {
+      try {
+        await WebviewWindow.clearAll(userDataFolderWindows: dir);
+      } catch (_) {}
+    }
   }
 
   Future<WebViewAuthSession> _authenticateYouTubeDesktop(String loginUrl) async {
@@ -975,12 +1114,12 @@ class WebViewAuthBridge {
         }
 
         final webview = await WebviewWindow.create(
-          configuration: const CreateConfiguration(
+          configuration: CreateConfiguration(
             windowWidth: 1020,
             windowHeight: 760,
             titleBarHeight: 0,
             title: 'MUXIS — Sign In to YouTube Music',
-            userDataFolderWindows: 'muxis_yt_session',
+            userDataFolderWindows: _resolvePersistentSessionDir('muxis_yt_session'),
           ),
         );
 
@@ -1093,58 +1232,20 @@ class WebViewAuthBridge {
             }
 
             if (host.endsWith('music.youtube.com')) {
-              String? sapisid;
-              final cookieMap = <String, String>{};
-              bool hasLoginCookie = false;
-
-              // 1. Parse non-HttpOnly cookies from document.cookie first
-              for (final pair in docCookieStr.split(';')) {
-                final idx = pair.indexOf('=');
-                if (idx <= 0) continue;
-                final k = _sanitizeAscii(pair.substring(0, idx));
-                final v = _sanitizeAscii(pair.substring(idx + 1));
-                if (k.isEmpty || v.isEmpty) continue;
-                cookieMap[k] = v;
-              }
-
-              // 2. Merge .youtube.com HttpOnly jar safely without letting accounts.google.com overwrite YT session cookies
+              List<dynamic> jarCookies = const [];
               try {
-                final jarCookies = await webview.getAllCookies();
-                for (final c in jarCookies) {
-                  if (c.domain.contains('youtube.com')) {
-                    final k = _sanitizeAscii(c.name);
-                    final v = _sanitizeAscii(c.value);
-                    if (k.isNotEmpty && v.isNotEmpty) {
-                      cookieMap[k] = v;
-                    }
-                  }
-                }
+                jarCookies = await webview.getAllCookies();
               } catch (_) {}
-
-              sapisid = cookieMap['SAPISID'] ??
-                  cookieMap['__Secure-3PAPISID'] ??
-                  cookieMap['__Secure-1PAPISID'];
-
-              for (final loginKey in const [
-                'SID',
-                'HSID',
-                'SSID',
-                'APISID',
-                'SIDCC',
-                'LOGIN_INFO',
-                '__Secure-1PSID',
-                '__Secure-3PSID',
-              ]) {
-                if ((cookieMap[loginKey] ?? '').isNotEmpty) {
-                  hasLoginCookie = true;
-                  break;
-                }
-              }
+              final bundle = _buildCleanYouTubeCookieBundle(
+                docCookieStr,
+                jarCookies,
+              );
+              final sapisid = bundle.sapisid;
 
               final signedInConfirmed =
                   ((sapisid != null && sapisid.isNotEmpty) &&
-                      (hasLoginCookie || ytLoggedIn)) ||
-                  (ytLoggedIn && cookieMap.isNotEmpty);
+                      (bundle.hasLoginCookie || ytLoggedIn)) ||
+                  (ytLoggedIn && bundle.cookieHeader.isNotEmpty);
 
               if (signedInConfirmed) {
                 try {
@@ -1153,13 +1254,10 @@ class WebViewAuthBridge {
                   );
                 } catch (_) {}
 
-                final cookieHeader = cookieMap.entries
-                    .map((e) => '${e.key}=${e.value}')
-                    .join('; ');
                 final captured = WebViewAuthSession(
                   isSuccess: true,
                   sapisid: sapisid,
-                  cookieHeader: cookieHeader,
+                  cookieHeader: bundle.cookieHeader,
                   ytAuthUser: authUser,
                 );
                 lastCapturedSession = captured;
@@ -1209,12 +1307,12 @@ class WebViewAuthBridge {
         }
 
         final webview = await WebviewWindow.create(
-          configuration: const CreateConfiguration(
+          configuration: CreateConfiguration(
             windowWidth: 1020,
             windowHeight: 760,
             titleBarHeight: 0,
             title: 'MUXIS — Sign In to Spotify',
-            userDataFolderWindows: 'muxis_sp_session',
+            userDataFolderWindows: _resolvePersistentSessionDir('muxis_sp_session'),
           ),
         );
 
@@ -1334,8 +1432,10 @@ class WebViewAuthBridge {
     try {
       final cookies = await webview.getAllCookies();
       for (final c in cookies) {
-        if (c.name == 'sp_dc' && c.value.isNotEmpty) {
-          return c.value;
+        final name = _sanitizeAscii(c.name);
+        final val = _sanitizeAscii(c.value);
+        if (name == 'sp_dc' && val.isNotEmpty) {
+          return val;
         }
       }
     } catch (_) {}
