@@ -96,13 +96,22 @@ class BottomPlaybackBar extends ConsumerWidget {
                                 ),
                               ),
                             )
-                          : const Center(
-                              child: Icon(
-                                Icons.music_note_rounded,
-                                color: Colors.black,
-                                size: 28,
-                              ),
-                            ),
+                          : (track == null
+                              ? Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Image.asset(
+                                    'assets/brand/muxis_mark.png',
+                                    fit: BoxFit.contain,
+                                    filterQuality: FilterQuality.high,
+                                  ),
+                                )
+                              : const Center(
+                                  child: Icon(
+                                    Icons.music_note_rounded,
+                                    color: Colors.black,
+                                    size: 28,
+                                  ),
+                                )),
                     ),
                   ),
                 ),

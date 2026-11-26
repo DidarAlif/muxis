@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/theme_controller.dart';
@@ -83,25 +82,11 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                       if (!_isCollapsed)
                         Row(
                           children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(11),
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.06)
-                                    : Colors.white.withOpacity(0.85),
-                                border: Border.all(
-                                  color: MuxisColors.accent(isDark)
-                                      .withOpacity(0.35),
-                                ),
-                              ),
-                              child: SvgPicture.asset(
-                                isDark
-                                    ? 'assets/brand/muxis_monogram.svg'
-                                    : 'assets/brand/variants/muxis_monogram_light.svg',
-                              ),
+                            Image.asset(
+                              'assets/brand/muxis_mark.png',
+                              height: 26,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
                             ),
                             const SizedBox(width: 11),
                             Column(
@@ -134,12 +119,12 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                           ],
                         )
                       else
-                        SvgPicture.asset(
-                          isDark
-                              ? 'assets/brand/muxis_monogram.svg'
-                              : 'assets/brand/variants/muxis_monogram_light.svg',
+                        Image.asset(
+                          'assets/brand/muxis_mark_square.png',
                           width: 34,
                           height: 34,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
                         ),
                       if (!_isCollapsed)
                         IconButton(

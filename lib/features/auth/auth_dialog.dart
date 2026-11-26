@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
-import '../../app/theme/muxis_gradients.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/auth/supabase_auth_service.dart';
 import '../../shared/widgets/muxis_button.dart';
@@ -71,20 +70,11 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          gradient: MuxisGradients.prismaticPrimary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.cloud_sync_rounded,
-                            color: Colors.black,
-                            size: 18,
-                          ),
-                        ),
+                      Image.asset(
+                        'assets/brand/muxis_mark.png',
+                        height: 22,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
                       ),
                       const SizedBox(width: 12),
                       Text(

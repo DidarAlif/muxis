@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
@@ -1182,14 +1181,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 Row(
                   children: [
-                    SvgPicture.asset(
-                      isDark
-                          ? 'assets/brand/muxis_monogram.svg'
-                          : 'assets/brand/variants/muxis_monogram_light.svg',
-                      width: 28,
-                      height: 28,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        'assets/brand/app_icon_1024.png',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.high,
+                      ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Text(
                       'MUXIS',
                       style: TextStyle(
@@ -1202,7 +1204,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'v1.1.5 (Liquid Aurora Glass, Enhanced YT Sync & Wrapped Desktop UX)',
+                        'v1.1.6 (Official Brand Identity, Liquid Glass UX & Full YT Sync)',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,

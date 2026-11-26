@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
@@ -196,21 +195,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(width: 24),
               Container(
-                width: 118,
-                height: 118,
-                padding: const EdgeInsets.all(22),
+                width: 116,
+                height: 116,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: (isDark ? Colors.black : Colors.white).withOpacity(0.18),
-                  border: Border.all(
-                    color: (isDark ? Colors.black : Colors.white).withOpacity(0.36),
-                    width: 2,
-                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.32),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-                child: SvgPicture.asset(
-                  isDark
-                      ? 'assets/brand/muxis_monogram.svg'
-                      : 'assets/brand/variants/muxis_monogram_light.svg',
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/brand/app_icon_1024.png',
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
                 ),
               ),
             ],

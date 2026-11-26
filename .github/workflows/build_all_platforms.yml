@@ -82,6 +82,9 @@ jobs:
       - name: Generate macOS Scaffolding
         run: flutter create --platforms=macos --org app.muxis .
 
+      - name: Inject macOS Brand Icons
+        run: cp -f assets/brand/icons/macos/*.png macos/Runner/Assets.xcassets/AppIcon.appiconset/
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -165,6 +168,11 @@ jobs:
 
       - name: Generate Android Scaffolding
         run: flutter create --platforms=android --org app.muxis .
+
+      - name: Inject Android Brand Icons
+        run: |
+          cp -rf assets/brand/icons/android/mipmap-* android/app/src/main/res/
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
 
       - name: Upgrade Android Gradle Plugin for WebView AAR
         run: |

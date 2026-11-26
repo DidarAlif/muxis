@@ -62,11 +62,22 @@ jobs:
       - name: Generate Platform Scaffolding
         run: flutter create --platforms=${{ matrix.platform.target }} --org app.muxis .
 
-      - name: Inject MUXIS Prismatic Aura Icon
+      - name: Inject MUXIS Brand Icons
         if: matrix.platform.target == 'windows'
         shell: pwsh
         run: |
           Copy-Item assets/brand/app_icon.ico windows/runner/resources/app_icon.ico -Force
+
+      - name: Inject macOS Brand Icons
+        if: matrix.platform.target == 'macos'
+        run: |
+          cp -f assets/brand/icons/macos/*.png macos/Runner/Assets.xcassets/AppIcon.appiconset/
+
+      - name: Inject Android Brand Icons
+        if: matrix.platform.target == 'android'
+        run: |
+          cp -rf assets/brand/icons/android/mipmap-* android/app/src/main/res/
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
 
       - name: Upgrade Android Gradle Plugin for WebView AAR
         if: matrix.platform.target == 'android'

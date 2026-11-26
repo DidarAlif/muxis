@@ -32,13 +32,10 @@
 - **Obsidian Dark Surfaces:** `#090B10` (Base background), `#111520` (Deep space), `#191F2D` (Elevated surface), `#252D40` (Hover), `#2B3448` (Border)
 - **Porcelain Light Surfaces:** `#F7F8FC` (Base background), `#FFFFFF` (Card surfaces), `#EEF1F8` (Secondary), `#DCE2EF` (Border)
 
-### Vector Brand Assets:
-- `assets/brand/muxis_monogram.svg`: Original frequency-wave geometric "M" monogram.
-- `assets/brand/muxis_app_icon.svg`: App squircle icon for Windows/macOS/Linux/Android/iOS.
-- `assets/brand/muxis_logo_horizontal.svg`: Primary horizontal wordmark with "PRISMATIC AURA" micro-tag.
-- `assets/brand/muxis_logo_sidebar.svg`: Compact header logo for desktop navigation.
-- `assets/brand/muxis_splash.svg`: Full-bleed atmospheric loading splash.
-- `assets/brand/variants/`: Dedicated Dark and Light vector variants.
+### Brand & Icon Assets:
+- `assets/brand/muxis_mark.png` & `assets/brand/muxis_mark_square.png`: Backgroundless 3D ribbon "M" wave mark for frosted glass UI surfaces, headers, and favicons.
+- `assets/brand/app_icon_1024.png` & `assets/brand/app_icon.ico`: Backgrounded squircle app icon for desktop/mobile launchers, badges, and Windows executables.
+- `assets/brand/icons/`: Pre-sized Android mipmap, macOS AppIcon, and Linux PNG launcher assets used in CI builds.
 
 ---
 
