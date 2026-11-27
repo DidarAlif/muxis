@@ -149,7 +149,11 @@ jobs:
       - name: Build Android
         if: matrix.platform.target == 'android'
         run: |
+          if [ -f android/app/src/main/AndroidManifest.xml ] && ! grep -q "REQUEST_INSTALL_PACKAGES" android/app/src/main/AndroidManifest.xml; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application|' android/app/src/main/AndroidManifest.xml
+          fi
           flutter build apk --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          sed -i '/REQUEST_INSTALL_PACKAGES/d' android/app/src/main/AndroidManifest.xml
           flutter build appbundle --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           cp build/app/outputs/flutter-apk/app-release.apk ./Muxis-Android-${{ github.ref_name }}.apk
           cp build/app/outputs/bundle/release/app-release.aab ./Muxis-Android-${{ github.ref_name }}.aab

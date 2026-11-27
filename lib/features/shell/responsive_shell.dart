@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../core/updates/app_update_service.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_ambient_backdrop.dart';
 import '../command_palette/command_palette_dialog.dart';
@@ -22,6 +23,7 @@ import '../player/right_drawer_panel.dart';
 import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
 import '../studio/audio_studio_sheet.dart';
+import '../updates/update_available_dialog.dart';
 import 'sidebar.dart';
 
 class ResponsiveShell extends ConsumerStatefulWidget {
@@ -37,6 +39,21 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
   bool _isNowPlayingExpanded = false;
 
   final FocusNode _keyboardFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(seconds: 2), _checkForStartupUpdate);
+  }
+
+  Future<void> _checkForStartupUpdate() async {
+    if (!mounted) return;
+    final info = await ref
+        .read(appUpdateProvider.notifier)
+        .checkForUpdates(userInitiated: false);
+    if (!mounted || info == null) return;
+    await UpdateAvailableDialog.show(context);
+  }
 
   @override
   void dispose() {

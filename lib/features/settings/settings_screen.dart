@@ -9,10 +9,12 @@ import '../../core/auth/streaming_accounts_controller.dart';
 import '../../core/auth/streaming_oauth_service.dart';
 import '../../core/database/database_service.dart';
 import '../../core/storage/preferences_service.dart';
+import '../../core/updates/app_update_service.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
 import '../../shared/widgets/muxis_scroll_view.dart';
+import '../updates/update_available_dialog.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -535,6 +537,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final themeNotifier = ref.read(themeControllerProvider.notifier);
     final accounts = ref.watch(streamingAccountsProvider);
     final accountsNotifier = ref.read(streamingAccountsProvider.notifier);
+    final updateState = ref.watch(appUpdateProvider);
+    final updater = ref.read(appUpdateProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_isLoading) {
@@ -1234,7 +1238,165 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 22),
 
-          // --- SECTION 6: ABOUT MUXIS ---
+          // --- SECTION 6: SOFTWARE UPDATES ---
+          _buildSectionTitle('SOFTWARE UPDATES', isDark),
+          _buildCard(
+            isDark,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                'In-App Auto-Updater',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: MuxisColors.textPrimary(isDark),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: MuxisColors.accent(isDark)
+                                      .withOpacity(0.16),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'v${updateState.currentVersion}',
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: MuxisColors.accent(isDark),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            updateState.errorMessage ??
+                                updateState.statusMessage ??
+                                'Automatically checks GitHub Releases and installs updates directly inside MUXIS.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: updateState.phase == UpdatePhase.error
+                                  ? MuxisColors.error
+                                  : (updateState.availableUpdate != null
+                                        ? MuxisColors.accent(isDark)
+                                        : MuxisColors.textSecondary(isDark)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (updateState.availableUpdate != null) ...[
+                            MuxisButton(
+                              label:
+                                  'Install ${updateState.availableUpdate!.tagName}',
+                              icon: Icon(
+                                Icons.system_update_alt_rounded,
+                                size: 16,
+                                color: isDark ? Colors.black : Colors.white,
+                              ),
+                              variant: MuxisButtonVariant.primary,
+                              height: 34,
+                              onPressed: () =>
+                                  UpdateAvailableDialog.show(context),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          MuxisButton(
+                            label: updateState.phase == UpdatePhase.checking
+                                ? 'Checking...'
+                                : 'Check for Updates',
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            variant: MuxisButtonVariant.secondary,
+                            height: 34,
+                            isLoading:
+                                updateState.phase == UpdatePhase.checking,
+                            onPressed: updateState.isBusy
+                                ? null
+                                : () async {
+                                    final info = await updater.checkForUpdates(
+                                      userInitiated: true,
+                                    );
+                                    if (!context.mounted) return;
+                                    if (info != null) {
+                                      await UpdateAvailableDialog.show(context);
+                                    } else {
+                                      final latestState = ref.read(
+                                        appUpdateProvider,
+                                      );
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            latestState.errorMessage ??
+                                                latestState.statusMessage ??
+                                                'You are running the latest version of MUXIS.',
+                                          ),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(height: 1, color: MuxisColors.border(isDark)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Show update popup automatically when a new release is published',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: MuxisColors.textSecondary(isDark),
+                          ),
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: updateState.autoCheckEnabled,
+                        activeColor: MuxisColors.accent(isDark),
+                        onChanged: updater.setAutoCheckEnabled,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          // --- SECTION 7: ABOUT MUXIS ---
           _buildSectionTitle('ABOUT MUXIS', isDark),
           _buildCard(
             isDark,
@@ -1268,7 +1430,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'v1.1.7 • Official Brand Identity, Windows Setup & Mobile UX',
+                        'v${updateState.currentVersion} • In-App Auto-Updater, Windows Setup & Mobile UX',
                         style: TextStyle(
                           fontSize: 12,
                           color: MuxisColors.textMuted(isDark),

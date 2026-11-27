@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import '../lib/core/updates/app_update_models.dart';
+
 void main() {
   print('======================================================');
   print('  MUXIS — PRISMATIC AURA STANDALONE UNIT TESTS');
@@ -227,6 +229,100 @@ void main() {
     // Slowed + reverb (-2 semitones)
     final slowedPitch = pow(2.0, -2.0 / 12.0);
     expectTrue(slowedPitch > 0.88 && slowedPitch < 0.90);
+  });
+
+  // --- SUITE 8: IN-APP SELF-UPDATE ENGINE ---
+  print('\n[Suite 8: In-App Self-Update Engine]');
+
+  test('Semantic version comparison accurately detects newer releases', () {
+    expectTrue(MuxisVersionComparator.isNewerVersion(
+      remoteVersion: 'v1.1.8',
+      currentVersion: '1.1.7',
+    ));
+    expectTrue(MuxisVersionComparator.isNewerVersion(
+      remoteVersion: 'v1.2.0',
+      currentVersion: '1.1.9',
+    ));
+    expectTrue(MuxisVersionComparator.isNewerVersion(
+      remoteVersion: 'v2.0.0',
+      currentVersion: '1.9.9',
+    ));
+    expectFalse(MuxisVersionComparator.isNewerVersion(
+      remoteVersion: 'v1.1.8',
+      currentVersion: '1.1.8+18',
+    ));
+    expectFalse(MuxisVersionComparator.isNewerVersion(
+      remoteVersion: 'v1.1.7',
+      currentVersion: '1.1.8',
+    ));
+    expectTrue(MuxisVersionComparator.isNewerVersion(
+      remoteVersion: '1.2.0',
+      currentVersion: '1.2.0-beta.1',
+    ));
+  });
+
+  test('Platform asset selector prefers native installers cleanly', () {
+    final assets = [
+      const AppReleaseAsset(
+        name: 'Muxis-Windows-x64.zip',
+        downloadUrl: 'https://example.com/win.zip',
+        sizeBytes: 15000000,
+      ),
+      const AppReleaseAsset(
+        name: 'Muxis-Windows-x64-Setup.exe',
+        downloadUrl: 'https://example.com/setup.exe',
+        sizeBytes: 12700000,
+      ),
+      const AppReleaseAsset(
+        name: 'Muxis-Android.apk',
+        downloadUrl: 'https://example.com/app.apk',
+        sizeBytes: 28000000,
+      ),
+      const AppReleaseAsset(
+        name: 'Muxis-macOS-Universal.zip',
+        downloadUrl: 'https://example.com/mac.zip',
+        sizeBytes: 26000000,
+      ),
+      const AppReleaseAsset(
+        name: 'Muxis-Linux-x64.tar.gz',
+        downloadUrl: 'https://example.com/linux.tar.gz',
+        sizeBytes: 12300000,
+      ),
+    ];
+
+    expect(
+      MuxisUpdateSelector.selectAssetForOperatingSystem(assets, 'windows')?.name,
+      'Muxis-Windows-x64-Setup.exe',
+    );
+    expect(
+      MuxisUpdateSelector.selectAssetForOperatingSystem(assets, 'android')?.name,
+      'Muxis-Android.apk',
+    );
+    expect(
+      MuxisUpdateSelector.selectAssetForOperatingSystem(assets, 'macos')?.name,
+      'Muxis-macOS-Universal.zip',
+    );
+    expect(
+      MuxisUpdateSelector.selectAssetForOperatingSystem(assets, 'linux')?.name,
+      'Muxis-Linux-x64.tar.gz',
+    );
+  });
+
+  test('SHA-256 parser extracts exact checksum for target asset', () {
+    const body = '''
+0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  Muxis-Android.apk
+fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-x64-Setup.exe
+''';
+    expect(
+      MuxisUpdateSelector.parseSha256ForAsset(body, 'Muxis-Windows-x64-Setup.exe'),
+      'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
+    );
+    expect(
+      MuxisUpdateSelector.parseSha256ForAsset(body, 'Muxis-Android.apk'),
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    );
+    expect(MuxisUpdateSelector.parseSha256ForAsset(body, 'missing.zip'), null);
+    expect(MuxisUpdateSelector.formatBytes(12749738), '12.2 MB');
   });
 
   print('\n======================================================');

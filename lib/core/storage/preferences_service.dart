@@ -25,12 +25,15 @@ class PreferencesService {
   static const String _keySpotifySpDc = 'muxis_spotify_sp_dc';
   static const String _keySpotifyPathfinderHashes =
       'muxis_spotify_pathfinder_hashes';
-  static const String _keySpotifyPlaylistsCache = 'muxis_spotify_playlists_cache';
+  static const String _keySpotifyPlaylistsCache =
+      'muxis_spotify_playlists_cache';
   static const String _keySpotifyUserName = 'muxis_spotify_user_name';
   static const String _keySpotifyUserAvatar = 'muxis_spotify_user_avatar';
   static const String _keySpotifyProduct = 'muxis_spotify_product';
   static const String _keyGoogleClientId = 'muxis_google_client_id';
   static const String _keyGoogleClientSecret = 'muxis_google_client_secret';
+  static const String _keyAutoUpdateEnabled = 'muxis_auto_update_enabled';
+  static const String _keySkippedUpdateVersion = 'muxis_skipped_update_version';
 
   Future<void> saveActiveSource(String source) async {
     final prefs = await SharedPreferences.getInstance();
@@ -193,7 +196,11 @@ class PreferencesService {
     return prefs.getString(_keyGoogleClientSecret);
   }
 
-  Future<void> saveSpotifyUserProfile(String name, String? avatarUrl, String product) async {
+  Future<void> saveSpotifyUserProfile(
+    String name,
+    String? avatarUrl,
+    String product,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySpotifyUserName, name);
     await prefs.setString(_keySpotifyProduct, product);
@@ -289,5 +296,29 @@ class PreferencesService {
   Future<String?> getLastScannedDir() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyLastScannedDir);
+  }
+
+  Future<void> saveAutoUpdateEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAutoUpdateEnabled, enabled);
+  }
+
+  Future<bool> getAutoUpdateEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAutoUpdateEnabled) ?? true;
+  }
+
+  Future<void> saveSkippedUpdateVersion(String? version) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (version == null || version.isEmpty) {
+      await prefs.remove(_keySkippedUpdateVersion);
+    } else {
+      await prefs.setString(_keySkippedUpdateVersion, version);
+    }
+  }
+
+  Future<String?> getSkippedUpdateVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySkippedUpdateVersion);
   }
 }
