@@ -25,11 +25,19 @@ def configure_manifest(manifest_path: Path) -> None:
             1,
         )
 
-    # 2. App display name
+    # 2. App display name & cleartext traffic support for global radio streams
     text = text.replace('android:label="muxis"', 'android:label="MUXIS"')
+    if "android:usesCleartextTraffic=" not in text:
+        text = text.replace(
+            "<application ",
+            '<application android:usesCleartextTraffic="true" ',
+            1,
+        )
 
-    # 3. Required background audio + notification permissions
+    # 3. Required internet, background audio & notification permissions
     required_perms = [
+        '<uses-permission android:name="android.permission.INTERNET"/>',
+        '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
         '<uses-permission android:name="android.permission.WAKE_LOCK"/>',
         '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
         '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>',

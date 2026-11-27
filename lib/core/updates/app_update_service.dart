@@ -115,7 +115,7 @@ final appUpdateProvider =
 class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
   static const String githubOwner = 'DidarAlif';
   static const String githubRepo = 'muxis';
-  static const String fallbackAppVersion = '1.2.4';
+  static const String fallbackAppVersion = '1.2.5';
 
   final PreferencesService _prefs;
   final Dio _dio = Dio(
@@ -124,7 +124,7 @@ class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
       receiveTimeout: const Duration(minutes: 10),
       headers: const {
         'Accept': 'application/vnd.github+json',
-        'User-Agent': 'MUXIS-App-Updater/1.1',
+        'User-Agent': 'MUXIS-App-Updater/1.2.5',
       },
     ),
   );
@@ -210,10 +210,7 @@ class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
     );
 
     try {
-      final resp = await _dio.get<Map<String, dynamic>>(
-        'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest',
-      );
-      final data = resp.data;
+      final data = await _fetchLatestReleaseData();
       if (data == null) {
         throw Exception('Empty response from GitHub Releases API.');
       }
@@ -650,11 +647,85 @@ class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
     }
   }
 
-  String _formatError(Object e) {
-    final raw = e.toString();
-    if (raw.startsWith('Exception: ')) {
-      return raw.substring(11);
+  Future<Map<String, dynamic>?> _fetchLatestReleaseData() async {
+    Object? primaryError;
+    try {
+      final resp = await _dio.get<Map<String, dynamic>>(
+        'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest',
+      );
+      if (resp.data != null) return resp.data;
+    } catch (e) {
+      primaryError = e;
     }
-    return raw;
+
+    // Fallback 1: Resolve github.com/releases/latest redirect tag cleanly
+    try {
+      final redirectResp = await _dio.get<String>(
+        'https://github.com/$githubOwner/$githubRepo/releases/latest',
+        options: Options(
+          headers: const {
+            'Accept': 'text/html',
+            'User-Agent': 'MUXIS-App-Updater/1.2.5',
+          },
+          responseType: ResponseType.plain,
+        ),
+      );
+      final resolvedUrl = redirectResp.realUri.toString();
+      final match = RegExp(r'/releases/tag/([^/?#]+)').firstMatch(resolvedUrl);
+      if (match != null) {
+        final tagName = Uri.decodeComponent(match.group(1)!);
+        final dlBase =
+            'https://github.com/$githubOwner/$githubRepo/releases/download/$tagName';
+        return {
+          'tag_name': tagName,
+          'name': 'MUXIS $tagName',
+          'html_url':
+              'https://github.com/$githubOwner/$githubRepo/releases/tag/$tagName',
+          'body': '',
+          'assets': [
+            {
+              'name': 'Muxis-Android.apk',
+              'browser_download_url': '$dlBase/Muxis-Android.apk',
+              'size': 0,
+            },
+            {
+              'name': 'Muxis-Windows-x64-Setup.exe',
+              'browser_download_url': '$dlBase/Muxis-Windows-x64-Setup.exe',
+              'size': 0,
+            },
+            {
+              'name': 'Muxis-macOS-Universal.zip',
+              'browser_download_url': '$dlBase/Muxis-macOS-Universal.zip',
+              'size': 0,
+            },
+            {
+              'name': 'Muxis-Linux-x64.tar.gz',
+              'browser_download_url': '$dlBase/Muxis-Linux-x64.tar.gz',
+              'size': 0,
+            },
+            {
+              'name': 'checksums-sha256.txt',
+              'browser_download_url': '$dlBase/checksums-sha256.txt',
+              'size': 0,
+            },
+          ],
+        };
+      }
+    } catch (_) {}
+
+    // Fallback 2: GitHub Pages static release manifest
+    try {
+      final pageResp = await _dio.get<Map<String, dynamic>>(
+        'https://didaralif.github.io/muxis/latest-release.json',
+      );
+      if (pageResp.data != null) return pageResp.data;
+    } catch (_) {}
+
+    if (primaryError != null) throw primaryError;
+    return null;
+  }
+
+  String _formatError(Object e) {
+    return MuxisUpdateSelector.formatUpdateError(e);
   }
 }

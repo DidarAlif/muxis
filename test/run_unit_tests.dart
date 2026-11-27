@@ -866,6 +866,40 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
     },
   );
 
+  // Suite 16: Email Verification Redirect & Friendly Update Error Helpers
+  print('\nSuite 16: Email Verification Redirect & Update Error Formatting');
+  test('CloudAuthHelper resolves HTTPS confirmation landing and otp_expired errors cleanly', () {
+    expectTrue(
+      CloudAuthHelper.emailConfirmationRedirectUrl.startsWith(
+        'https://didaralif.github.io/muxis/',
+      ),
+    );
+    expectTrue(
+      CloudAuthHelper.isLoopbackVerificationUri(
+        Uri.parse('http://localhost:3000/?error_code=otp_expired'),
+      ),
+    );
+    expectFalse(
+      CloudAuthHelper.isLoopbackVerificationUri(
+        Uri.parse('http://localhost:3000/'),
+      ),
+    );
+    final expiredMsg = CloudAuthHelper.formatConfirmationError(
+      Uri.parse(
+        'http://localhost:3000/?error=access_denied&error_code=otp_expired',
+      ),
+    );
+    expectTrue(expiredMsg.contains('Resend Confirmation Email'));
+
+    final dnsMsg = MuxisUpdateSelector.formatUpdateError(
+      Exception(
+        "DioException [connection error]: Failed host lookup: 'api.github.com' (errno = 7)",
+      ),
+    );
+    expectTrue(dnsMsg.contains('Download Manually'));
+    expectFalse(dnsMsg.contains('errno = 7'));
+  });
+
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');
   print('======================================================');

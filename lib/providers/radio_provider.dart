@@ -28,7 +28,7 @@ class RadioProvider {
   ];
 
   static const Map<String, String> _headers = {
-    'User-Agent': 'MUXIS/1.2.4 (Cross-Platform Audio Player)',
+    'User-Agent': 'MUXIS/1.2.5 (Cross-Platform Audio Player)',
     'Accept': 'application/json',
   };
 

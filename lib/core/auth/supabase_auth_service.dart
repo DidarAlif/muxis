@@ -19,6 +19,9 @@ final authServiceProvider =
 class SupabaseAuthService extends StateNotifier<AuthState> {
   SupabaseClient? _client;
   StreamSubscription<dynamic>? _authSub;
+  HttpServer? _confirmationServer;
+  StreamSubscription<HttpRequest>? _confirmationSub;
+  Timer? _confirmationTimer;
   final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 6),
@@ -179,10 +182,12 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       final res = await _client!.auth.signUp(
         email: trimmedEmail,
         password: password,
+        emailRedirectTo: CloudAuthHelper.emailConfirmationRedirectUrl,
         data: {if (trimmedName.isNotEmpty) 'display_name': trimmedName},
       );
 
       if (res.session != null && res.user != null) {
+        await _stopDesktopConfirmationListener();
         _mapUser(res.user!);
         return true;
       }
@@ -198,12 +203,13 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
         return false;
       }
 
+      await _startDesktopConfirmationListener();
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
         needsEmailConfirmation: true,
         pendingConfirmationEmail: trimmedEmail,
         infoMessage:
-            'Confirmation email sent to $trimmedEmail. Open the verification link in your Gmail inbox (also check Spam), then sign in.',
+            'Confirmation email sent to $trimmedEmail. Open the verification link in your Gmail inbox within 1 hour (also check Spam), then sign in.',
       );
       return false;
     } on AuthException catch (e) {
@@ -301,13 +307,18 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       infoMessage: null,
     );
     try {
-      await _client!.auth.resend(type: OtpType.signup, email: target);
+      await _client!.auth.resend(
+        type: OtpType.signup,
+        email: target,
+        emailRedirectTo: CloudAuthHelper.emailConfirmationRedirectUrl,
+      );
+      await _startDesktopConfirmationListener();
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
         needsEmailConfirmation: true,
         pendingConfirmationEmail: target,
         infoMessage:
-            'Confirmation email re-sent to $target. Check Gmail Inbox and Spam.',
+            'Fresh confirmation email sent to $target. Open it within 1 hour (check Inbox & Spam).',
       );
       return true;
     } on AuthException catch (e) {
@@ -515,7 +526,92 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> _startDesktopConfirmationListener() async {
+    if (!_isDesktop || _confirmationServer != null) return;
+    try {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 3000);
+      _confirmationServer = server;
+      _confirmationTimer?.cancel();
+      _confirmationTimer = Timer(const Duration(minutes: 15), () {
+        unawaited(_stopDesktopConfirmationListener());
+      });
+
+      _confirmationSub = server.listen((request) async {
+        final reqUri = request.uri;
+        if (reqUri.path != '/' && reqUri.path != '/auth-callback') {
+          request.response
+            ..statusCode = HttpStatus.notFound
+            ..close();
+          return;
+        }
+
+        request.response.headers.contentType = ContentType.html;
+        if (!CloudAuthHelper.isLoopbackVerificationUri(reqUri)) {
+          request.response.write('''<!DOCTYPE html><html><body style="background:#060910;color:#fff;font-family:Segoe UI,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;">
+<p>Completing MUXIS Email Verification...</p>
+<script>if(location.hash&&location.hash.length>1){location.replace('/auth-callback?'+location.hash.substring(1));}</script>
+</body></html>''');
+          await request.response.close();
+          return;
+        }
+
+        final hasErr =
+            reqUri.queryParameters.containsKey('error') ||
+            reqUri.queryParameters.containsKey('error_code');
+        if (hasErr) {
+          final friendlyErr = CloudAuthHelper.formatConfirmationError(reqUri);
+          request.response.write(
+            '<!DOCTYPE html><html><body style="background:#060910;color:#fca5a5;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;text-align:center;padding:24px;"><h2 style="margin-bottom:8px;">Confirmation Link Expired</h2><p style="max-width:440px;color:#cbd5e1;">$friendlyErr</p></body></html>',
+          );
+          await request.response.close();
+          if (mounted) {
+            state = state.copyWith(
+              status: AuthStatus.error,
+              needsEmailConfirmation: true,
+              errorMessage: friendlyErr,
+            );
+          }
+          return;
+        }
+
+        try {
+          final callbackUrl = Uri.parse(
+            'http://localhost:${server.port}${reqUri.toString()}',
+          );
+          final sessionRes = await _client!.auth.getSessionFromUrl(callbackUrl);
+          request.response.write(
+            '<!DOCTYPE html><html><body style="background:#060910;color:#f8fafc;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;text-align:center;padding:24px;"><h2 style="color:#00ff88;margin-bottom:8px;">MUXIS Email Confirmed</h2><p style="color:#cbd5e1;">You are signed in! Return to MUXIS.</p></body></html>',
+          );
+          await request.response.close();
+          if (mounted) {
+            _mapUser(sessionRes.session.user);
+          }
+          unawaited(_stopDesktopConfirmationListener());
+        } catch (e) {
+          request.response.write(
+            '<!DOCTYPE html><html><body style="background:#060910;color:#f8fafc;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;text-align:center;padding:24px;"><h2 style="color:#00f2fe;margin-bottom:8px;">Email Verified</h2><p style="color:#cbd5e1;">Return to MUXIS and sign in with your Gmail + Password.</p></body></html>',
+          );
+          await request.response.close();
+        }
+      });
+    } catch (_) {
+      // Port 3000 unavailable; confirmation continues seamlessly via auth-confirmed.html or sign-in
+    }
+  }
+
+  Future<void> _stopDesktopConfirmationListener() async {
+    _confirmationTimer?.cancel();
+    _confirmationTimer = null;
+    await _confirmationSub?.cancel();
+    _confirmationSub = null;
+    try {
+      await _confirmationServer?.close(force: true);
+    } catch (_) {}
+    _confirmationServer = null;
+  }
+
   Future<void> signOut() async {
+    await _stopDesktopConfirmationListener();
     if (_client != null) {
       try {
         await _client!.auth.signOut();
@@ -534,7 +630,10 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     final trimmed = email.trim();
     if (_client == null || trimmed.isEmpty) return false;
     try {
-      await _client!.auth.resetPasswordForEmail(trimmed);
+      await _client!.auth.resetPasswordForEmail(
+        trimmed,
+        redirectTo: CloudAuthHelper.emailConfirmationRedirectUrl,
+      );
       state = state.copyWith(
         infoMessage:
             'Password reset email sent to $trimmed (check Gmail Inbox and Spam).',
@@ -565,6 +664,7 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
   @override
   void dispose() {
     _authSub?.cancel();
+    unawaited(_stopDesktopConfirmationListener());
     super.dispose();
   }
 }

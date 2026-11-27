@@ -243,4 +243,23 @@ class MuxisUpdateSelector {
     }
     return lines.join('\n').trim();
   }
+
+  /// Normalizes low-level network/socket exceptions into concise user guidance.
+  static String formatUpdateError(Object error) {
+    final raw = error.toString().trim();
+    final lower = raw.toLowerCase();
+    if (lower.contains('failed host lookup') ||
+        lower.contains('socketexception') ||
+        lower.contains('connection errored') ||
+        lower.contains('no address associated')) {
+      return 'Network or DNS lookup failed while contacting GitHub. Check your internet connection and retry, or tap Download Manually.';
+    }
+    if (lower.contains('timeout') || lower.contains('timed out')) {
+      return 'Update check timed out. Check your internet connection and retry.';
+    }
+    if (raw.startsWith('Exception: ')) {
+      return raw.substring(11);
+    }
+    return raw;
+  }
 }

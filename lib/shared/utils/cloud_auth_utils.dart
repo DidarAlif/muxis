@@ -5,6 +5,9 @@ import 'dart:convert';
 class CloudAuthHelper {
   CloudAuthHelper._();
 
+  static const String emailConfirmationRedirectUrl =
+      'https://didaralif.github.io/muxis/auth-confirmed.html';
+
   /// Parses Supabase `/auth/v1/settings` JSON payload for enabled external OAuth providers.
   static ({bool google, bool apple, bool email, bool autoconfirm})
   parseAuthSettings(dynamic raw) {
@@ -50,5 +53,28 @@ class CloudAuthHelper {
     return uri.queryParameters.containsKey('code') ||
         uri.queryParameters.containsKey('access_token') ||
         uri.queryParameters.containsKey('error');
+  }
+
+  /// Returns `true` when the incoming desktop loopback URI (on `/` or `/auth-callback`)
+  /// carries email confirmation tokens or Supabase verification errors.
+  static bool isLoopbackVerificationUri(Uri uri) {
+    if (uri.path != '/' && uri.path != '/auth-callback') return false;
+    return uri.queryParameters.containsKey('code') ||
+        uri.queryParameters.containsKey('access_token') ||
+        uri.queryParameters.containsKey('error') ||
+        uri.queryParameters.containsKey('error_code');
+  }
+
+  /// Maps Supabase redirect query errors (such as `otp_expired`) into concise copy.
+  static String formatConfirmationError(Uri uri) {
+    final code = (uri.queryParameters['error_code'] ?? '').trim().toLowerCase();
+    if (code == 'otp_expired') {
+      return 'Confirmation link expired or was already opened. Tap Resend Confirmation Email in MUXIS to get a fresh link.';
+    }
+    final desc = (uri.queryParameters['error_description'] ?? '').trim();
+    if (desc.isNotEmpty) return desc;
+    final err = (uri.queryParameters['error'] ?? '').trim();
+    if (err.isNotEmpty) return err;
+    return 'Email verification link was invalid or expired.';
   }
 }

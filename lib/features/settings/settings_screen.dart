@@ -1728,10 +1728,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          if (updateState.availableUpdate != null) ...[
+                          if (updateState.phase == UpdatePhase.error)
+                            MuxisButton(
+                              label: 'Download Manually',
+                              icon: const Icon(
+                                Icons.open_in_new_rounded,
+                                size: 15,
+                              ),
+                              variant: MuxisButtonVariant.liquidGlass,
+                              height: 34,
+                              onPressed: updater.openReleasePage,
+                            ),
+                          if (updateState.availableUpdate != null)
                             MuxisButton(
                               label:
                                   'Install ${updateState.availableUpdate!.tagName}',
@@ -1745,8 +1757,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               onPressed: () =>
                                   UpdateAvailableDialog.show(context),
                             ),
-                            const SizedBox(width: 8),
-                          ],
                           MuxisButton(
                             label: updateState.phase == UpdatePhase.checking
                                 ? 'Checking...'

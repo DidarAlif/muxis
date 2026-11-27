@@ -214,18 +214,35 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
               if (authState.needsEmailConfirmation) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: MuxisButton(
-                    label: 'Resend Confirmation Email',
-                    icon: const Icon(Icons.forward_to_inbox_rounded, size: 17),
-                    variant: MuxisButtonVariant.secondary,
-                    height: 36,
-                    isLoading: authState.isLoading,
-                    onPressed: () {
-                      final email = _loginEmailCtrl.text.trim().isNotEmpty
-                          ? _loginEmailCtrl.text.trim()
-                          : _regEmailCtrl.text.trim();
-                      authService.resendConfirmationEmail(email);
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      MuxisButton(
+                        label: 'Resend Confirmation Email',
+                        icon: const Icon(
+                          Icons.forward_to_inbox_rounded,
+                          size: 17,
+                        ),
+                        variant: MuxisButtonVariant.secondary,
+                        height: 36,
+                        isLoading: authState.isLoading,
+                        onPressed: () {
+                          final email = _loginEmailCtrl.text.trim().isNotEmpty
+                              ? _loginEmailCtrl.text.trim()
+                              : _regEmailCtrl.text.trim();
+                          authService.resendConfirmationEmail(email);
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Open confirmation links within 1 hour. Already confirmed? Enter your password below and tap Sign In.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: MuxisColors.textMuted(isDark),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -395,6 +412,34 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
     AuthState authState,
     bool isDark,
   ) {
+    if (authState.isCloudAvailable &&
+        !authState.isGoogleOAuthEnabled &&
+        !authState.isAppleOAuthEnabled) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? MuxisColors.deepSpace.withOpacity(0.7)
+              : MuxisColors.secondarySurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark
+                ? MuxisColors.subtleBorderDark
+                : MuxisColors.subtleBorderLight,
+          ),
+        ),
+        child: Text(
+          'Gmail + Password sync is active above. (Google 1-Click OAuth is disabled in Supabase Auth Providers and appears here once enabled by the project owner.)',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11.5,
+            height: 1.35,
+            color: MuxisColors.textMuted(isDark),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -419,27 +464,32 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(
-              child: MuxisButton(
-                label: 'Google',
-                icon: const Icon(Icons.g_mobiledata_rounded, size: 22),
-                variant: MuxisButtonVariant.secondary,
-                height: 38,
-                isLoading: authState.isLoading,
-                onPressed: () => authService.signInWithGoogle(),
+            if (!authState.isCloudAvailable || authState.isGoogleOAuthEnabled)
+              Expanded(
+                child: MuxisButton(
+                  label: 'Google',
+                  icon: const Icon(Icons.g_mobiledata_rounded, size: 22),
+                  variant: MuxisButtonVariant.secondary,
+                  height: 38,
+                  isLoading: authState.isLoading,
+                  onPressed: () => authService.signInWithGoogle(),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: MuxisButton(
-                label: 'Apple',
-                icon: const Icon(Icons.apple_rounded, size: 18),
-                variant: MuxisButtonVariant.secondary,
-                height: 38,
-                isLoading: authState.isLoading,
-                onPressed: () => authService.signInWithApple(),
+            if ((!authState.isCloudAvailable ||
+                    authState.isGoogleOAuthEnabled) &&
+                (!authState.isCloudAvailable || authState.isAppleOAuthEnabled))
+              const SizedBox(width: 12),
+            if (!authState.isCloudAvailable || authState.isAppleOAuthEnabled)
+              Expanded(
+                child: MuxisButton(
+                  label: 'Apple',
+                  icon: const Icon(Icons.apple_rounded, size: 18),
+                  variant: MuxisButtonVariant.secondary,
+                  height: 38,
+                  isLoading: authState.isLoading,
+                  onPressed: () => authService.signInWithApple(),
+                ),
               ),
-            ),
           ],
         ),
       ],

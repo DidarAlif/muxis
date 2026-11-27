@@ -1,0 +1,35 @@
+{
+  "tag_name": "v1.2.5",
+  "name": "MUXIS v1.2.5 — Prismatic Aura",
+  "draft": false,
+  "prerelease": false,
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.5",
+  "body": "### What's New in MUXIS v1.2.5\n- Ensures Android release APKs include INTERNET & ACCESS_NETWORK_STATE permissions and adds resilient GitHub Release update fallbacks\n- Fixes Gmail confirmation redirect landing and desktop localhost:3000 verification handling\n- Clarifies Supabase Cloud OAuth provider status inside Cloud Sign-In",
+  "assets": [
+    {
+      "name": "Muxis-Android.apk",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk",
+      "size": 0
+    },
+    {
+      "name": "Muxis-Windows-x64-Setup.exe",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64-Setup.exe",
+      "size": 0
+    },
+    {
+      "name": "Muxis-macOS-Universal.zip",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-macOS-Universal.zip",
+      "size": 0
+    },
+    {
+      "name": "Muxis-Linux-x64.tar.gz",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Linux-x64.tar.gz",
+      "size": 0
+    },
+    {
+      "name": "checksums-sha256.txt",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/checksums-sha256.txt",
+      "size": 0
+    }
+  ]
+}

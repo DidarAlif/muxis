@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MUXIS Cloud — Email Verification</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="assets/muxis_mark_square.png">
+  <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand">
+        <img src="assets/muxis_mark.png" alt="MUXIS" style="height: 26px; width: auto; display: block;">
+        <span>MUXIS</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="documentation.html">Docs</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container" style="padding: 90px 24px; max-width: 640px; text-align: center;">
+    <div id="status-card" style="background: rgba(18, 22, 34, 0.88); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 20px; padding: 36px 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);">
+      <img src="assets/muxis_mark.png" alt="MUXIS" style="height: 36px; margin: 0 auto 18px; display: block;">
+      <span id="status-badge" class="badge" style="margin-bottom: 14px;">MUXIS CLOUD AUTH</span>
+      <h1 id="status-title" style="font-size: 30px; font-weight: 800; margin-bottom: 12px;">Email Verified</h1>
+      <p id="status-message" style="color: var(--text-secondary); font-size: 15px; line-height: 1.65; margin-bottom: 24px;">
+        Your email address has been verified for MUXIS Cloud. Return to the MUXIS app and sign in with your Gmail + Password.
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <a id="open-app-btn" href="muxis://auth-callback" class="btn btn-primary">Open MUXIS App</a>
+        <a href="index.html" class="btn btn-secondary">Back to MUXIS Home</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var q = new URLSearchParams(window.location.search);
+      var h = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+      var errCode = q.get('error_code') || h.get('error_code') || q.get('error') || h.get('error');
+      var errDesc = q.get('error_description') || h.get('error_description');
+      var badge = document.getElementById('status-badge');
+      var title = document.getElementById('status-title');
+      var msg = document.getElementById('status-message');
+      var card = document.getElementById('status-card');
+      var openBtn = document.getElementById('open-app-btn');
+
+      if (window.location.search || window.location.hash) {
+        openBtn.href = 'muxis://auth-callback' + window.location.search + window.location.hash;
+      }
+
+      if (errCode) {
+        card.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+        badge.textContent = 'LINK EXPIRED OR USED';
+        badge.style.color = '#fca5a5';
+        title.textContent = 'Confirmation Link Expired';
+        msg.textContent = errCode === 'otp_expired'
+          ? 'This confirmation link has expired (links last 1 hour) or was already opened. Open MUXIS, click "Cloud Sign In", and tap "Resend Confirmation Email" to get a fresh link.'
+          : (errDesc || 'Verification could not complete. Open MUXIS and request a fresh confirmation email.');
+      } else {
+        badge.textContent = 'VERIFIED READY TO SYNC';
+        title.textContent = 'Email Confirmed!';
+        msg.textContent = 'Your MUXIS Cloud account is verified. Return to MUXIS and sign in with your Gmail and Password (or tap Open MUXIS App on Android).';
+      }
+    })();
+  </script>
+</body>
+</html>
