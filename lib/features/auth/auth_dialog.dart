@@ -31,7 +31,10 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
   }
 
   @override
@@ -133,132 +136,137 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                   Tab(text: 'Create Account'),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Info banner (e.g., email confirmation sent)
-              if (authState.infoMessage != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: MuxisColors.accent(isDark).withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: MuxisColors.accent(isDark).withOpacity(0.45),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.mark_email_read_outlined,
-                        color: MuxisColors.accent(isDark),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.infoMessage!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: MuxisColors.textPrimary(isDark),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Error display if any
-              if (authState.errorMessage != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: MuxisColors.error.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: MuxisColors.error.withOpacity(0.45),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        color: MuxisColors.error,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.errorMessage!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: Color(0xFFFCA5A5),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              if (authState.needsEmailConfirmation) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+              // Unified Keyboard-Safe Scrollable Content (no overflow with Android IME open)
+              Flexible(
+                child: SingleChildScrollView(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      MuxisButton(
-                        label: 'Resend Confirmation Email',
-                        icon: const Icon(
-                          Icons.forward_to_inbox_rounded,
-                          size: 17,
+                      // Info banner (e.g., email confirmation sent)
+                      if (authState.infoMessage != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: MuxisColors.accent(isDark).withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: MuxisColors.accent(isDark)
+                                  .withOpacity(0.45),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.mark_email_read_outlined,
+                                color: MuxisColors.accent(isDark),
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  authState.infoMessage!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: MuxisColors.textPrimary(isDark),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        variant: MuxisButtonVariant.secondary,
-                        height: 36,
-                        isLoading: authState.isLoading,
-                        onPressed: () {
-                          final email = _loginEmailCtrl.text.trim().isNotEmpty
-                              ? _loginEmailCtrl.text.trim()
-                              : _regEmailCtrl.text.trim();
-                          authService.resendConfirmationEmail(email);
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Open confirmation links within 1 hour. Already confirmed? Enter your password below and tap Sign In.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: MuxisColors.textMuted(isDark),
+
+                      // Error display if any
+                      if (authState.errorMessage != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: MuxisColors.error.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: MuxisColors.error.withOpacity(0.45),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                color: MuxisColors.error,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  authState.errorMessage!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: isDark
+                                        ? const Color(0xFFFCA5A5)
+                                        : const Color(0xFFB91C1C),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+
+                      if (authState.needsEmailConfirmation) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              MuxisButton(
+                                label: 'Resend Confirmation Email',
+                                icon: const Icon(
+                                  Icons.forward_to_inbox_rounded,
+                                  size: 17,
+                                ),
+                                variant: MuxisButtonVariant.secondary,
+                                height: 36,
+                                isLoading: authState.isLoading,
+                                onPressed: () {
+                                  final email =
+                                      _loginEmailCtrl.text.trim().isNotEmpty
+                                      ? _loginEmailCtrl.text.trim()
+                                      : _regEmailCtrl.text.trim();
+                                  authService.resendConfirmationEmail(email);
+                                },
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Open confirmation links within 1 hour. Already confirmed? Enter your password below and tap Sign In.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: MuxisColors.textMuted(isDark),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      if (_tabController.index == 0)
+                        _buildSignInTab(authService, authState, isDark)
+                      else
+                        _buildRegisterTab(authService, authState, isDark),
                     ],
                   ),
-                ),
-              ],
-
-              // Tab Views
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    SingleChildScrollView(
-                      child: _buildSignInTab(authService, authState, isDark),
-                    ),
-                    SingleChildScrollView(
-                      child: _buildRegisterTab(authService, authState, isDark),
-                    ),
-                  ],
                 ),
               ),
             ],

@@ -9,6 +9,7 @@ import '../../app/theme/muxis_typography.dart';
 import '../../app/theme/theme_controller.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
 import '../../core/auth/streaming_oauth_service.dart';
+import '../../core/auth/supabase_auth_service.dart';
 import '../../core/database/database_service.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../core/updates/app_update_service.dart';
@@ -17,6 +18,8 @@ import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
 import '../../shared/widgets/muxis_scroll_view.dart';
+import '../auth/account_dialog.dart';
+import '../auth/auth_dialog.dart';
 import '../updates/update_available_dialog.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -728,6 +731,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final themeNotifier = ref.read(themeControllerProvider.notifier);
     final themeState = ref.watch(muxisThemeProvider);
     final muxisThemeCtrl = ref.read(muxisThemeProvider.notifier);
+    final authState = ref.watch(authServiceProvider);
+    final authService = ref.read(authServiceProvider.notifier);
     final accounts = ref.watch(streamingAccountsProvider);
     final accountsNotifier = ref.read(streamingAccountsProvider.notifier);
     final updateState = ref.watch(appUpdateProvider);
@@ -748,6 +753,117 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           Text('Settings', style: MuxisTypography.pageTitle(isDark: isDark)),
           const SizedBox(height: 20),
+
+          // --- SECTION 0: MUXIS CLOUD ACCOUNT & SYNC ---
+          _buildSectionTitle('MUXIS CLOUD ACCOUNT & SYNC', isDark),
+          _buildCard(
+            isDark,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Wrap(
+                spacing: 14,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: MuxisColors.accent(isDark).withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: MuxisColors.accent(isDark).withOpacity(0.4),
+                          ),
+                        ),
+                        child: Icon(
+                          authState.isAuthenticated
+                              ? Icons.cloud_done_rounded
+                              : Icons.cloud_outlined,
+                          color: MuxisColors.accent(isDark),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              authState.isAuthenticated
+                                  ? (authState.user?.displayName ??
+                                        'MUXIS Listener')
+                                  : 'MUXIS Cloud Sign In',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: MuxisColors.textPrimary(isDark),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              authState.isAuthenticated
+                                  ? '${authState.user?.email ?? ''} • Sync active across devices'
+                                  : 'Sign in or register with Gmail + Password to sync playlists, favorites & history across mobile and desktop.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: MuxisColors.textSecondary(isDark),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (authState.isAuthenticated)
+                        MuxisButton(
+                          label: 'Sign Out',
+                          variant: MuxisButtonVariant.secondary,
+                          height: 34,
+                          onPressed: () => authService.signOut(),
+                        ),
+                      MuxisButton(
+                        label: authState.isAuthenticated
+                            ? 'Manage Account'
+                            : 'Sign In / Create Account',
+                        icon: Icon(
+                          authState.isAuthenticated
+                              ? Icons.manage_accounts_rounded
+                              : Icons.login_rounded,
+                          size: 16,
+                          color: authState.isAuthenticated
+                              ? MuxisColors.textPrimary(isDark)
+                              : MuxisColors.onAccent(isDark),
+                        ),
+                        variant: authState.isAuthenticated
+                            ? MuxisButtonVariant.secondary
+                            : MuxisButtonVariant.primary,
+                        height: 34,
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => authState.isAuthenticated
+                                ? const AccountDialog()
+                                : const AuthDialog(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 22),
 
           // --- SECTION 1: ACTIVE STREAMING PLATFORM ---
           _buildSectionTitle('ACTIVE STREAMING PLATFORM', isDark),

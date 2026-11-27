@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
+import '../../core/auth/supabase_auth_service.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
+import '../auth/account_dialog.dart';
+import '../auth/auth_dialog.dart';
 
 /// Sleek frosted top navigation bar rendered on mobile (`< 768px`) so Android
 /// and phone users get 1-tap access to YT Music, Spotify, Audio Studio DSP,
@@ -27,6 +30,8 @@ class MobileTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accounts = ref.watch(streamingAccountsProvider);
+    final authState = ref.watch(authServiceProvider);
+    final isCloudSignedIn = authState.isAuthenticated;
 
     return Container(
       height: 58,
@@ -92,67 +97,140 @@ class MobileTopBar extends ConsumerWidget {
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(width: 10),
 
-          // Quick Streaming Hub Switchers (YT / Spotify)
-          if (accounts.youtube.isConnected || activeNavIndex == 11)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _PlatformPill(
-                label: 'YT',
-                active: activeNavIndex == 11,
-                color: MuxisColors.youtubeRed,
-                isDark: isDark,
-                onTap: () => onNavigate(11),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Quick Streaming Hub Switchers (YT / Spotify / SC)
+                  if (accounts.youtube.isConnected || activeNavIndex == 11)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _PlatformPill(
+                        label: 'YT',
+                        active: activeNavIndex == 11,
+                        color: MuxisColors.youtubeRed,
+                        isDark: isDark,
+                        onTap: () => onNavigate(11),
+                      ),
+                    ),
+                  if (accounts.spotify.isConnected || activeNavIndex == 12)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _PlatformPill(
+                        label: 'Spotify',
+                        active: activeNavIndex == 12,
+                        color: MuxisColors.spotifyGreen,
+                        isDark: isDark,
+                        onTap: () => onNavigate(12),
+                      ),
+                    ),
+                  if (accounts.soundcloud.isConnected || activeNavIndex == 13)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _PlatformPill(
+                        label: 'SC',
+                        active: activeNavIndex == 13,
+                        color: MuxisColors.soundcloudOrange,
+                        isDark: isDark,
+                        onTap: () => onNavigate(13),
+                      ),
+                    ),
+
+                  // MUXIS Cloud Sign-In / Account Shortcut
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: MuxisLiquidSurface(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => isCloudSignedIn
+                              ? const AccountDialog()
+                              : const AuthDialog(),
+                        );
+                      },
+                      enableGlass: false,
+                      blurSigma: 0,
+                      borderRadius: 14,
+                      accentColor: MuxisColors.accent(isDark),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      colorOverride: isCloudSignedIn
+                          ? MuxisColors.accent(isDark).withOpacity(0.18)
+                          : (isDark
+                                ? Colors.white.withOpacity(0.08)
+                                : Colors.black.withOpacity(0.05)),
+                      borderOverride: Border.all(
+                        color: isCloudSignedIn
+                            ? MuxisColors.accent(isDark)
+                            : MuxisColors.border(isDark),
+                        width: isCloudSignedIn ? 1.3 : 1,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isCloudSignedIn
+                                ? Icons.cloud_done_rounded
+                                : Icons.cloud_outlined,
+                            size: 14,
+                            color: MuxisColors.accent(isDark),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isCloudSignedIn
+                                ? (authState.user?.displayName
+                                          .split(' ')
+                                          .first ??
+                                      'Cloud')
+                                : 'Cloud',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: isCloudSignedIn
+                                  ? MuxisColors.accent(isDark)
+                                  : MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // World Radio Tuner Shortcut
+                  _ActionIcon(
+                    icon: Icons.radio_rounded,
+                    tooltip: 'Global Radio Tuner',
+                    isDark: isDark,
+                    onTap: () => onNavigate(3),
+                  ),
+                  const SizedBox(width: 6),
+
+                  // Audio Studio DSP Button
+                  _ActionIcon(
+                    icon: Icons.tune_rounded,
+                    tooltip: 'Audio Studio & 10-Band EQ',
+                    isDark: isDark,
+                    onTap: onOpenAudioStudio,
+                  ),
+                  const SizedBox(width: 6),
+
+                  // Queue & Lyrics Button
+                  _ActionIcon(
+                    icon: Icons.queue_music_rounded,
+                    tooltip: 'Up Next & Lyrics',
+                    isDark: isDark,
+                    onTap: onOpenQueueSheet,
+                  ),
+                ],
               ),
             ),
-          if (accounts.spotify.isConnected || activeNavIndex == 12)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _PlatformPill(
-                label: 'Spotify',
-                active: activeNavIndex == 12,
-                color: MuxisColors.spotifyGreen,
-                isDark: isDark,
-                onTap: () => onNavigate(12),
-              ),
-            ),
-          if (accounts.soundcloud.isConnected || activeNavIndex == 13)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _PlatformPill(
-                label: 'SC',
-                active: activeNavIndex == 13,
-                color: MuxisColors.soundcloudOrange,
-                isDark: isDark,
-                onTap: () => onNavigate(13),
-              ),
-            ),
-
-          // World Radio Tuner Shortcut
-          _ActionIcon(
-            icon: Icons.radio_rounded,
-            tooltip: 'Global Radio Tuner',
-            isDark: isDark,
-            onTap: () => onNavigate(3),
-          ),
-          const SizedBox(width: 6),
-
-          // Audio Studio DSP Button
-          _ActionIcon(
-            icon: Icons.tune_rounded,
-            tooltip: 'Audio Studio & 10-Band EQ',
-            isDark: isDark,
-            onTap: onOpenAudioStudio,
-          ),
-          const SizedBox(width: 6),
-
-          // Queue & Lyrics Button
-          _ActionIcon(
-            icon: Icons.queue_music_rounded,
-            tooltip: 'Up Next & Lyrics',
-            isDark: isDark,
-            onTap: onOpenQueueSheet,
           ),
         ],
       ),

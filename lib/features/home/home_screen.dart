@@ -6,6 +6,7 @@ import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
+import '../../core/auth/supabase_auth_service.dart';
 import '../../providers/innertube_music_provider.dart';
 import '../../shared/models/featured_section.dart';
 import '../../shared/models/playlist.dart';
@@ -15,6 +16,7 @@ import '../../shared/widgets/muxis_card.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
 import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_track_row.dart';
+import '../auth/auth_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int> onNavigate;
@@ -91,6 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     final audioService = ref.read(playbackServiceProvider.notifier);
     final accounts = ref.watch(streamingAccountsProvider);
+    final authState = ref.watch(authServiceProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final isMobile = MediaQuery.sizeOf(context).width < 600;
@@ -255,6 +258,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               height: isMobile ? 34 : 38,
                               onPressed: () => widget.onNavigate(2),
                             ),
+                            if (!authState.isAuthenticated)
+                              MuxisButton(
+                                label: 'Cloud Sign In',
+                                icon: Icon(
+                                  Icons.cloud_outlined,
+                                  size: 16,
+                                  color: MuxisColors.textPrimary(isDark),
+                                ),
+                                variant: MuxisButtonVariant.liquidGlass,
+                                height: isMobile ? 34 : 38,
+                                onPressed: () => showDialog(
+                                  context: context,
+                                  builder: (_) => const AuthDialog(),
+                                ),
+                              ),
                           ],
                         ),
                       ],

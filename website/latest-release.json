@@ -1,10 +1,10 @@
 {
-  "tag_name": "v1.2.6",
-  "name": "MUXIS v1.2.6 — Prismatic Aura",
+  "tag_name": "v1.2.7",
+  "name": "MUXIS v1.2.7 — Prismatic Aura",
   "draft": false,
   "prerelease": false,
-  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.6",
-  "body": "### What's New in MUXIS v1.2.6\n- Introduces Theme Studio with 10 signature themes (Dark Obsidian, Pure AMOLED OLED, Midnight Sapphire, Botanical Leaf, Crimson Velvet, Amber Vinyl, Ultraviolet Synth, Luminous Aurora, Sakura Pearl, Nordic Studio) plus independent Accent Taste customization\n- Adds 'by A Leaf' attribution beneath the MUXIS brand logo",
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.7",
+  "body": "### What's New in MUXIS v1.2.7\n- Adds MUXIS Cloud Sign-In / Account access directly in the Mobile top bar, Home hero card, and Settings -> MUXIS Cloud Account & Sync section\n- Makes the Cloud Auth dialog scrollable and Android soft-keyboard safe with crisp light/dark contrast",
   "assets": [
     {
       "name": "Muxis-Android.apk",

@@ -26,18 +26,14 @@ class AccountDialog extends ConsumerWidget {
     final isMobile = MediaQuery.sizeOf(context).width < 520;
 
     return Dialog(
-      backgroundColor: isDark ? MuxisColors.obsidian : MuxisColors.whiteSurface,
+      backgroundColor: MuxisColors.surface(isDark),
       insetPadding: EdgeInsets.symmetric(
         horizontal: isMobile ? 16 : 40,
         vertical: isMobile ? 20 : 24,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: isDark
-              ? MuxisColors.subtleBorderDark
-              : MuxisColors.subtleBorderLight,
-        ),
+        side: BorderSide(color: MuxisColors.border(isDark)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -170,9 +166,9 @@ class AccountDialog extends ConsumerWidget {
                             ),
                             Text(
                               _syncLabel(syncStatus),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: MuxisColors.textMutedDark,
+                                color: MuxisColors.textMuted(isDark),
                               ),
                             ),
                           ],
