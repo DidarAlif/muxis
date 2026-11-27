@@ -808,7 +808,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             Text(
                               authState.isAuthenticated
                                   ? '${authState.user?.email ?? ''} • Sync active across devices'
-                                  : 'Sign in or register with Gmail + Password to sync playlists, favorites & history across mobile and desktop.',
+                                  : 'Instant Gmail + Password registration (no broken confirmation email delay) — sync playlists, favorites & themes across Mobile & Desktop.',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: MuxisColors.textSecondary(isDark),

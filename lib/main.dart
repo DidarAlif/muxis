@@ -45,7 +45,7 @@ void main(List<String> args) async {
   }
 
   // 2. Initialize Supabase Client if configured
-  if (AppConfig.isConfigured) {
+  if (AppConfig.isSupabaseConfigured) {
     try {
       await Supabase.initialize(
         url: AppConfig.supabaseUrl,

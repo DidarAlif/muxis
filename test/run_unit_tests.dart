@@ -926,6 +926,30 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
     expect(goldHex, 0xFFFBBF24);
   });
 
+  // Suite 18: Cloudflare D1 Recovery Key & API Error Parsing Tests
+  print('\nSuite 18: Cloud Auth Recovery Key & Worker API Helpers');
+  test(
+    'CloudAuthHelper validates Recovery Keys and parses Worker error responses',
+    () {
+      expectTrue(CloudAuthHelper.isValidRecoveryKey('muxis-ab12-cd34-ef56'));
+      expect(
+        CloudAuthHelper.normalizeRecoveryKey('  muxis-ab12-cd34-ef56  '),
+        'MUXIS-AB12-CD34-EF56',
+      );
+      expectFalse(CloudAuthHelper.isValidRecoveryKey('invalid-key'));
+      expect(
+        CloudAuthHelper.extractApiErrorMessage(
+          '{"error":"Account already exists","status":409}',
+          409,
+        ),
+        'Account already exists',
+      );
+      expectTrue(
+        CloudAuthHelper.extractApiErrorMessage('not json', 503).contains('503'),
+      );
+    },
+  );
+
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');
   print('======================================================');

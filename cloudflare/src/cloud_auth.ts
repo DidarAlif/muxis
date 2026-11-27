@@ -1,0 +1,888 @@
+/**
+ * MUXIS Cloud Auth & Sync Module for Cloudflare Workers + D1.
+ * Handles PBKDF2-SHA256 email/password auth, backup recovery keys,
+ * HS256 JWT issuance/verification, Google OAuth PKCE & ID-token login,
+ * and cross-device playlist/favorite/settings synchronization.
+ */
+
+export interface CloudEnv {
+  DB?: D1Database;
+  MUXIS_JWT_SECRET?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+}
+
+interface UserRow {
+  id: string;
+  email: string;
+  display_name: string;
+  avatar_url: string | null;
+  auth_provider: string;
+  google_sub: string | null;
+  password_hash: string | null;
+  password_salt: string | null;
+  recovery_code_hash: string | null;
+  subscription_tier: string;
+}
+
+const enc = new TextEncoder();
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) {
+    bin += String.fromCharCode(bytes[i]);
+  }
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((str.length + 3) % 4);
+  const bin = atob(padded);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    out[i] = bin.charCodeAt(i);
+  }
+  return out;
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', enc.encode(input));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function hashPassword(password: string, saltHex?: string): Promise<{ hashHex: string; saltHex: string }> {
+  const saltBytes = saltHex
+    ? new Uint8Array(saltHex.match(/.{1,2}/g)!.map((h) => parseInt(h, 16)))
+    : crypto.getRandomValues(new Uint8Array(16));
+  const usedSaltHex =
+    saltHex ??
+    Array.from(saltBytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const derived = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  const hashHex = Array.from(new Uint8Array(derived))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return { hashHex, saltHex: usedSaltHex };
+}
+
+async function verifyPassword(password: string, expectedHashHex: string, saltHex: string): Promise<boolean> {
+  const { hashHex } = await hashPassword(password, saltHex);
+  return constantTimeEqual(enc.encode(hashHex), enc.encode(expectedHashHex));
+}
+
+function generateRecoveryKey(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]);
+  return `MUXIS-${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8, 12).join('')}`;
+}
+
+function normalizeRecoveryKey(raw: string): string {
+  return raw.trim().toUpperCase();
+}
+
+async function signJwt(
+  payload: Record<string, unknown>,
+  secret: string,
+  expiresInSeconds = 60 * 60 * 24 * 30
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const fullPayload = { ...payload, iat: now, exp: now + expiresInSeconds };
+  const headerB64 = base64UrlEncode(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const payloadB64 = base64UrlEncode(enc.encode(JSON.stringify(fullPayload)));
+  const signingInput = `${headerB64}.${payloadB64}`;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(signingInput)));
+  return `${signingInput}.${base64UrlEncode(sig)}`;
+}
+
+async function verifyJwt(token: string, secret: string): Promise<Record<string, unknown> | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    const sigBytes = base64UrlDecode(parts[2]);
+    const ok = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(`${parts[0]}.${parts[1]}`));
+    if (!ok) return null;
+    const payloadJson = new TextDecoder().decode(base64UrlDecode(parts[1]));
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+    if (exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function serializeUser(u: UserRow) {
+  return {
+    id: u.id,
+    email: u.email,
+    display_name: u.display_name,
+    avatar_url: u.avatar_url,
+    subscription_tier: u.subscription_tier || 'free',
+    auth_provider: u.auth_provider || 'email',
+  };
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function htmlPage(title: string, heading: string, body: string, color = '#00FF88', redirectScript = ''): Response {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+<body style="margin:0;background:#060910;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;">
+  <div style="max-width:440px;width:100%;background:#0b111c;border:1px solid #233046;border-radius:20px;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="font-size:12px;letter-spacing:2.4px;font-weight:700;color:${color};margin-bottom:10px;">MUXIS CLOUD</div>
+    <h1 style="margin:0 0 12px;font-size:24px;">${heading}</h1>
+    <p style="margin:0;color:#cbd5e1;line-height:1.55;font-size:14px;">${body}</p>
+  </div>
+  ${redirectScript}
+</body></html>`;
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+export async function handleCloudRoute(
+  request: Request,
+  env: CloudEnv,
+  json: (data: unknown, status?: number) => Response,
+  err: (msg: string, status?: number) => Response
+): Promise<Response | null> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  if (!path.startsWith('/api/auth/') && !path.startsWith('/api/sync/')) {
+    return null;
+  }
+
+  if (!env.DB || !env.MUXIS_JWT_SECRET) {
+    return err('MUXIS Cloud database or signing secret is not configured on Worker.', 503);
+  }
+  const db = env.DB;
+  const jwtSecret = env.MUXIS_JWT_SECRET;
+
+  // 1. Public capability metadata
+  if (path === '/api/auth/config' && request.method === 'GET') {
+    return json({
+      provider: 'muxis-cloud-d1',
+      email_autoconfirm: true,
+      instant_signup: true,
+      recovery_key_reset: true,
+      google_oauth_enabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+      worker_version: '1.2.8',
+    });
+  }
+
+  // 2. Instant Email / Gmail Registration (zero broken confirmation email bottleneck)
+  if (path === '/api/auth/register' && request.method === 'POST') {
+    let body: { email?: string; password?: string; display_name?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON request body.', 400);
+    }
+
+    const email = (body.email ?? '').trim().toLowerCase();
+    const password = body.password ?? '';
+    const rawName = (body.display_name ?? '').trim();
+
+    if (!isValidEmail(email)) {
+      return err('Please enter a valid Gmail or email address.', 400);
+    }
+    if (password.length < 6) {
+      return err('Password must be at least 6 characters long.', 400);
+    }
+
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    if (existing) {
+      return err(`An account for ${email} already exists. Switch to Sign In (or reset with your Recovery Key).`, 409);
+    }
+
+    const userId = crypto.randomUUID();
+    const displayName = rawName.length > 0 ? rawName : email.split('@')[0] || 'Muxis Listener';
+    const { hashHex, saltHex } = await hashPassword(password);
+    const recoveryKey = generateRecoveryKey();
+    const recoveryHash = await sha256Hex(normalizeRecoveryKey(recoveryKey));
+    const now = new Date().toISOString();
+
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO users (id, email, display_name, auth_provider, password_hash, password_salt, recovery_code_hash, email_verified, subscription_tier, created_at, updated_at)
+           VALUES (?, ?, ?, 'email', ?, ?, ?, 1, 'free', ?, ?)`
+        )
+        .bind(userId, email, displayName, hashHex, saltHex, recoveryHash, now, now),
+      db.prepare('INSERT OR IGNORE INTO user_settings (user_id, updated_at) VALUES (?, ?)').bind(userId, now),
+    ]);
+
+    const userObj = {
+      id: userId,
+      email,
+      display_name: displayName,
+      avatar_url: null,
+      subscription_tier: 'free',
+      auth_provider: 'email',
+    };
+    const token = await signJwt({ sub: userId, email }, jwtSecret);
+    return json({ access_token: token, user: userObj, recovery_key: recoveryKey }, 201);
+  }
+
+  // 3. Email / Gmail Login
+  if (path === '/api/auth/login' && request.method === 'POST') {
+    let body: { email?: string; password?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON request body.', 400);
+    }
+
+    const email = (body.email ?? '').trim().toLowerCase();
+    const password = body.password ?? '';
+    if (!isValidEmail(email) || password.length === 0) {
+      return err('Enter both your Gmail / email address and password.', 400);
+    }
+
+    const row = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<UserRow>();
+    if (!row) {
+      return err('No MUXIS Cloud account found for this email. Switch to Create Account first.', 401);
+    }
+    if (!row.password_hash || !row.password_salt) {
+      return err('This account uses Google Sign-In. Sign in with Google or reset your password with a Recovery Key.', 401);
+    }
+
+    const valid = await verifyPassword(password, row.password_hash, row.password_salt);
+    if (!valid) {
+      return err('Incorrect password. Check your password or reset it using your Backup Recovery Key.', 401);
+    }
+
+    const token = await signJwt({ sub: row.id, email: row.email }, jwtSecret);
+    return json({ access_token: token, user: serializeUser(row) }, 200);
+  }
+
+  // 4. Instant Recovery-Key Password Reset (works offline-from-SMTP cleanly on any OS)
+  if (path === '/api/auth/reset-password' && request.method === 'POST') {
+    let body: { email?: string; recovery_key?: string; new_password?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON request body.', 400);
+    }
+
+    const email = (body.email ?? '').trim().toLowerCase();
+    const recoveryKey = normalizeRecoveryKey(body.recovery_key ?? '');
+    const newPassword = body.new_password ?? '';
+    if (!isValidEmail(email) || recoveryKey.length < 10) {
+      return err('Enter your account email and Backup Recovery Key (MUXIS-XXXX-XXXX-XXXX).', 400);
+    }
+    if (newPassword.length < 6) {
+      return err('New password must be at least 6 characters long.', 400);
+    }
+
+    const row = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<UserRow>();
+    if (!row || !row.recovery_code_hash) {
+      return err('Invalid email or Backup Recovery Key.', 401);
+    }
+
+    const incomingHash = await sha256Hex(recoveryKey);
+    if (!constantTimeEqual(enc.encode(incomingHash), enc.encode(row.recovery_code_hash))) {
+      return err('Incorrect Backup Recovery Key for this account.', 401);
+    }
+
+    const { hashHex, saltHex } = await hashPassword(newPassword);
+    const nextRecovery = generateRecoveryKey();
+    const nextRecoveryHash = await sha256Hex(normalizeRecoveryKey(nextRecovery));
+    const now = new Date().toISOString();
+
+    await db
+      .prepare('UPDATE users SET password_hash = ?, password_salt = ?, recovery_code_hash = ?, updated_at = ? WHERE id = ?')
+      .bind(hashHex, saltHex, nextRecoveryHash, now, row.id)
+      .run();
+
+    const token = await signJwt({ sub: row.id, email: row.email }, jwtSecret);
+    return json({ access_token: token, user: serializeUser(row), recovery_key: nextRecovery }, 200);
+  }
+
+  // 5. Google OAuth Browser Start (PKCE + D1 State Ticket for Desktop & Android Polling)
+  if (path === '/api/auth/google/start' && request.method === 'GET') {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      return err('Google 1-Click OAuth is not configured on Worker secrets yet (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).', 503);
+    }
+    const pollSecret = url.searchParams.get('poll_secret') ?? '';
+    if (pollSecret.length < 16) {
+      return err('Missing poll_secret parameter.', 400);
+    }
+    const appRedirect = url.searchParams.get('app_redirect');
+
+    const stateBytes = crypto.getRandomValues(new Uint8Array(24));
+    const state = base64UrlEncode(stateBytes);
+    const verifierBytes = crypto.getRandomValues(new Uint8Array(48));
+    const codeVerifier = base64UrlEncode(verifierBytes);
+    const challengeDigest = await crypto.subtle.digest('SHA-256', enc.encode(codeVerifier));
+    const codeChallenge = base64UrlEncode(new Uint8Array(challengeDigest));
+    const pollSecretHash = await sha256Hex(pollSecret);
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+    await db
+      .prepare(
+        `INSERT INTO oauth_states (state, poll_secret_hash, code_verifier, app_redirect, status, expires_at, created_at)
+         VALUES (?, ?, ?, ?, 'pending', ?, ?)`
+      )
+      .bind(state, pollSecretHash, codeVerifier, appRedirect, expires, now.toISOString())
+      .run();
+
+    const callbackUrl = `${url.origin}/api/auth/google/callback`;
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
+    authUrl.searchParams.set('redirect_uri', callbackUrl);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', 'openid email profile');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('code_challenge', codeChallenge);
+    authUrl.searchParams.set('code_challenge_method', 'S256');
+    authUrl.searchParams.set('prompt', 'select_account');
+
+    return json({ auth_url: authUrl.toString(), state, callback_url: callbackUrl });
+  }
+
+  // 6. Google OAuth HTTPS Callback
+  if (path === '/api/auth/google/callback' && request.method === 'GET') {
+    const state = url.searchParams.get('state') ?? '';
+    const code = url.searchParams.get('code') ?? '';
+    const oauthErr = url.searchParams.get('error');
+
+    if (!state) {
+      return htmlPage('MUXIS Sign-In Error', 'Missing State', 'Return to MUXIS and try signing in again.', '#EF4444');
+    }
+
+    const row = await db
+      .prepare('SELECT * FROM oauth_states WHERE state = ?')
+      .bind(state)
+      .first<{
+        state: string;
+        code_verifier: string;
+        app_redirect: string | null;
+        status: string;
+        expires_at: string;
+      }>();
+
+    if (!row || row.status !== 'pending' || new Date(row.expires_at).getTime() < Date.now()) {
+      return htmlPage('MUXIS Sign-In Expired', 'Session Timed Out', 'This Google login attempt expired. Return to MUXIS and click Continue with Google again.', '#EF4444');
+    }
+
+    if (oauthErr || !code) {
+      await db
+        .prepare(`UPDATE oauth_states SET status = 'error', error_message = ? WHERE state = ?`)
+        .bind(oauthErr ?? 'Google login cancelled.', state)
+        .run();
+      return htmlPage('MUXIS Sign-In Cancelled', 'Sign-In Cancelled', 'You can close this tab and return to MUXIS.', '#EF4444');
+    }
+
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      return htmlPage('Configuration Error', 'Unavailable', 'Server Google OAuth credentials missing.', '#EF4444');
+    }
+
+    const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: env.GOOGLE_CLIENT_ID,
+        client_secret: env.GOOGLE_CLIENT_SECRET,
+        code,
+        code_verifier: row.code_verifier,
+        grant_type: 'authorization_code',
+        redirect_uri: `${url.origin}/api/auth/google/callback`,
+      }),
+    });
+
+    if (!tokenResp.ok) {
+      await db.prepare(`UPDATE oauth_states SET status = 'error', error_message = 'Google code exchange failed.' WHERE state = ?`).bind(state).run();
+      return htmlPage('MUXIS Sign-In Failed', 'Token Exchange Failed', 'Google authorization failed. Return to MUXIS and try again.', '#EF4444');
+    }
+
+    const tokenData = (await tokenResp.json()) as { access_token?: string };
+    const profileResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    if (!profileResp.ok) {
+      await db.prepare(`UPDATE oauth_states SET status = 'error', error_message = 'Failed to load Google profile.' WHERE state = ?`).bind(state).run();
+      return htmlPage('MUXIS Sign-In Failed', 'Profile Load Failed', 'Could not read verified Google profile. Return to MUXIS.', '#EF4444');
+    }
+
+    const profile = (await profileResp.json()) as {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+      picture?: string;
+    };
+
+    if (!profile.sub || !profile.email || profile.email_verified !== true) {
+      return htmlPage('Unverified Google Email', 'Verification Needed', 'Your Google account must have a verified email address.', '#EF4444');
+    }
+
+    const userObj = await upsertGoogleUser(db, {
+      googleSub: profile.sub,
+      email: profile.email.toLowerCase(),
+      displayName: profile.name || profile.email.split('@')[0],
+      avatarUrl: profile.picture ?? null,
+    });
+    const jwt = await signJwt({ sub: userObj.id, email: userObj.email }, jwtSecret);
+
+    await db
+      .prepare(`UPDATE oauth_states SET status = 'complete', result_token = ?, result_user_json = ? WHERE state = ?`)
+      .bind(jwt, JSON.stringify(userObj), state)
+      .run();
+
+    const safeRedirect =
+      row.app_redirect && (row.app_redirect.startsWith('http://localhost:') || row.app_redirect.startsWith('muxis://'))
+        ? `<script>setTimeout(function(){ window.location.href = ${JSON.stringify(row.app_redirect)}; }, 250);</script>`
+        : '';
+
+    return htmlPage(
+      'MUXIS Cloud Connected',
+      'Signed In with Google!',
+      `Connected as <strong>${userObj.email}</strong>. You can close this browser tab and return to MUXIS.`,
+      '#00FF88',
+      safeRedirect
+    );
+  }
+
+  // 7. Google OAuth State Poll (secure single-use session handoff for Desktop & Mobile)
+  if (path === '/api/auth/google/poll' && request.method === 'POST') {
+    let body: { state?: string; poll_secret?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON request body.', 400);
+    }
+    const state = (body.state ?? '').trim();
+    const pollSecret = body.poll_secret ?? '';
+    if (!state || pollSecret.length < 16) return err('Missing state or poll_secret.', 400);
+
+    const row = await db
+      .prepare('SELECT * FROM oauth_states WHERE state = ?')
+      .bind(state)
+      .first<{
+        poll_secret_hash: string;
+        status: string;
+        result_token: string | null;
+        result_user_json: string | null;
+        error_message: string | null;
+        expires_at: string;
+      }>();
+
+    if (!row) return err('Invalid or already claimed OAuth state.', 404);
+    const providedHash = await sha256Hex(pollSecret);
+    if (!constantTimeEqual(enc.encode(providedHash), enc.encode(row.poll_secret_hash))) {
+      return err('Unauthorized OAuth poll secret.', 403);
+    }
+
+    if (row.status === 'pending') {
+      if (new Date(row.expires_at).getTime() < Date.now()) {
+        await db.prepare('DELETE FROM oauth_states WHERE state = ?').bind(state).run();
+        return json({ status: 'expired' }, 200);
+      }
+      return json({ status: 'pending' }, 200);
+    }
+
+    await db.prepare('DELETE FROM oauth_states WHERE state = ?').bind(state).run();
+    if (row.status === 'error') {
+      return json({ status: 'error', error: row.error_message ?? 'Google login failed.' }, 200);
+    }
+
+    return json({
+      status: 'complete',
+      access_token: row.result_token,
+      user: row.result_user_json ? JSON.parse(row.result_user_json) : null,
+    });
+  }
+
+  // 8. Google Direct Token Exchange (for client-owned Google OAuth Client ID via Custom Keys)
+  if (path === '/api/auth/google/token' && request.method === 'POST') {
+    let body: { id_token?: string; access_token?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON request body.', 400);
+    }
+
+    let googleSub = '';
+    let email = '';
+    let name = '';
+    let avatar: string | null = null;
+
+    if (body.id_token) {
+      const verifyResp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(body.id_token)}`);
+      if (!verifyResp.ok) return err('Invalid or expired Google ID token.', 401);
+      const info = (await verifyResp.json()) as {
+        sub?: string;
+        email?: string;
+        email_verified?: string;
+        name?: string;
+        picture?: string;
+      };
+      if (!info.sub || !info.email || info.email_verified !== 'true') {
+        return err('Google account email is not verified.', 401);
+      }
+      googleSub = info.sub;
+      email = info.email.toLowerCase();
+      name = info.name || email.split('@')[0];
+      avatar = info.picture ?? null;
+    } else if (body.access_token) {
+      const profileResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${body.access_token}` },
+      });
+      if (!profileResp.ok) return err('Invalid Google access token.', 401);
+      const info = (await profileResp.json()) as {
+        sub?: string;
+        email?: string;
+        email_verified?: boolean;
+        name?: string;
+        picture?: string;
+      };
+      if (!info.sub || !info.email || info.email_verified !== true) {
+        return err('Google account email is not verified.', 401);
+      }
+      googleSub = info.sub;
+      email = info.email.toLowerCase();
+      name = info.name || email.split('@')[0];
+      avatar = info.picture ?? null;
+    } else {
+      return err('Provide Google id_token or access_token.', 400);
+    }
+
+    const userObj = await upsertGoogleUser(db, {
+      googleSub,
+      email,
+      displayName: name,
+      avatarUrl: avatar,
+    });
+    const jwt = await signJwt({ sub: userObj.id, email: userObj.email }, jwtSecret);
+    return json({ access_token: jwt, user: userObj }, 200);
+  }
+
+  // --- AUTHENTICATED USER & CLOUD SYNC ENDPOINTS ---
+  const authHeader = request.headers.get('Authorization') ?? '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const payload = bearer ? await verifyJwt(bearer, jwtSecret) : null;
+  const userId = typeof payload?.sub === 'string' ? payload.sub : null;
+
+  if (!userId) {
+    return err('Unauthorized or expired session. Please sign in again.', 401);
+  }
+
+  if (path === '/api/auth/me' && request.method === 'GET') {
+    const row = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
+    if (!row) return err('User account not found.', 404);
+    return json({ user: serializeUser(row) }, 200);
+  }
+
+  if (path === '/api/auth/refresh' && request.method === 'POST') {
+    const row = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
+    if (!row) return err('User account not found.', 404);
+    const token = await signJwt({ sub: row.id, email: row.email }, jwtSecret);
+    return json({ access_token: token, user: serializeUser(row) }, 200);
+  }
+
+  if (path === '/api/auth/regenerate-recovery' && request.method === 'POST') {
+    const nextRecovery = generateRecoveryKey();
+    const nextRecoveryHash = await sha256Hex(normalizeRecoveryKey(nextRecovery));
+    await db
+      .prepare('UPDATE users SET recovery_code_hash = ?, updated_at = ? WHERE id = ?')
+      .bind(nextRecoveryHash, new Date().toISOString(), userId)
+      .run();
+    return json({ recovery_key: nextRecovery }, 200);
+  }
+
+  if (path === '/api/auth/account' && request.method === 'DELETE') {
+    await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+    return json({ deleted: true }, 200);
+  }
+
+  // Cloud Sync Pull
+  if (path === '/api/sync/pull' && request.method === 'GET') {
+    const favRes = await db
+      .prepare('SELECT track_uri, title, artist, album, duration_ms, updated_at FROM favorites WHERE user_id = ? AND is_deleted = 0')
+      .bind(userId)
+      .all();
+    const plRes = await db
+      .prepare('SELECT id, title, updated_at FROM playlists WHERE user_id = ? AND is_deleted = 0')
+      .bind(userId)
+      .all<{ id: string; title: string; updated_at: string }>();
+
+    const playlistsWithTracks = [];
+    for (const pl of plRes.results ?? []) {
+      const trRes = await db
+        .prepare('SELECT track_uri, title, artist, album, duration_ms, position_index FROM playlist_tracks WHERE playlist_id = ? ORDER BY position_index ASC')
+        .bind(pl.id)
+        .all();
+      playlistsWithTracks.push({
+        id: pl.id,
+        title: pl.title,
+        updated_at: pl.updated_at,
+        tracks: trRes.results ?? [],
+      });
+    }
+
+    const settings = await db.prepare('SELECT * FROM user_settings WHERE user_id = ?').bind(userId).first();
+    return json({
+      favorites: favRes.results ?? [],
+      playlists: playlistsWithTracks,
+      settings: settings ?? null,
+    });
+  }
+
+  // Cloud Sync Push
+  if (path === '/api/sync/push' && request.method === 'POST') {
+    let body: {
+      device?: { name?: string; platform?: string; client_version?: string };
+      mutations?: Array<{ entityType?: string; action?: string; data?: Record<string, unknown> }>;
+      favorites?: Array<{ track_uri: string; title: string; artist: string; album?: string; duration_ms?: number }>;
+      playlists?: Array<{
+        title: string;
+        tracks: Array<{ track_uri: string; title: string; artist: string; album?: string; duration_ms?: number }>;
+      }>;
+      settings?: {
+        theme_mode?: string;
+        dark_preset?: string;
+        light_preset?: string;
+        accent_taste?: string;
+        audio_quality?: string;
+      };
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON sync payload.', 400);
+    }
+
+    const now = new Date().toISOString();
+    const stmts: D1PreparedStatement[] = [];
+
+    if (body.device?.name && body.device?.platform) {
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO user_devices (id, user_id, device_name, platform, client_version, last_active_at)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_id, device_name, platform) DO UPDATE SET
+               client_version = excluded.client_version,
+               last_active_at = excluded.last_active_at`
+          )
+          .bind(
+            crypto.randomUUID(),
+            userId,
+            body.device.name,
+            body.device.platform,
+            body.device.client_version ?? '1.2.8',
+            now
+          )
+      );
+    }
+
+    for (const mut of body.mutations ?? []) {
+      if (mut.entityType === 'favorite' && mut.action === 'delete' && typeof mut.data?.track_uri === 'string') {
+        stmts.push(
+          db
+            .prepare('UPDATE favorites SET is_deleted = 1, updated_at = ? WHERE user_id = ? AND track_uri = ?')
+            .bind(now, userId, mut.data.track_uri)
+        );
+      } else if (mut.entityType === 'playlist' && mut.action === 'delete' && typeof mut.data?.title === 'string') {
+        stmts.push(
+          db
+            .prepare('UPDATE playlists SET is_deleted = 1, updated_at = ? WHERE user_id = ? AND title = ?')
+            .bind(now, userId, mut.data.title)
+        );
+      }
+    }
+
+    for (const fav of body.favorites ?? []) {
+      if (!fav.track_uri) continue;
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO favorites (id, user_id, track_uri, title, artist, album, duration_ms, is_deleted, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+             ON CONFLICT(user_id, track_uri) DO UPDATE SET
+               title = excluded.title,
+               artist = excluded.artist,
+               album = excluded.album,
+               duration_ms = excluded.duration_ms,
+               is_deleted = 0,
+               updated_at = excluded.updated_at`
+          )
+          .bind(
+            crypto.randomUUID(),
+            userId,
+            fav.track_uri,
+            fav.title || 'Unknown Track',
+            fav.artist || 'Unknown Artist',
+            fav.album ?? '',
+            fav.duration_ms ?? 0,
+            now
+          )
+      );
+    }
+
+    if (body.settings) {
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO user_settings (user_id, theme_mode, dark_preset, light_preset, accent_taste, audio_quality, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET
+               theme_mode = excluded.theme_mode,
+               dark_preset = excluded.dark_preset,
+               light_preset = excluded.light_preset,
+               accent_taste = excluded.accent_taste,
+               audio_quality = excluded.audio_quality,
+               updated_at = excluded.updated_at`
+          )
+          .bind(
+            userId,
+            body.settings.theme_mode ?? 'dark',
+            body.settings.dark_preset ?? 'obsidian_aurora',
+            body.settings.light_preset ?? 'luminous_aurora',
+            body.settings.accent_taste ?? 'preset_default',
+            body.settings.audio_quality ?? 'FLAC 24-bit Lossless',
+            now
+          )
+      );
+    }
+
+    if (stmts.length > 0) {
+      await db.batch(stmts);
+    }
+
+    // Playlists + child tracks cleanly upserted sequentially
+    for (const pl of body.playlists ?? []) {
+      if (!pl.title) continue;
+      await db
+        .prepare(
+          `INSERT INTO playlists (id, user_id, title, is_deleted, updated_at)
+           VALUES (?, ?, ?, 0, ?)
+           ON CONFLICT(user_id, title) DO UPDATE SET is_deleted = 0, updated_at = excluded.updated_at`
+        )
+        .bind(crypto.randomUUID(), userId, pl.title, now)
+        .run();
+
+      const plRow = await db
+        .prepare('SELECT id FROM playlists WHERE user_id = ? AND title = ?')
+        .bind(userId, pl.title)
+        .first<{ id: string }>();
+
+      if (plRow) {
+        const trackStmts: D1PreparedStatement[] = [
+          db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').bind(plRow.id),
+        ];
+        for (let i = 0; i < (pl.tracks ?? []).length; i++) {
+          const t = pl.tracks[i];
+          trackStmts.push(
+            db
+              .prepare(
+                `INSERT OR REPLACE INTO playlist_tracks (id, playlist_id, track_uri, title, artist, album, duration_ms, position_index)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+              )
+              .bind(
+                crypto.randomUUID(),
+                plRow.id,
+                t.track_uri,
+                t.title || 'Unknown Track',
+                t.artist || 'Unknown Artist',
+                t.album ?? '',
+                t.duration_ms ?? 0,
+                i
+              )
+          );
+        }
+        await db.batch(trackStmts);
+      }
+    }
+
+    return json({ synced: true, updated_at: now }, 200);
+  }
+
+  return err('Unsupported auth/sync route.', 404);
+}
+
+async function upsertGoogleUser(
+  db: D1Database,
+  input: { googleSub: string; email: string; displayName: string; avatarUrl: string | null }
+) {
+  const now = new Date().toISOString();
+  const bySub = await db.prepare('SELECT * FROM users WHERE google_sub = ?').bind(input.googleSub).first<UserRow>();
+  if (bySub) {
+    await db
+      .prepare('UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?')
+      .bind(input.displayName, input.avatarUrl ?? bySub.avatar_url, now, bySub.id)
+      .run();
+    return serializeUser({ ...bySub, display_name: input.displayName, avatar_url: input.avatarUrl ?? bySub.avatar_url });
+  }
+
+  const byEmail = await db.prepare('SELECT * FROM users WHERE email = ?').bind(input.email).first<UserRow>();
+  if (byEmail) {
+    await db
+      .prepare(`UPDATE users SET google_sub = ?, avatar_url = COALESCE(?, avatar_url), auth_provider = 'google', email_verified = 1, updated_at = ? WHERE id = ?`)
+      .bind(input.googleSub, input.avatarUrl, now, byEmail.id)
+      .run();
+    return serializeUser({
+      ...byEmail,
+      google_sub: input.googleSub,
+      avatar_url: input.avatarUrl ?? byEmail.avatar_url,
+      auth_provider: 'google',
+    });
+  }
+
+  const newId = crypto.randomUUID();
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO users (id, email, display_name, avatar_url, auth_provider, google_sub, email_verified, subscription_tier, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'google', ?, 1, 'free', ?, ?)`
+      )
+      .bind(newId, input.email, input.displayName, input.avatarUrl, input.googleSub, now, now),
+    db.prepare('INSERT OR IGNORE INTO user_settings (user_id, updated_at) VALUES (?, ?)').bind(newId, now),
+  ]);
+
+  return {
+    id: newId,
+    email: input.email,
+    display_name: input.displayName,
+    avatar_url: input.avatarUrl,
+    subscription_tier: 'free',
+    auth_provider: 'google',
+  };
+}

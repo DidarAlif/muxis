@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/utils/cloud_auth_utils.dart';
 import '../config/app_config.dart';
+import '../storage/preferences_service.dart';
 import 'auth_state.dart';
 
 final authServiceProvider =
@@ -16,98 +20,142 @@ final authServiceProvider =
       return SupabaseAuthService();
     });
 
+/// Primary MUXIS Cloud Authentication Service backed by Cloudflare Workers + D1
+/// (`muxis-cloud-db`), providing instant Gmail/Email registration with zero broken
+/// confirmation emails, PBKDF2-SHA256 credentials, backup Recovery Keys, and
+/// browser Google OAuth across Windows, macOS, Linux, Android, and iOS.
 class SupabaseAuthService extends StateNotifier<AuthState> {
-  SupabaseClient? _client;
-  StreamSubscription<dynamic>? _authSub;
-  HttpServer? _confirmationServer;
-  StreamSubscription<HttpRequest>? _confirmationSub;
-  Timer? _confirmationTimer;
+  static const String _prefTokenKey = 'muxis_cloud_token';
+  static const String _prefUserKey = 'muxis_cloud_user_json';
+  static const String _prefRecoveryKey = 'muxis_cloud_recovery_key';
+
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 6),
-      receiveTimeout: const Duration(seconds: 8),
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 12),
+      headers: const {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'MUXIS/1.2.8 (CloudAuth)',
+      },
+      validateStatus: (s) => s != null && s < 600,
     ),
   );
+
+  bool _isGooglePollCancelled = false;
 
   SupabaseAuthService() : super(const AuthState()) {
     init();
   }
 
+  String get _baseUrl => AppConfig.cloudflareWorkerUrl;
+
   static bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   Future<void> init() async {
-    if (!AppConfig.isConfigured) {
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        isCloudAvailable: false,
-      );
-      return;
-    }
-
     try {
-      _client = Supabase.instance.client;
-      final session = _client!.auth.currentSession;
-      if (session != null) {
-        _mapUser(session.user);
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString(_prefTokenKey);
+      final savedUserJson = prefs.getString(_prefUserKey);
+      final savedRecovery = prefs.getString(_prefRecoveryKey);
+      final customGoogleId = (await PreferencesService().getGoogleClientId())
+          ?.trim();
+      final hasCustomGoogle =
+          customGoogleId != null && customGoogleId.isNotEmpty;
+
+      if (savedToken != null &&
+          savedToken.isNotEmpty &&
+          savedUserJson != null &&
+          savedUserJson.isNotEmpty) {
+        try {
+          final parsed = jsonDecode(savedUserJson) as Map<String, dynamic>;
+          final user = MuxisUser.fromJson(parsed);
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            accessToken: savedToken,
+            recoveryKey: savedRecovery,
+            isCloudAvailable: true,
+            hasCustomGoogleClient: hasCustomGoogle,
+          );
+          unawaited(_verifyAndRefreshSession(savedToken));
+        } catch (_) {
+          await _clearLocalSession();
+          state = state.copyWith(
+            status: AuthStatus.unauthenticated,
+            isCloudAvailable: true,
+            hasCustomGoogleClient: hasCustomGoogle,
+          );
+        }
       } else {
         state = state.copyWith(
           status: AuthStatus.unauthenticated,
-          isCloudAvailable: true,
+          isCloudAvailable: AppConfig.isCloudWorkerConfigured,
+          hasCustomGoogleClient: hasCustomGoogle,
         );
       }
-
-      await _authSub?.cancel();
-      _authSub = _client!.auth.onAuthStateChange.listen((data) {
-        final nextSession = data.session;
-        if (nextSession != null) {
-          _mapUser(nextSession.user);
-        } else {
-          state = state.copyWith(
-            status: AuthStatus.unauthenticated,
-            clearUser: true,
-            isCloudAvailable: true,
-          );
-        }
-      });
 
       unawaited(refreshProviderSettings());
     } catch (_) {
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
-        isCloudAvailable: false,
+        isCloudAvailable: AppConfig.isCloudWorkerConfigured,
       );
     }
   }
 
-  /// Queries Supabase public `/auth/v1/settings` to detect whether Google/Apple OAuth
-  /// providers are active on the project before sending the user to an external browser.
-  Future<({bool google, bool apple})> refreshProviderSettings() async {
-    if (!AppConfig.isConfigured) {
-      return (google: false, apple: false);
-    }
+  Future<void> _verifyAndRefreshSession(String token) async {
     try {
       final res = await _dio.get<dynamic>(
-        '${AppConfig.supabaseUrl}/auth/v1/settings',
-        options: Options(
-          headers: {'apikey': AppConfig.supabaseAnonKey},
-          validateStatus: (s) => s != null && s < 500,
-        ),
+        '$_baseUrl/api/auth/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      if (res.statusCode == 200 && res.data != null) {
-        final parsed = CloudAuthHelper.parseAuthSettings(res.data);
-        state = state.copyWith(
-          errorMessage: state.errorMessage,
-          infoMessage: state.infoMessage,
-          isGoogleOAuthEnabled: parsed.google,
-          isAppleOAuthEnabled: parsed.apple,
+      if (res.statusCode == 200 && res.data is Map && res.data['user'] is Map) {
+        final user = MuxisUser.fromJson(
+          Map<String, dynamic>.from(res.data['user'] as Map),
         );
-        return (google: parsed.google, apple: parsed.apple);
+        await _saveSession(token: token, user: user);
+        if (mounted) {
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            accessToken: token,
+            isCloudAvailable: true,
+          );
+        }
+      } else if (res.statusCode == 401) {
+        await signOut();
+      }
+    } catch (_) {
+      // Offline / transient outage: preserve cached session cleanly
+    }
+  }
+
+  Future<({bool google, bool apple})> refreshProviderSettings() async {
+    try {
+      final customId = (await PreferencesService().getGoogleClientId())?.trim();
+      final hasCustomGoogle = customId != null && customId.isNotEmpty;
+
+      final res = await _dio.get<dynamic>('$_baseUrl/api/auth/config');
+      if (res.statusCode == 200 && res.data is Map) {
+        final workerGoogle = res.data['google_oauth_enabled'] == true;
+        if (mounted) {
+          state = state.copyWith(
+            errorMessage: state.errorMessage,
+            infoMessage: state.infoMessage,
+            isCloudAvailable: true,
+            isGoogleOAuthEnabled: workerGoogle,
+            hasCustomGoogleClient: hasCustomGoogle,
+            isAppleOAuthEnabled: false,
+          );
+        }
+        return (google: workerGoogle || hasCustomGoogle, apple: false);
       }
     } catch (_) {}
     return (
-      google: state.isGoogleOAuthEnabled,
-      apple: state.isAppleOAuthEnabled,
+      google: state.isGoogleOAuthEnabled || state.hasCustomGoogleClient,
+      apple: false,
     );
   }
 
@@ -119,36 +167,33 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     );
   }
 
-  void _mapUser(User user) {
-    final meta = user.userMetadata ?? {};
-    final muxisUser = MuxisUser(
-      id: user.id,
-      email: user.email ?? '',
-      displayName:
-          meta['display_name'] as String? ??
-          meta['full_name'] as String? ??
-          meta['name'] as String? ??
-          user.email?.split('@')[0] ??
-          'Muxis Listener',
-      avatarUrl: meta['avatar_url'] as String? ?? meta['picture'] as String?,
-      subscriptionTier: meta['subscription_tier'] as String? ?? 'free',
-    );
-    state = state.copyWith(
-      status: AuthStatus.authenticated,
-      user: muxisUser,
-      errorMessage: null,
-      infoMessage: null,
-      needsEmailConfirmation: false,
-      isCloudAvailable: true,
-    );
+  Future<void> _saveSession({
+    required String token,
+    required MuxisUser user,
+    String? recoveryKey,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefTokenKey, token);
+    await prefs.setString(_prefUserKey, jsonEncode(user.toJson()));
+    if (recoveryKey != null && recoveryKey.isNotEmpty) {
+      await prefs.setString(_prefRecoveryKey, recoveryKey);
+    }
   }
 
+  Future<void> _clearLocalSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefTokenKey);
+    await prefs.remove(_prefUserKey);
+    await prefs.remove(_prefRecoveryKey);
+  }
+
+  /// Instant Gmail / Email Sign-Up backed by Cloudflare D1 (no flaky verification emails).
   Future<bool> signUpWithEmail({
     required String email,
     required String password,
     required String displayName,
   }) async {
-    final trimmedEmail = email.trim();
+    final trimmedEmail = email.trim().toLowerCase();
     final trimmedName = displayName.trim();
 
     final validationErr = CloudAuthHelper.validateSignup(
@@ -163,14 +208,6 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       return false;
     }
 
-    if (_client == null) {
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: 'Supabase cloud is not configured yet. Run in local offline mode or configure .env.',
-      );
-      return false;
-    }
-
     state = state.copyWith(
       status: AuthStatus.loading,
       errorMessage: null,
@@ -179,56 +216,62 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     );
 
     try {
-      final res = await _client!.auth.signUp(
-        email: trimmedEmail,
-        password: password,
-        emailRedirectTo: CloudAuthHelper.emailConfirmationRedirectUrl,
-        data: {if (trimmedName.isNotEmpty) 'display_name': trimmedName},
+      final res = await _dio.post<dynamic>(
+        '$_baseUrl/api/auth/register',
+        data: {
+          'email': trimmedEmail,
+          'password': password,
+          'display_name': trimmedName,
+        },
       );
 
-      if (res.session != null && res.user != null) {
-        await _stopDesktopConfirmationListener();
-        _mapUser(res.user!);
+      if ((res.statusCode == 200 || res.statusCode == 201) &&
+          res.data is Map &&
+          res.data['access_token'] is String &&
+          res.data['user'] is Map) {
+        final token = res.data['access_token'] as String;
+        final user = MuxisUser.fromJson(
+          Map<String, dynamic>.from(res.data['user'] as Map),
+        );
+        final recoveryKey = res.data['recovery_key'] as String?;
+
+        await _saveSession(token: token, user: user, recoveryKey: recoveryKey);
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: user,
+          accessToken: token,
+          recoveryKey: recoveryKey,
+          isCloudAvailable: true,
+          errorMessage: null,
+          infoMessage: null,
+        );
         return true;
       }
 
-      // When email confirmation is enabled and the user already registered,
-      // Supabase returns a user with empty identities without failing.
-      if (res.user != null && (res.user!.identities ?? const []).isEmpty) {
-        state = state.copyWith(
-          status: AuthStatus.error,
-          errorMessage:
-              'An account with $trimmedEmail already exists. Switch to Sign In (or use Forgot Password).',
-        );
-        return false;
-      }
-
-      await _startDesktopConfirmationListener();
       state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        needsEmailConfirmation: true,
-        pendingConfirmationEmail: trimmedEmail,
-        infoMessage:
-            'Confirmation email sent to $trimmedEmail. Open the verification link in your Gmail inbox within 1 hour (also check Spam), then sign in.',
+        status: AuthStatus.error,
+        errorMessage: CloudAuthHelper.extractApiErrorMessage(
+          res.data,
+          res.statusCode,
+          fallback: 'Registration could not complete. Please retry.',
+        ),
       );
-      return false;
-    } on AuthException catch (e) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: e.message);
       return false;
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Connection error during registration: $e',
+        errorMessage: 'Connection error while creating account: $e',
       );
       return false;
     }
   }
 
+  /// Instant Gmail / Email Sign-In backed by Cloudflare D1.
   Future<bool> signInWithEmail({
     required String email,
     required String password,
   }) async {
-    final trimmedEmail = email.trim();
+    final trimmedEmail = email.trim().toLowerCase();
     if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
       state = state.copyWith(
         status: AuthStatus.error,
@@ -244,15 +287,6 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       return false;
     }
 
-    if (_client == null) {
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage:
-            'Supabase cloud is not configured. Running in local mode.',
-      );
-      return false;
-    }
-
     state = state.copyWith(
       status: AuthStatus.loading,
       errorMessage: null,
@@ -261,99 +295,68 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     );
 
     try {
-      final res = await _client!.auth.signInWithPassword(
-        email: trimmedEmail,
-        password: password,
+      final res = await _dio.post<dynamic>(
+        '$_baseUrl/api/auth/login',
+        data: {'email': trimmedEmail, 'password': password},
       );
 
-      if (res.user != null && res.session != null) {
-        _mapUser(res.user!);
+      if (res.statusCode == 200 &&
+          res.data is Map &&
+          res.data['access_token'] is String &&
+          res.data['user'] is Map) {
+        final token = res.data['access_token'] as String;
+        final user = MuxisUser.fromJson(
+          Map<String, dynamic>.from(res.data['user'] as Map),
+        );
+        await _saveSession(token: token, user: user);
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: user,
+          accessToken: token,
+          isCloudAvailable: true,
+          errorMessage: null,
+          infoMessage: null,
+        );
         return true;
       }
 
       state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: 'Invalid login credentials.',
-      );
-      return false;
-    } on AuthException catch (e) {
-      final unconfirmed = e.message.toLowerCase().contains('not confirmed');
-      state = state.copyWith(
         status: AuthStatus.error,
-        needsEmailConfirmation: unconfirmed,
-        pendingConfirmationEmail: unconfirmed ? trimmedEmail : null,
-        errorMessage: unconfirmed
-            ? 'Email not verified yet for $trimmedEmail. Check your Gmail inbox (and Spam) or tap Resend Confirmation Email below.'
-            : e.message,
+        errorMessage: CloudAuthHelper.extractApiErrorMessage(
+          res.data,
+          res.statusCode,
+          fallback: 'Invalid email or password.',
+        ),
       );
       return false;
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Network error: $e',
+        errorMessage: 'Network error during sign-in: $e',
       );
       return false;
     }
   }
 
-  Future<bool> resendConfirmationEmail([String? overrideEmail]) async {
-    final target = (overrideEmail ?? state.pendingConfirmationEmail ?? '')
-        .trim();
-    if (_client == null || target.isEmpty) return false;
-
-    state = state.copyWith(
-      status: AuthStatus.loading,
-      errorMessage: null,
-      infoMessage: null,
-    );
-    try {
-      await _client!.auth.resend(
-        type: OtpType.signup,
-        email: target,
-        emailRedirectTo: CloudAuthHelper.emailConfirmationRedirectUrl,
-      );
-      await _startDesktopConfirmationListener();
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        needsEmailConfirmation: true,
-        pendingConfirmationEmail: target,
-        infoMessage:
-            'Fresh confirmation email sent to $target. Open it within 1 hour (check Inbox & Spam).',
-      );
-      return true;
-    } on AuthException catch (e) {
+  /// Instant password reset via personal Backup Recovery Key (`MUXIS-XXXX-XXXX-XXXX`).
+  Future<bool> resetPasswordWithRecoveryKey({
+    required String email,
+    required String recoveryKey,
+    required String newPassword,
+  }) async {
+    final trimmedEmail = email.trim().toLowerCase();
+    final cleanKey = CloudAuthHelper.normalizeRecoveryKey(recoveryKey);
+    if (!trimmedEmail.contains('@') || cleanKey.length < 10) {
       state = state.copyWith(
         status: AuthStatus.error,
-        needsEmailConfirmation: true,
-        pendingConfirmationEmail: target,
-        errorMessage: e.message,
-      );
-      return false;
-    } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.error,
-        needsEmailConfirmation: true,
-        pendingConfirmationEmail: target,
-        errorMessage: 'Unable to resend confirmation email: $e',
+        errorMessage: 'Enter your account email and Backup Recovery Key (MUXIS-XXXX-XXXX-XXXX).',
       );
       return false;
     }
-  }
-
-  Future<bool> signInWithGoogle() =>
-      _signInWithOAuthProvider(OAuthProvider.google, 'Google');
-
-  Future<bool> signInWithApple() =>
-      _signInWithOAuthProvider(OAuthProvider.apple, 'Apple');
-
-  Future<bool> _signInWithOAuthProvider(
-    OAuthProvider provider,
-    String label,
-  ) async {
-    if (_client == null || !AppConfig.isConfigured) {
+    if (newPassword.length < 6) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'MUXIS Cloud backend is unavailable offline. Local mode remains fully active.',
+        errorMessage: 'New password must be at least 6 characters long.',
       );
       return false;
     }
@@ -364,54 +367,246 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       infoMessage: null,
     );
 
-    final settings = await refreshProviderSettings();
-    final isEnabled = provider == OAuthProvider.google
-        ? settings.google
-        : settings.apple;
-
-    if (!isEnabled) {
+    try {
+      final res = await _dio.post<dynamic>(
+        '$_baseUrl/api/auth/reset-password',
+        data: {
+          'email': trimmedEmail,
+          'recovery_key': cleanKey,
+          'new_password': newPassword,
+        },
+      );
+      if (res.statusCode == 200 &&
+          res.data is Map &&
+          res.data['access_token'] is String &&
+          res.data['user'] is Map) {
+        final token = res.data['access_token'] as String;
+        final user = MuxisUser.fromJson(
+          Map<String, dynamic>.from(res.data['user'] as Map),
+        );
+        final nextKey = res.data['recovery_key'] as String?;
+        await _saveSession(token: token, user: user, recoveryKey: nextKey);
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: user,
+          accessToken: token,
+          recoveryKey: nextKey,
+          isCloudAvailable: true,
+          errorMessage: null,
+          infoMessage: null,
+        );
+        return true;
+      }
       state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage:
-            '$label 1-Click OAuth is not enabled in this Supabase project yet. '
-            'Please use Gmail + Password in the form above right now'
-            '${provider == OAuthProvider.google ? ' (project owners can turn it on in Supabase -> Authentication -> Providers -> Google).' : '.'}',
+        status: AuthStatus.error,
+        errorMessage: CloudAuthHelper.extractApiErrorMessage(
+          res.data,
+          res.statusCode,
+          fallback: 'Could not reset password.',
+        ),
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: 'Network error resetting password: $e',
       );
       return false;
     }
+  }
 
-    if (_isDesktop) {
-      return _signInWithOAuthDesktopLoopback(provider, label);
+  /// Generates a fresh Backup Recovery Key for the signed-in user.
+  Future<String?> regenerateRecoveryKey() async {
+    final token = state.accessToken;
+    if (token == null || token.isEmpty) return null;
+    try {
+      final res = await _dio.post<dynamic>(
+        '$_baseUrl/api/auth/regenerate-recovery',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      if (res.statusCode == 200 &&
+          res.data is Map &&
+          res.data['recovery_key'] is String) {
+        final key = res.data['recovery_key'] as String;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_prefRecoveryKey, key);
+        state = state.copyWith(recoveryKey: key);
+        return key;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Saves a user-supplied Google OAuth Client ID (and optional secret) right from Cloud Sign-In.
+  Future<void> saveCustomGoogleClient(String clientId, [String? secret]) async {
+    final prefs = PreferencesService();
+    await prefs.saveGoogleClientId(clientId.trim());
+    if (secret != null && secret.trim().isNotEmpty) {
+      await prefs.saveGoogleClientSecret(secret.trim());
+    }
+    state = state.copyWith(
+      hasCustomGoogleClient: clientId.trim().isNotEmpty,
+      errorMessage: null,
+      infoMessage: clientId.trim().isNotEmpty
+          ? 'Custom Google OAuth Client ID saved! Tap Continue with Google below.'
+          : null,
+    );
+  }
+
+  /// Launches Google OAuth via Worker server flow OR custom user Google OAuth Client ID.
+  Future<bool> signInWithGoogle() async {
+    final providerState = await refreshProviderSettings();
+    final prefs = PreferencesService();
+    final customClientId = (await prefs.getGoogleClientId())?.trim() ?? '';
+    final customClientSecret =
+        (await prefs.getGoogleClientSecret())?.trim() ?? '';
+
+    if (state.isGoogleOAuthEnabled) {
+      return _signInGoogleViaWorker();
+    }
+    if (customClientId.isNotEmpty) {
+      return _signInGoogleViaCustomClient(customClientId, customClientSecret);
     }
 
-    try {
-      final ok = await _client!.auth.signInWithOAuth(
-        provider,
-        redirectTo: kIsWeb ? null : 'muxis://auth-callback',
+    if (!providerState.google) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'Google 1-Click OAuth requires GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET on your Cloudflare Worker (or paste your Google OAuth Client ID below). Use Gmail + Password above for instant signup!',
       );
-      if (!ok) {
+      return false;
+    }
+    return false;
+  }
+
+  Future<bool> _signInGoogleViaWorker() async {
+    _isGooglePollCancelled = false;
+    state = state.copyWith(
+      status: AuthStatus.loading,
+      errorMessage: null,
+      infoMessage:
+          'Complete Google Sign-In in your browser, then return here...',
+    );
+
+    try {
+      final rnd = Random.secure();
+      final pollSecret = base64UrlEncode(
+        List<int>.generate(24, (_) => rnd.nextInt(256)),
+      ).replaceAll('=', '');
+
+      final startRes = await _dio.get<dynamic>(
+        '$_baseUrl/api/auth/google/start',
+        queryParameters: {
+          'poll_secret': pollSecret,
+          if (!kIsWeb && Platform.isAndroid)
+            'app_redirect': 'muxis://auth-callback',
+        },
+      );
+      if (startRes.statusCode != 200 ||
+          startRes.data is! Map ||
+          startRes.data['auth_url'] is! String) {
         state = state.copyWith(
           status: AuthStatus.error,
-          errorMessage: 'Could not launch $label sign-in browser.',
+          errorMessage: CloudAuthHelper.extractApiErrorMessage(
+            startRes.data,
+            startRes.statusCode,
+            fallback: 'Unable to initiate Google Sign-In.',
+          ),
         );
+        return false;
       }
-      return ok;
+
+      final authUrl = startRes.data['auth_url'] as String;
+      final oauthState = startRes.data['state'] as String;
+      final launched = await launchUrl(
+        Uri.parse(authUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        state = state.copyWith(
+          status: AuthStatus.error,
+          errorMessage:
+              'Could not open your system browser for Google Sign-In.',
+        );
+        return false;
+      }
+
+      // Poll secure D1 handoff up to 2 minutes (works across Android & Desktop cleanly)
+      for (int attempt = 0; attempt < 90; attempt++) {
+        if (!mounted || _isGooglePollCancelled) return false;
+        await Future<void>.delayed(const Duration(milliseconds: 1300));
+        if (!mounted || _isGooglePollCancelled) return false;
+
+        final pollRes = await _dio.post<dynamic>(
+          '$_baseUrl/api/auth/google/poll',
+          data: {'state': oauthState, 'poll_secret': pollSecret},
+        );
+        if (pollRes.statusCode == 200 && pollRes.data is Map) {
+          final status = pollRes.data['status'] as String?;
+          if (status == 'complete' &&
+              pollRes.data['access_token'] is String &&
+              pollRes.data['user'] is Map) {
+            final token = pollRes.data['access_token'] as String;
+            final user = MuxisUser.fromJson(
+              Map<String, dynamic>.from(pollRes.data['user'] as Map),
+            );
+            await _saveSession(token: token, user: user);
+            state = state.copyWith(
+              status: AuthStatus.authenticated,
+              user: user,
+              accessToken: token,
+              isCloudAvailable: true,
+              errorMessage: null,
+              infoMessage: null,
+            );
+            return true;
+          }
+          if (status == 'error' || status == 'expired') {
+            state = state.copyWith(
+              status: AuthStatus.error,
+              errorMessage:
+                  (pollRes.data['error'] as String?) ??
+                  'Google sign-in was cancelled or timed out.',
+            );
+            return false;
+          }
+        }
+      }
+
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'Google sign-in timed out. Please try again.',
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: '$label Sign-In failed: $e',
+        errorMessage: 'Google Sign-In failed: $e',
       );
       return false;
     }
   }
 
-  Future<bool> _signInWithOAuthDesktopLoopback(
-    OAuthProvider provider,
-    String label,
+  Future<bool> _signInGoogleViaCustomClient(
+    String clientId,
+    String clientSecret,
   ) async {
+    if (!_isDesktop) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'On Android, configure GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET on your Cloudflare Worker for 1-Click Google Sign-In, or use Gmail + Password above.',
+      );
+      return false;
+    }
+
     HttpServer? server;
+    state = state.copyWith(
+      status: AuthStatus.loading,
+      errorMessage: null,
+      infoMessage: 'Complete Google Sign-In in your browser...',
+    );
+
     try {
-      for (final port in const [3000, 8080, 0]) {
+      for (final port in const [8888, 8889, 43821, 51731, 0]) {
         try {
           server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
           break;
@@ -420,241 +615,207 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       if (server == null) {
         state = state.copyWith(
           status: AuthStatus.error,
-          errorMessage:
-              'Unable to bind local callback listener for $label OAuth.',
+          errorMessage: 'Unable to bind local callback listener.',
         );
         return false;
       }
 
-      final redirectUrl = 'http://localhost:${server.port}/auth-callback';
-      final oauthResponse = await _client!.auth.getOAuthSignInUrl(
-        provider: provider,
-        redirectTo: redirectUrl,
-      );
+      final rnd = Random.secure();
+      final verifier = base64UrlEncode(
+        List<int>.generate(48, (_) => rnd.nextInt(256)),
+      ).replaceAll('=', '');
+      final challenge = base64UrlEncode(
+        sha256.convert(ascii.encode(verifier)).bytes,
+      ).replaceAll('=', '');
+      final redirectUri = 'http://localhost:${server.port}/callback';
+
+      final authUri = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
+        'client_id': clientId,
+        'redirect_uri': redirectUri,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'code_challenge': challenge,
+        'code_challenge_method': 'S256',
+        'prompt': 'select_account',
+      });
 
       final launched = await launchUrl(
-        Uri.parse(oauthResponse.url),
+        authUri,
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
         await server.close(force: true);
         state = state.copyWith(
           status: AuthStatus.error,
-          errorMessage:
-              'Unable to open your system browser for $label sign-in.',
+          errorMessage: 'Could not open system browser for Google Sign-In.',
         );
         return false;
       }
 
-      final completer = Completer<Uri?>();
+      final completer = Completer<String?>();
       late final StreamSubscription<HttpRequest> sub;
       sub = server.listen((request) async {
-        final reqUri = request.uri;
-        if (reqUri.path != '/auth-callback') {
+        if (request.uri.path != '/callback') {
           request.response
             ..statusCode = HttpStatus.notFound
             ..close();
           return;
         }
-
-        final hasCodeOrToken = CloudAuthHelper.isCompletedCallbackUri(reqUri);
-
+        final code = request.uri.queryParameters['code'];
         request.response.headers.contentType = ContentType.html;
-        if (!hasCodeOrToken) {
-          // Implicit-flow tokens live in URL #fragment; convert #fragment to ?query
-          request.response.write('''<!DOCTYPE html><html><body style="background:#060910;color:#fff;font-family:Segoe UI,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;">
-<p>Completing MUXIS Cloud Sign-In...</p>
-<script>if(location.hash&&location.hash.length>1){location.replace('/auth-callback?'+location.hash.substring(1));}</script>
-</body></html>''');
-          await request.response.close();
-          return;
-        }
-
-        final okCallback = !reqUri.queryParameters.containsKey('error');
         request.response.write(
-          okCallback
-              ? '<!DOCTYPE html><html><body style="background:#060910;color:#f8fafc;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;"><h2 style="color:#00ff88;margin-bottom:8px;">MUXIS Cloud Connected</h2><p>You can close this browser tab and return to MUXIS.</p></body></html>'
-              : '<!DOCTYPE html><html><body style="background:#060910;color:#ef4444;font-family:Segoe UI,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;"><p>Authentication did not complete. Return to MUXIS.</p></body></html>',
+          code != null
+              ? '<!DOCTYPE html><html><body style="background:#060910;color:#00FF88;font-family:Segoe UI,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;"><h2>Google Connected! Return to MUXIS.</h2></body></html>'
+              : '<!DOCTYPE html><html><body style="background:#060910;color:#EF4444;font-family:Segoe UI,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;"><h2>Google Sign-In Cancelled.</h2></body></html>',
         );
         await request.response.close();
-        if (!completer.isCompleted) {
-          completer.complete(
-            Uri.parse('http://localhost:${server!.port}${reqUri.toString()}'),
-          );
-        }
+        if (!completer.isCompleted) completer.complete(code);
       });
 
-      final callbackUri = await completer.future.timeout(
+      final code = await completer.future.timeout(
         const Duration(minutes: 2),
         onTimeout: () => null,
       );
       await sub.cancel();
       await server.close(force: true);
 
-      if (callbackUri == null) {
+      if (code == null || code.isEmpty) {
         state = state.copyWith(
           status: AuthStatus.unauthenticated,
-          errorMessage:
-              '$label sign-in timed out before completing in browser.',
+          errorMessage: 'Google sign-in timed out or was cancelled.',
         );
         return false;
       }
 
-      if (callbackUri.queryParameters.containsKey('error')) {
+      final tokenResp = await _dio.post<dynamic>(
+        'https://oauth2.googleapis.com/token',
+        data: {
+          'client_id': clientId,
+          if (clientSecret.isNotEmpty) 'client_secret': clientSecret,
+          'code': code,
+          'code_verifier': verifier,
+          'grant_type': 'authorization_code',
+          'redirect_uri': redirectUri,
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      final idToken = tokenResp.data is Map
+          ? tokenResp.data['id_token'] as String?
+          : null;
+      final accessToken = tokenResp.data is Map
+          ? tokenResp.data['access_token'] as String?
+          : null;
+      if (idToken == null && accessToken == null) {
         state = state.copyWith(
           status: AuthStatus.error,
-          errorMessage:
-              callbackUri.queryParameters['error_description'] ??
-              '$label sign-in was cancelled or denied.',
+          errorMessage: 'Google token exchange failed.',
         );
         return false;
       }
 
-      final sessionRes = await _client!.auth.getSessionFromUrl(callbackUri);
-      final user = sessionRes.session.user;
-      _mapUser(user);
-      return true;
+      final workerRes = await _dio.post<dynamic>(
+        '$_baseUrl/api/auth/google/token',
+        data: {
+          if (idToken != null) 'id_token': idToken,
+          if (accessToken != null) 'access_token': accessToken,
+        },
+      );
+      if (workerRes.statusCode == 200 &&
+          workerRes.data is Map &&
+          workerRes.data['access_token'] is String &&
+          workerRes.data['user'] is Map) {
+        final token = workerRes.data['access_token'] as String;
+        final user = MuxisUser.fromJson(
+          Map<String, dynamic>.from(workerRes.data['user'] as Map),
+        );
+        await _saveSession(token: token, user: user);
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: user,
+          accessToken: token,
+          isCloudAvailable: true,
+        );
+        return true;
+      }
+
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: CloudAuthHelper.extractApiErrorMessage(
+          workerRes.data,
+          workerRes.statusCode,
+        ),
+      );
+      return false;
     } catch (e) {
       try {
         await server?.close(force: true);
       } catch (_) {}
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: '$label Sign-In failed: $e',
+        errorMessage: 'Google Sign-In error: $e',
       );
       return false;
     }
   }
 
-  Future<void> _startDesktopConfirmationListener() async {
-    if (!_isDesktop || _confirmationServer != null) return;
-    try {
-      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 3000);
-      _confirmationServer = server;
-      _confirmationTimer?.cancel();
-      _confirmationTimer = Timer(const Duration(minutes: 15), () {
-        unawaited(_stopDesktopConfirmationListener());
-      });
-
-      _confirmationSub = server.listen((request) async {
-        final reqUri = request.uri;
-        if (reqUri.path != '/' && reqUri.path != '/auth-callback') {
-          request.response
-            ..statusCode = HttpStatus.notFound
-            ..close();
-          return;
-        }
-
-        request.response.headers.contentType = ContentType.html;
-        if (!CloudAuthHelper.isLoopbackVerificationUri(reqUri)) {
-          request.response.write('''<!DOCTYPE html><html><body style="background:#060910;color:#fff;font-family:Segoe UI,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;">
-<p>Completing MUXIS Email Verification...</p>
-<script>if(location.hash&&location.hash.length>1){location.replace('/auth-callback?'+location.hash.substring(1));}</script>
-</body></html>''');
-          await request.response.close();
-          return;
-        }
-
-        final hasErr =
-            reqUri.queryParameters.containsKey('error') ||
-            reqUri.queryParameters.containsKey('error_code');
-        if (hasErr) {
-          final friendlyErr = CloudAuthHelper.formatConfirmationError(reqUri);
-          request.response.write(
-            '<!DOCTYPE html><html><body style="background:#060910;color:#fca5a5;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;text-align:center;padding:24px;"><h2 style="margin-bottom:8px;">Confirmation Link Expired</h2><p style="max-width:440px;color:#cbd5e1;">$friendlyErr</p></body></html>',
-          );
-          await request.response.close();
-          if (mounted) {
-            state = state.copyWith(
-              status: AuthStatus.error,
-              needsEmailConfirmation: true,
-              errorMessage: friendlyErr,
-            );
-          }
-          return;
-        }
-
-        try {
-          final callbackUrl = Uri.parse(
-            'http://localhost:${server.port}${reqUri.toString()}',
-          );
-          final sessionRes = await _client!.auth.getSessionFromUrl(callbackUrl);
-          request.response.write(
-            '<!DOCTYPE html><html><body style="background:#060910;color:#f8fafc;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;text-align:center;padding:24px;"><h2 style="color:#00ff88;margin-bottom:8px;">MUXIS Email Confirmed</h2><p style="color:#cbd5e1;">You are signed in! Return to MUXIS.</p></body></html>',
-          );
-          await request.response.close();
-          if (mounted) {
-            _mapUser(sessionRes.session.user);
-          }
-          unawaited(_stopDesktopConfirmationListener());
-        } catch (e) {
-          request.response.write(
-            '<!DOCTYPE html><html><body style="background:#060910;color:#f8fafc;font-family:Segoe UI,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;text-align:center;padding:24px;"><h2 style="color:#00f2fe;margin-bottom:8px;">Email Verified</h2><p style="color:#cbd5e1;">Return to MUXIS and sign in with your Gmail + Password.</p></body></html>',
-          );
-          await request.response.close();
-        }
-      });
-    } catch (_) {
-      // Port 3000 unavailable; confirmation continues seamlessly via auth-confirmed.html or sign-in
-    }
+  Future<bool> signInWithApple() async {
+    state = state.copyWith(
+      status: AuthStatus.unauthenticated,
+      errorMessage: 'Please sign in using Gmail + Password above.',
+    );
+    return false;
   }
 
-  Future<void> _stopDesktopConfirmationListener() async {
-    _confirmationTimer?.cancel();
-    _confirmationTimer = null;
-    await _confirmationSub?.cancel();
-    _confirmationSub = null;
-    try {
-      await _confirmationServer?.close(force: true);
-    } catch (_) {}
-    _confirmationServer = null;
+  Future<void> resendConfirmationEmail([String? overrideEmail]) async {
+    state = state.copyWith(
+      status: AuthStatus.unauthenticated,
+      needsEmailConfirmation: false,
+      infoMessage: 'Email confirmation links are no longer needed — sign up or sign in directly above for instant MUXIS Cloud sync!',
+    );
+  }
+
+  Future<bool> sendPasswordReset(String email) async {
+    state = state.copyWith(
+      infoMessage: 'Enter your Backup Recovery Key (MUXIS-XXXX-XXXX-XXXX) in the Forgot Password form to reset your password immediately.',
+    );
+    return true;
   }
 
   Future<void> signOut() async {
-    await _stopDesktopConfirmationListener();
-    if (_client != null) {
-      try {
-        await _client!.auth.signOut();
-      } catch (_) {}
-    }
+    _isGooglePollCancelled = true;
+    await _clearLocalSession();
     state = state.copyWith(
       status: AuthStatus.unauthenticated,
       clearUser: true,
+      clearAccessToken: true,
+      clearRecoveryKey: true,
       errorMessage: null,
       infoMessage: null,
       needsEmailConfirmation: false,
     );
   }
 
-  Future<bool> sendPasswordReset(String email) async {
-    final trimmed = email.trim();
-    if (_client == null || trimmed.isEmpty) return false;
-    try {
-      await _client!.auth.resetPasswordForEmail(
-        trimmed,
-        redirectTo: CloudAuthHelper.emailConfirmationRedirectUrl,
-      );
-      state = state.copyWith(
-        infoMessage:
-            'Password reset email sent to $trimmed (check Gmail Inbox and Spam).',
-      );
-      return true;
-    } catch (e) {
-      state = state.copyWith(errorMessage: 'Password reset request failed: $e');
-      return false;
-    }
-  }
-
   Future<bool> deleteAccount() async {
-    if (_client == null || state.user == null) return false;
+    final token = state.accessToken;
+    if (token == null || token.isEmpty) return false;
     try {
-      try {
-        await _client!.rpc('delete_user_account');
-      } catch (_) {
-        await _client!.functions.invoke('delete-account');
+      final res = await _dio.delete<dynamic>(
+        '$_baseUrl/api/auth/account',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      if (res.statusCode == 200) {
+        await signOut();
+        return true;
       }
-      await signOut();
-      return true;
+      state = state.copyWith(
+        errorMessage: CloudAuthHelper.extractApiErrorMessage(
+          res.data,
+          res.statusCode,
+          fallback: 'Account deletion failed.',
+        ),
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(errorMessage: 'Account deletion failed: $e');
       return false;
@@ -663,8 +824,7 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
 
   @override
   void dispose() {
-    _authSub?.cancel();
-    unawaited(_stopDesktopConfirmationListener());
+    _isGooglePollCancelled = true;
     super.dispose();
   }
 }

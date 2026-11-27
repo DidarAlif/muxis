@@ -1,46 +1,71 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
+import '../../app/theme/theme_controller.dart';
 import '../../shared/models/track.dart';
 import '../auth/supabase_auth_service.dart';
 import '../config/app_config.dart';
 import '../database/database_service.dart';
+import '../storage/preferences_service.dart';
 import 'sync_models.dart';
 
 final syncEngineProvider = StateNotifierProvider<SyncEngine, SyncStatus>((ref) {
   final authState = ref.watch(authServiceProvider);
+  final themeState = ref.watch(muxisThemeProvider);
   final db = ref.watch(databaseServiceProvider);
-  return SyncEngine(authState.user?.id, db);
+  return SyncEngine(
+    userId: authState.user?.id,
+    accessToken: authState.accessToken,
+    themeState: themeState,
+    db: db,
+  );
 });
 
 class SyncEngine extends StateNotifier<SyncStatus> {
   final String? _userId;
+  final String? _accessToken;
+  final MuxisThemeState _themeState;
   final DatabaseService _db;
-  SupabaseClient? _client;
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 20),
+      headers: const {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'MUXIS/1.2.8 (CloudSync)',
+      },
+      validateStatus: (s) => s != null && s < 600,
+    ),
+  );
   Timer? _periodicTimer;
 
-  SyncEngine(this._userId, this._db) : super(SyncStatus.idle) {
-    if (AppConfig.isConfigured) {
-      try {
-        _client = Supabase.instance.client;
-      } catch (_) {}
-    }
-
-    if (_userId != null && _client != null) {
-      // Sync immediately on login, then periodic every 5 minutes
-      syncNow();
+  SyncEngine({
+    required String? userId,
+    required String? accessToken,
+    required MuxisThemeState themeState,
+    required DatabaseService db,
+  }) : _userId = userId,
+       _accessToken = accessToken,
+       _themeState = themeState,
+       _db = db,
+       super(SyncStatus.idle) {
+    if (_userId != null && _accessToken != null && _accessToken.isNotEmpty) {
+      unawaited(syncNow());
       _periodicTimer = Timer.periodic(
         const Duration(minutes: 5),
-        (_) => syncNow(),
+        (_) => unawaited(syncNow()),
       );
     }
   }
 
   Future<SyncReport> syncNow() async {
-    if (_client == null || _userId == null) {
+    final token = _accessToken;
+    if (_userId == null || token == null || token.isEmpty) {
       state = SyncStatus.offline;
       return SyncReport(
         syncTime: DateTime.now(),
@@ -54,106 +79,71 @@ class SyncEngine extends StateNotifier<SyncStatus> {
     int favoritesCount = 0;
     int tracksCount = 0;
 
+    final baseUrl = AppConfig.cloudflareWorkerUrl;
+    final authOpts = Options(headers: {'Authorization': 'Bearer $token'});
+
     try {
-      // --- 0. REGISTER DEVICE ---
-      await _registerDevice();
+      // 1. Pull remote state from D1
+      final pullRes = await _dio.get<dynamic>(
+        '$baseUrl/api/sync/pull',
+        options: authOpts,
+      );
+      if (pullRes.statusCode == 200 && pullRes.data is Map) {
+        final favs = pullRes.data['favorites'] as List<dynamic>? ?? const [];
+        for (final row in favs) {
+          if (row is Map && row['track_uri'] is String) {
+            final uri = row['track_uri'] as String;
+            if (!_db.isFavorite(uri)) {
+              await _db.toggleFavorite(uri);
+              favoritesCount++;
+            }
+          }
+        }
 
-      // --- 1. REPLAY OFFLINE MUTATIONS QUEUE ---
-      await _replayOfflineMutations();
-
-      // --- 2. PULL REMOTE FAVORITES (LWW based on updated_at) ---
-      final favRows = await _client!
-          .from('favorites')
-          .select()
-          .eq('user_id', _userId)
-          .eq('is_deleted', false);
-
-      for (final row in favRows) {
-        final trackUri = row['track_uri'] as String;
-        if (!_db.isFavorite(trackUri)) {
-          await _db.toggleFavorite(trackUri);
-          favoritesCount++;
+        final pls = pullRes.data['playlists'] as List<dynamic>? ?? const [];
+        for (final pl in pls) {
+          if (pl is Map && pl['title'] is String) {
+            final title = pl['title'] as String;
+            final rawTracks = pl['tracks'] as List<dynamic>? ?? const [];
+            final trackUris = rawTracks
+                .whereType<Map>()
+                .map((t) => t['track_uri'] as String?)
+                .whereType<String>()
+                .toList();
+            await _db.setPlaylist(title, trackUris);
+            playlistsCount++;
+            tracksCount += trackUris.length;
+          }
         }
       }
 
-      // --- 3. PUSH LOCAL FAVORITES TO CLOUD ---
-      final localFavorites = _db.getFavoriteTracks();
-      for (final track in localFavorites) {
-        final portableUri = _generatePortableUri(
-          track.id,
-          track.title,
-          track.artist,
-        );
+      // 2. Push local favorites, playlists, offline mutations & theme preferences
+      final allTracks = _db.getAllTracks();
+      final trackLookup = {for (final t in allTracks) t.id: t};
 
-        await _client!.from('favorites').upsert({
-          'user_id': _userId,
-          'track_uri': portableUri,
-          'title': track.title,
-          'artist': track.artist,
-          'album': track.album,
-          'duration_ms': track.duration.inMilliseconds,
-          'is_deleted': false,
-        }, onConflict: 'user_id,track_uri');
-      }
+      final localFavPayload = _db.getFavoriteTracks().map((t) {
+        return {
+          'track_uri': _generatePortableUri(t.id, t.title, t.artist),
+          'title': t.title,
+          'artist': t.artist,
+          'album': t.album,
+          'duration_ms': t.duration.inMilliseconds,
+        };
+      }).toList();
 
-      // --- 4. PULL REMOTE PLAYLISTS & TRACKS ---
-      final plRows = await _client!
-          .from('playlists')
-          .select('*, playlist_tracks(*)')
-          .eq('user_id', _userId)
-          .eq('is_deleted', false);
-
-      for (final pl in plRows) {
-        final title = pl['title'] as String;
-        final rawTracks = (pl['playlist_tracks'] as List? ?? []);
-        final sorted = List<Map<String, dynamic>>.from(rawTracks)
-          ..sort(
-            (a, b) => ((a['position_index'] as int?) ?? 0).compareTo(
-              (b['position_index'] as int?) ?? 0,
-            ),
-          );
-        final trackUris = sorted.map((t) => t['track_uri'] as String).toList();
-        await _db.setPlaylist(title, trackUris);
-        playlistsCount++;
-        tracksCount += trackUris.length;
-      }
-
-      // --- 5. PUSH LOCAL PLAYLISTS & TRACKS TO CLOUD ---
       final localPlaylists = _db.getPlaylists();
-      for (final entry in localPlaylists.entries) {
-        final playlistTitle = entry.key;
-        final trackUris = entry.value;
-
-        // Upsert playlist
-        final plRes = await _client!
-            .from('playlists')
-            .upsert({
-              'user_id': _userId,
-              'title': playlistTitle,
-              'is_deleted': false,
-              'updated_at': DateTime.now().toIso8601String(),
-            }, onConflict: 'user_id,title')
-            .select('id')
-            .single();
-
-        final playlistId = plRes['id'] as String;
-
-        // Upsert playlist tracks in order
-        for (int i = 0; i < trackUris.length; i++) {
-          final uri = trackUris[i];
-          final track = _db.getAllTracks().firstWhere(
-            (t) => t.id == uri,
-            orElse: () => Track(
-              id: uri,
-              title: uri.replaceFirst(RegExp(r'^[a-z]+:'), ''),
-              artist: 'Unknown',
-              album: '',
-              duration: Duration.zero,
-            ),
-          );
-
-          await _client!.from('playlist_tracks').upsert({
-            'playlist_id': playlistId,
+      final localPlaylistPayload = localPlaylists.entries.map((entry) {
+        final tracks = entry.value.map((uri) {
+          final track =
+              trackLookup[uri] ??
+              Track(
+                id: uri,
+                title: uri.replaceFirst(RegExp(r'^[a-z]+:'), ''),
+                artist: 'Unknown Artist',
+                album: '',
+                duration: Duration.zero,
+              );
+          return {
             'track_uri': _generatePortableUri(
               track.id,
               track.title,
@@ -163,28 +153,58 @@ class SyncEngine extends StateNotifier<SyncStatus> {
             'artist': track.artist,
             'album': track.album,
             'duration_ms': track.duration.inMilliseconds,
-            'position_index': i,
-          }, onConflict: 'playlist_id,track_uri');
-        }
+          };
+        }).toList();
+        return {'title': entry.key, 'tracks': tracks};
+      }).toList();
+
+      final mutations = _db.getOfflineMutations();
+      final audioQuality = await PreferencesService().getAudioQuality();
+      final hostName = kIsWeb
+          ? 'Web Client'
+          : (Platform.localHostname.isNotEmpty
+                ? Platform.localHostname
+                : 'MUXIS Device');
+
+      final pushRes = await _dio.post<dynamic>(
+        '$baseUrl/api/sync/push',
+        options: authOpts,
+        data: {
+          'device': {
+            'name': hostName,
+            'platform': _getPlatformString(),
+            'client_version': '1.2.8',
+          },
+          'mutations': mutations,
+          'favorites': localFavPayload,
+          'playlists': localPlaylistPayload,
+          'settings': {
+            'theme_mode': _themeState.mode.name,
+            'dark_preset': _themeState.darkPresetId,
+            'light_preset': _themeState.lightPresetId,
+            'accent_taste': _themeState.accentTasteId,
+            'audio_quality': audioQuality,
+          },
+        },
+      );
+
+      if (pushRes.statusCode == 200) {
+        await _db.clearOfflineMutations();
+        state = SyncStatus.synced;
+        return SyncReport(
+          syncTime: DateTime.now(),
+          playlistsSynced: playlistsCount,
+          favoritesSynced: favoritesCount,
+          tracksSynced: tracksCount,
+          isSuccess: true,
+        );
       }
 
-      // --- 6. SYNC USER SETTINGS ---
-      await _syncUserSettings();
-
-      // --- 7. RECORD SYNC METADATA ---
-      await _client!.from('sync_metadata').upsert({
-        'user_id': _userId,
-        'last_synced_at': DateTime.now().toIso8601String(),
-      });
-
-      state = SyncStatus.synced;
-
+      state = SyncStatus.error;
       return SyncReport(
         syncTime: DateTime.now(),
-        playlistsSynced: playlistsCount,
-        favoritesSynced: favoritesCount,
-        tracksSynced: tracksCount,
-        isSuccess: true,
+        isSuccess: false,
+        errorMessage: 'Cloud sync returned HTTP ${pushRes.statusCode}',
       );
     } catch (e) {
       state = SyncStatus.error;
@@ -196,75 +216,8 @@ class SyncEngine extends StateNotifier<SyncStatus> {
     }
   }
 
-  Future<void> _registerDevice() async {
-    try {
-      final platformStr = _getPlatformString();
-      final hostName = Platform.localHostname.isNotEmpty
-          ? Platform.localHostname
-          : 'Desktop Client';
-
-      await _client!.from('user_devices').upsert({
-        'user_id': _userId,
-        'device_name': hostName,
-        'platform': platformStr,
-        'client_version': '1.0.0',
-        'last_active_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id,device_name,platform');
-    } catch (_) {
-      // Device registration is non-blocking
-    }
-  }
-
-  Future<void> _syncUserSettings() async {
-    try {
-      // Upsert default/current settings row for user
-      await _client!.from('user_settings').upsert({
-        'user_id': _userId,
-        'theme_mode': 'dark',
-        'audio_quality': 'FLAC 24-bit Lossless',
-        'eq_preset': 'Prismatic Aura',
-        'skip_silence': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
-    } catch (_) {}
-  }
-
-  Future<void> _replayOfflineMutations() async {
-    final uid = _userId;
-    if (uid == null) return;
-    final mutations = _db.getOfflineMutations();
-    if (mutations.isEmpty) return;
-
-    for (final mut in mutations) {
-      final entity = mut['entityType'] as String?;
-      final action = mut['action'] as String?;
-      final data = mut['data'] as Map<String, dynamic>? ?? {};
-
-      if (entity == 'favorite' && action == 'delete') {
-        final trackUri = data['track_uri'] as String?;
-        if (trackUri != null) {
-          await _client!
-              .from('favorites')
-              .update({'is_deleted': true})
-              .eq('user_id', uid)
-              .eq('track_uri', trackUri);
-        }
-      } else if (entity == 'playlist' && action == 'delete') {
-        final title = data['title'] as String?;
-        if (title != null) {
-          await _client!
-              .from('playlists')
-              .update({'is_deleted': true})
-              .eq('user_id', uid)
-              .eq('title', title);
-        }
-      }
-    }
-
-    await _db.clearOfflineMutations();
-  }
-
   String _getPlatformString() {
+    if (kIsWeb) return 'web';
     if (Platform.isWindows) return 'windows';
     if (Platform.isMacOS) return 'macos';
     if (Platform.isLinux) return 'linux';
@@ -273,8 +226,6 @@ class SyncEngine extends StateNotifier<SyncStatus> {
     return 'web';
   }
 
-  /// Ensures machine-specific file paths (e.g. C:\Users\... or /storage/emulated/0/...)
-  /// are converted into clean portable cloud references.
   String _generatePortableUri(String id, String title, String artist) {
     if (id.startsWith('isrc:') ||
         id.startsWith('yt:') ||

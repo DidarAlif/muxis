@@ -9,7 +9,9 @@
  * 4. Health checks & CORS preflight handling
  */
 
-export interface Env {
+import { CloudEnv, handleCloudRoute } from './cloud_auth';
+
+export interface Env extends CloudEnv {
   MUXIS_STORAGE?: R2Bucket;
   ENVIRONMENT?: string;
   LATEST_VERSION?: string;
@@ -87,6 +89,12 @@ export default {
       // 2. Application version & update manifest
       if (path === '/api/version') {
         return handleVersionCheck(env);
+      }
+
+      // 2b. MUXIS Cloud Auth & D1 Sync routes
+      const cloudResp = await handleCloudRoute(request, env, jsonResponse, errorResponse);
+      if (cloudResp) {
+        return cloudResp;
       }
 
       // 3. Storage: Request upload authorization / metadata

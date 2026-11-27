@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_typography.dart';
-import '../../core/auth/auth_state.dart';
 import '../../core/auth/supabase_auth_service.dart';
 import '../../core/sync/sync_engine.dart';
 import '../../core/sync/sync_models.dart';
 import '../../shared/widgets/muxis_button.dart';
 
-class AccountDialog extends ConsumerWidget {
+class AccountDialog extends ConsumerStatefulWidget {
   const AccountDialog({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountDialog> createState() => _AccountDialogState();
+}
+
+class _AccountDialogState extends ConsumerState<AccountDialog> {
+  bool _rotatingKey = false;
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authServiceProvider);
     final authService = ref.read(authServiceProvider.notifier);
     final syncStatus = ref.watch(syncEngineProvider);
@@ -22,7 +29,6 @@ class AccountDialog extends ConsumerWidget {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = authState.user;
-
     final isMobile = MediaQuery.sizeOf(context).width < 520;
 
     return Dialog(
@@ -36,14 +42,13 @@ class AccountDialog extends ConsumerWidget {
         side: BorderSide(color: MuxisColors.border(isDark)),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: EdgeInsets.all(isMobile ? 18 : 28),
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 18 : 26),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -52,7 +57,7 @@ class AccountDialog extends ConsumerWidget {
                     style: MuxisTypography.mono(
                       fontSize: 12.5,
                       letterSpacing: 1.4,
-                      color: MuxisColors.electricCyan,
+                      color: MuxisColors.accent(isDark),
                       isDark: isDark,
                     ),
                   ),
@@ -62,7 +67,7 @@ class AccountDialog extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Profile Info
               Row(
@@ -70,19 +75,19 @@ class AccountDialog extends ConsumerWidget {
                   Container(
                     width: 56,
                     height: 56,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: MuxisGradients.prismaticPrimary,
+                      gradient: MuxisGradients.activePrimary(isDark),
                     ),
                     child: Center(
                       child: Text(
                         (user?.displayName.isNotEmpty ?? false)
                             ? user!.displayName[0].toUpperCase()
                             : 'M',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: MuxisColors.onAccent(isDark),
                         ),
                       ),
                     ),
@@ -94,9 +99,10 @@ class AccountDialog extends ConsumerWidget {
                       children: [
                         Text(
                           user?.displayName ?? 'Audiophile',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
+                            color: MuxisColors.textPrimary(isDark),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -107,61 +113,54 @@ class AccountDialog extends ConsumerWidget {
                             color: MuxisColors.textMuted(isDark),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: MuxisColors.velvetViolet.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            user?.subscriptionTier.toUpperCase() ?? 'FREE',
-                            style: MuxisTypography.mono(
-                              fontSize: 10,
-                              color: MuxisColors.electricCyan,
-                              isDark: isDark,
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            _badge(
+                              user?.subscriptionTier.toUpperCase() ?? 'FREE',
+                              MuxisColors.accent(isDark),
+                              isDark,
                             ),
-                          ),
+                            _badge(
+                              (user?.authProvider ?? 'email').toUpperCase(),
+                              MuxisColors.violet(isDark),
+                              isDark,
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Cloud Sync Status Panel
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? MuxisColors.elevatedSurface
-                      : MuxisColors.secondarySurface,
+                  color: MuxisColors.secondaryBg(isDark),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark
-                        ? MuxisColors.subtleBorderDark
-                        : MuxisColors.subtleBorderLight,
-                  ),
+                  border: Border.all(color: MuxisColors.border(isDark)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        _buildSyncIcon(syncStatus),
+                        _buildSyncIcon(syncStatus, isDark),
                         const SizedBox(width: 10),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Cloud Sync',
+                            Text(
+                              'Cloud Sync (D1)',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
+                                color: MuxisColors.textPrimary(isDark),
                               ),
                             ),
                             Text(
@@ -189,9 +188,102 @@ class AccountDialog extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
-              // Actions
+              // Backup Recovery Key Card (Password Reset without broken email links)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: MuxisColors.secondaryBg(isDark),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: MuxisColors.border(isDark)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.vpn_key_rounded,
+                          size: 16,
+                          color: MuxisColors.accent(isDark),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Backup Password Recovery Key',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (authState.recoveryKey != null &&
+                        authState.recoveryKey!.isNotEmpty)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SelectableText(
+                              authState.recoveryKey!,
+                              style: MuxisTypography.mono(
+                                fontSize: 12.5,
+                                color: MuxisColors.accent(isDark),
+                                isDark: isDark,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.copy_rounded,
+                              size: 16,
+                              color: MuxisColors.textSecondary(isDark),
+                            ),
+                            tooltip: 'Copy Recovery Key',
+                            onPressed: () {
+                              Clipboard.setData(
+                                ClipboardData(text: authState.recoveryKey!),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Backup Recovery Key copied.'),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        'Generate a personal recovery key to reset your password offline without verification emails.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: MuxisColors.textMuted(isDark),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    MuxisButton(
+                      label: authState.recoveryKey != null
+                          ? 'Generate New Key'
+                          : 'Create Backup Recovery Key',
+                      variant: MuxisButtonVariant.secondary,
+                      height: 32,
+                      isLoading: _rotatingKey,
+                      onPressed: () async {
+                        setState(() => _rotatingKey = true);
+                        await authService.regenerateRecoveryKey();
+                        if (mounted) setState(() => _rotatingKey = false);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               Row(
                 children: [
                   Expanded(
@@ -206,7 +298,7 @@ class AccountDialog extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               Center(
                 child: TextButton(
@@ -217,7 +309,7 @@ class AccountDialog extends ConsumerWidget {
                         backgroundColor: MuxisColors.surface(isDark),
                         title: const Text('Delete Muxis Account?'),
                         content: const Text(
-                          'This will permanently delete your cloud account, cloud playlists, and synchronization data. Your local music files will remain on your device.',
+                          'This will permanently delete your cloud account, cloud playlists, and synchronization data. Your local music files remain untouched on your device.',
                           style: TextStyle(fontSize: 13),
                         ),
                         actions: [
@@ -253,15 +345,33 @@ class AccountDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildSyncIcon(SyncStatus status) {
+  Widget _badge(String text, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        text,
+        style: MuxisTypography.mono(
+          fontSize: 9.5,
+          color: color,
+          isDark: isDark,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncIcon(SyncStatus status, bool isDark) {
     switch (status) {
       case SyncStatus.syncing:
-        return const SizedBox(
+        return SizedBox(
           width: 16,
           height: 16,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: MuxisColors.electricCyan,
+            color: MuxisColors.accent(isDark),
           ),
         );
       case SyncStatus.synced:
@@ -271,9 +381,9 @@ class AccountDialog extends ConsumerWidget {
           size: 20,
         );
       case SyncStatus.offline:
-        return const Icon(
+        return Icon(
           Icons.cloud_off_rounded,
-          color: MuxisColors.textMutedDark,
+          color: MuxisColors.textMuted(isDark),
           size: 20,
         );
       case SyncStatus.error:
@@ -283,10 +393,9 @@ class AccountDialog extends ConsumerWidget {
           size: 20,
         );
       case SyncStatus.idle:
-      default:
-        return const Icon(
+        return Icon(
           Icons.cloud_queue_rounded,
-          color: MuxisColors.electricCyan,
+          color: MuxisColors.accent(isDark),
           size: 20,
         );
     }
@@ -303,8 +412,7 @@ class AccountDialog extends ConsumerWidget {
       case SyncStatus.error:
         return 'Sync error occurred';
       case SyncStatus.idle:
-      default:
-        return 'Idle';
+        return 'Ready';
     }
   }
 }

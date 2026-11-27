@@ -3,18 +3,18 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AppConfig {
   AppConfig._();
 
+  static const String _defaultCloudflareGateway =
+      'https://muxis-api-worker.a-leaf-org.workers.dev';
+
   static String get supabaseUrl {
-    // 1. Try dotenv if loaded
     try {
       final envUrl = dotenv.env['SUPABASE_URL'];
       if (envUrl != null && envUrl.isNotEmpty) return envUrl;
     } catch (_) {}
 
-    // 2. Try compile-time environment variable (--dart-define=SUPABASE_URL=...)
     const defineUrl = String.fromEnvironment('SUPABASE_URL');
     if (defineUrl.isNotEmpty) return defineUrl;
 
-    // 3. Fallback placeholder (informs user in UI if not configured)
     return 'https://your-project.supabase.co';
   }
 
@@ -32,10 +32,27 @@ class AppConfig {
 
   static String get cloudflareWorkerUrl {
     try {
+      final gateway = dotenv.env['CLOUDFLARE_API_GATEWAY'];
+      if (gateway != null && gateway.isNotEmpty) {
+        return gateway.replaceAll(RegExp(r'/+$'), '');
+      }
       final url = dotenv.env['CLOUDFLARE_WORKER_URL'];
-      if (url != null && url.isNotEmpty) return url;
+      if (url != null && url.isNotEmpty) {
+        return url.replaceAll(RegExp(r'/+$'), '');
+      }
     } catch (_) {}
-    return 'https://api.muxis.audio';
+
+    const defineGateway = String.fromEnvironment('CLOUDFLARE_API_GATEWAY');
+    if (defineGateway.isNotEmpty) {
+      return defineGateway.replaceAll(RegExp(r'/+$'), '');
+    }
+
+    const defineUrl = String.fromEnvironment('CLOUDFLARE_WORKER_URL');
+    if (defineUrl.isNotEmpty) {
+      return defineUrl.replaceAll(RegExp(r'/+$'), '');
+    }
+
+    return _defaultCloudflareGateway;
   }
 
   static String get r2PublicUrl {
@@ -46,7 +63,7 @@ class AppConfig {
     return 'https://cdn.muxis.audio';
   }
 
-  static bool get isConfigured {
+  static bool get isSupabaseConfigured {
     final url = supabaseUrl;
     final key = supabaseAnonKey;
     return url.startsWith('https://') &&
@@ -54,4 +71,10 @@ class AppConfig {
         key.length > 20 &&
         !key.contains('placeholder');
   }
+
+  static bool get isCloudWorkerConfigured =>
+      cloudflareWorkerUrl.startsWith('https://');
+
+  static bool get isConfigured =>
+      isCloudWorkerConfigured || isSupabaseConfigured;
 }
