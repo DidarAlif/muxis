@@ -466,10 +466,25 @@ class StreamingAccountsNotifier extends StateNotifier<StreamingAccountsState> {
   Future<StreamingAuthResult> connectSoundCloudWithBrowser(
     BuildContext context,
   ) async {
+    return _runSoundCloudAuth(() => _oauth.signInWithSoundCloudWeb(context));
+  }
+
+  /// Connects SoundCloud directly using a manually provided `oauth_token` cookie value.
+  Future<StreamingAuthResult> connectSoundCloudWithToken(
+    String rawToken,
+  ) async {
+    return _runSoundCloudAuth(
+      () => _oauth.connectSoundCloudWithToken(rawToken),
+    );
+  }
+
+  Future<StreamingAuthResult> _runSoundCloudAuth(
+    Future<StreamingAuthResult> Function() action,
+  ) async {
     state = state.copyWith(
       soundcloud: state.soundcloud.copyWith(isSyncing: true),
     );
-    final res = await _oauth.signInWithSoundCloudWeb(context);
+    final res = await action();
     await refreshFromStorage(triggerBackgroundSync: false);
     if (res.isSuccess) {
       if (state.soundcloud.featuredSections.isEmpty ||

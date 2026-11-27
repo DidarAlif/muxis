@@ -559,6 +559,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showSoundCloudSignInDialog() {
+    final tokenCtrl = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
@@ -596,32 +597,114 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           content: SizedBox(
-            width: 460,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Sign in via SoundCloud\'s web portal to import your likes, playlists, sets, and personalized SoundCloud picks into MUXIS.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.45,
-                    color: MuxisColors.textSecondary(isDark),
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sign in via SoundCloud\'s portal (Google, Apple, Facebook, or SoundCloud email) to import your likes, playlists, sets, and personalized SoundCloud picks into MUXIS.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: MuxisColors.textSecondary(isDark),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                MuxisButton(
-                  label: 'Sign In via Web Browser',
-                  icon: const Icon(Icons.open_in_browser_rounded, size: 20),
-                  variant: MuxisButtonVariant.primary,
-                  height: 44,
-                  width: double.infinity,
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    _startSoundCloudDirectBrowserLogin();
-                  },
-                ),
-              ],
+                  const SizedBox(height: 18),
+                  MuxisButton(
+                    label: 'Sign In via Web Browser',
+                    icon: const Icon(Icons.open_in_browser_rounded, size: 20),
+                    variant: MuxisButtonVariant.primary,
+                    height: 44,
+                    width: double.infinity,
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _startSoundCloudDirectBrowserLogin();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Theme(
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        'Internal / Advanced Options (oauth_token Cookie)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'JetBrains Mono',
+                          fontWeight: FontWeight.w600,
+                          color: MuxisColors.textMuted(isDark),
+                        ),
+                      ),
+                      children: [
+                        const SizedBox(height: 6),
+                        Text(
+                          'If your Google account restricts embedded browsers, sign in to soundcloud.com in your normal browser and paste your oauth_token cookie value below.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            height: 1.4,
+                            color: MuxisColors.textMuted(isDark),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: tokenCtrl,
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 12,
+                            color: MuxisColors.textPrimary(isDark),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'SoundCloud oauth_token Cookie Value',
+                            hintText: '2-295843-...',
+                            filled: true,
+                            fillColor: MuxisColors.secondaryBg(isDark),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        MuxisButton(
+                          label: 'Apply SoundCloud Token',
+                          variant: MuxisButtonVariant.secondary,
+                          height: 36,
+                          width: double.infinity,
+                          onPressed: () async {
+                            final raw = tokenCtrl.text.trim();
+                            if (raw.isEmpty) return;
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            setState(() => _isBrowserAuthRunning = true);
+                            final res = await ref
+                                .read(streamingAccountsProvider.notifier)
+                                .connectSoundCloudWithToken(raw);
+                            if (!mounted) return;
+                            setState(() => _isBrowserAuthRunning = false);
+                            await _loadSettings();
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  res.isSuccess
+                                      ? 'Connected to SoundCloud as ${res.displayName}! Synced ${res.playlistsImported} sets & ${res.tracksImported} tracks.'
+                                      : (res.errorMessage ??
+                                            'Unable to connect SoundCloud.'),
+                                ),
+                                backgroundColor: res.isSuccess
+                                    ? MuxisColors.success
+                                    : MuxisColors.error,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [

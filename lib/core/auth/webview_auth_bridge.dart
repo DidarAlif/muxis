@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/theme/muxis_colors.dart';
+import '../../shared/utils/soundcloud_auth_utils.dart';
 
 class WebViewAuthSession {
   final bool isSuccess;
@@ -78,6 +80,7 @@ class WebViewAuthSession {
 class WebViewAuthBridge {
   static Future<void> _ytProfileLock = Future.value();
   static Future<void> _spProfileLock = Future.value();
+  static Future<void> _scProfileLock = Future.value();
 
   static Future<T> _withProfileLock<T>(
     bool isSpotify,
@@ -91,6 +94,15 @@ class WebViewAuthBridge {
       _ytProfileLock = completer.future;
     }
 
+    return prev.catchError((_) {}).then((_) => action()).whenComplete(() {
+      if (!completer.isCompleted) completer.complete();
+    });
+  }
+
+  static Future<T> _withSoundCloudLock<T>(Future<T> Function() action) {
+    final prev = _scProfileLock;
+    final completer = Completer<void>();
+    _scProfileLock = completer.future;
     return prev.catchError((_) {}).then((_) => action()).whenComplete(() {
       if (!completer.isCompleted) completer.complete();
     });
@@ -1599,8 +1611,310 @@ class WebViewAuthBridge {
     );
   }
 
+  static String _buildSoundCloudHookScript(SoundCloudPkcePair pkce) {
+    final encodedChallenge = jsonEncode(pkce.codeChallenge);
+    final encodedNonce = jsonEncode(pkce.nonce);
+    return '''
+(function() {
+  try {
+    if (window.__muxisScHooked) return;
+    window.__muxisScHooked = true;
+    var SC_CHALLENGE = $encodedChallenge;
+    var SC_NONCE = $encodedNonce;
+
+    try {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: function() { return undefined; }
+      });
+    } catch (_) {}
+
+    function buildStandAloneUrl(rawUrl) {
+      try {
+        var u = new URL(rawUrl, window.location.origin);
+        if (u.hostname.indexOf('secure.soundcloud.com') === -1 || u.pathname.indexOf('/web-auth') === -1) {
+          return null;
+        }
+        var existingProvider = u.searchParams.get('provider_params');
+        if (existingProvider && existingProvider.length > 0) {
+          return null;
+        }
+        if (u.searchParams.get('app_id') === '3152' &&
+            u.searchParams.get('stand_alone') === 'true' &&
+            !u.searchParams.has('embedded_in_iframe') &&
+            u.searchParams.get('code_challenge') === SC_CHALLENGE) {
+          return null;
+        }
+        var cid = u.searchParams.get('client_id') || '';
+        u.searchParams.delete('embedded_in_iframe');
+        u.searchParams.set('stand_alone', 'true');
+        u.searchParams.set('app_id', '3152');
+        u.searchParams.set('code_challenge', SC_CHALLENGE);
+        u.searchParams.set('code_challenge_method', 'S256');
+        if (cid) {
+          u.searchParams.set('state', btoa(JSON.stringify({ client_id: cid, nonce: SC_NONCE })));
+        }
+        return u.toString();
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // Intercept popup creation so SoundCloud Google/Apple OAuth never opens a blank black about:blank popup.
+    window.open = function(url) {
+      var go = function(target) {
+        try {
+          if (target && String(target) !== 'about:blank') {
+            var next = String(target);
+            var rewritten = buildStandAloneUrl(next) || next;
+            (window.top || window).location.assign(rewritten);
+          }
+        } catch (_) {}
+      };
+      if (url && String(url) !== 'about:blank') {
+        go(url);
+      }
+      return {
+        closed: false,
+        close: function() {},
+        focus: function() {},
+        blur: function() {},
+        postMessage: function() {},
+        location: {
+          assign: go,
+          replace: go,
+          set href(v) { go(v); },
+          get href() { return ''; }
+        }
+      };
+    };
+
+    try {
+      var promoSelf = buildStandAloneUrl(window.location.href);
+      if (promoSelf && (window.self !== window.top || window.location.href !== promoSelf)) {
+        (window.top || window).location.replace(promoSelf);
+        return;
+      }
+    } catch (_) {}
+
+    function scanForAuthIframe() {
+      try {
+        var host = (window.location.hostname || '').toLowerCase();
+        var path = (window.location.pathname || '').toLowerCase();
+        if (host.indexOf('soundcloud.com') === -1 ||
+            host.indexOf('secure.soundcloud.com') !== -1 ||
+            path.indexOf('/signin') === -1 ||
+            path.indexOf('/signin/callback') !== -1) {
+          return false;
+        }
+        var iframes = document.querySelectorAll('iframe[src*="secure.soundcloud.com/web-auth"]');
+        for (var i = 0; i < iframes.length; i++) {
+          var src = iframes[i].getAttribute('src') || iframes[i].src || '';
+          var target = buildStandAloneUrl(src);
+          if (target) {
+            window.location.replace(target);
+            return true;
+          }
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    if (!scanForAuthIframe()) {
+      var attempts = 0;
+      var pollTimer = setInterval(function() {
+        attempts++;
+        if (scanForAuthIframe() || attempts > 80) {
+          clearInterval(pollTimer);
+        }
+      }, 150);
+      if (typeof MutationObserver !== 'undefined') {
+        var attachObs = function() {
+          if (!document.documentElement) return false;
+          var obs = new MutationObserver(function() {
+            if (scanForAuthIframe()) {
+              clearInterval(pollTimer);
+              try { obs.disconnect(); } catch (_) {}
+            }
+          });
+          obs.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['src']
+          });
+          return true;
+        };
+        if (!attachObs()) {
+          document.addEventListener('DOMContentLoaded', attachObs, { once: true });
+        }
+      }
+    }
+  } catch (_) {}
+})();
+''';
+  }
+
+  static String _buildSoundCloudCallbackExchangeJs({
+    required String code,
+    required SoundCloudPkcePair pkce,
+    required String clientId,
+  }) {
+    final jCode = jsonEncode(code);
+    final jVerifier = jsonEncode(pkce.codeVerifier);
+    final jClientId = jsonEncode(clientId);
+    final jRedirect = jsonEncode(SoundCloudAuthUrlHelper.callbackUri);
+    return '''
+(function(){
+  try {
+    var code = $jCode;
+    if (window.__muxisScExKey === code) {
+      return window.__muxisScExState || 'pending';
+    }
+    window.__muxisScExKey = code;
+    window.__muxisScExState = 'pending';
+    try {
+      if (document.body) {
+        document.body.innerHTML = '<div style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0b14;color:#e2e8f0;font-family:Segoe UI,Roboto,sans-serif;"><h2 style="margin:0 0 8px;font-weight:600;">Completing SoundCloud sign-in...</h2><p style="margin:0;color:#94a3b8;font-size:14px;">Exchanging authorization credentials for MUXIS.</p></div>';
+      }
+    } catch (_) {}
+    var params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      code_verifier: $jVerifier,
+      redirect_uri: $jRedirect,
+      client_id: $jClientId
+    });
+    fetch('https://secure.soundcloud.com/oauth/token?grant_type=authorization_code', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Accept': 'application/json'
+      },
+      body: params.toString()
+    }).then(function(r){
+      return r.text().then(function(txt){
+        return { status: r.status, txt: txt };
+      });
+    }).then(function(res){
+      try {
+        var j = JSON.parse(res.txt || '{}');
+        var tok = (j && (j.access_token || j.oauth_token)) || '';
+        if (tok) {
+          try {
+            document.cookie = 'oauth_token=' + tok + '; path=/; domain=.soundcloud.com; secure';
+          } catch (_) {}
+          window.__muxisScExState = JSON.stringify({ ok: true, token: tok, status: res.status });
+          return;
+        }
+      } catch (_) {}
+      window.__muxisScExState = JSON.stringify({ ok: false, status: res.status, raw: res.txt || '' });
+    }).catch(function(err){
+      window.__muxisScExState = JSON.stringify({ ok: false, status: 0, raw: String(err) });
+    });
+    return 'pending';
+  } catch (e) {
+    return JSON.stringify({ ok: false, status: 0, raw: String(e) });
+  }
+})()
+''';
+  }
+
+  static Future<String?> _resolveSoundCloudClientIdFallback(Dio dio) async {
+    try {
+      final homeRes = await dio.get<String>(
+        'https://soundcloud.com',
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: const {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          },
+        ),
+      );
+      final html = homeRes.data ?? '';
+      final scriptUrls = RegExp(r'https://a-v2\.sndcdn\.com/assets/[^"]+\.js')
+          .allMatches(html)
+          .map((m) => m.group(0)!)
+          .toList();
+      for (final scriptUrl in scriptUrls.reversed.take(8)) {
+        try {
+          final jsRes = await dio.get<String>(
+            scriptUrl,
+            options: Options(responseType: ResponseType.plain),
+          );
+          final m = RegExp(r'client_id\s*:\s*"([a-zA-Z0-9]{20,40})"')
+              .firstMatch(jsRes.data ?? '');
+          if (m != null) return m.group(1);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<String?> _exchangeSoundCloudAuthCodeViaDart({
+    required String code,
+    required SoundCloudPkcePair pkce,
+    String? clientId,
+  }) async {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 12),
+      ),
+    );
+    var resolvedClientId = (clientId ?? '').trim();
+    if (resolvedClientId.isEmpty) {
+      resolvedClientId = await _resolveSoundCloudClientIdFallback(dio) ?? '';
+    }
+    if (resolvedClientId.isEmpty) return null;
+
+    final body = {
+      'grant_type': 'authorization_code',
+      'code': code,
+      'code_verifier': pkce.codeVerifier,
+      'redirect_uri': SoundCloudAuthUrlHelper.callbackUri,
+      'client_id': resolvedClientId,
+    };
+
+    for (final endpoint in const [
+      'https://secure.soundcloud.com/oauth/token?grant_type=authorization_code',
+      'https://api-auth.soundcloud.com/oauth/token',
+    ]) {
+      try {
+        final res = await dio.post<dynamic>(
+          endpoint,
+          data: body,
+          options: Options(
+            contentType: Headers.formUrlEncodedContentType,
+            headers: const {
+              'Origin': 'https://soundcloud.com',
+              'Referer': 'https://soundcloud.com/signin/callback',
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            },
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final parsed = res.data is Map
+              ? Map<String, dynamic>.from(res.data as Map)
+              : (res.data is String
+                    ? Map<String, dynamic>.from(
+                        jsonDecode(res.data as String) as Map,
+                      )
+                    : <String, dynamic>{});
+          final tok = (parsed['access_token'] ?? parsed['oauth_token'])
+              ?.toString()
+              .trim();
+          if (tok != null && tok.isNotEmpty) return _sanitizeAscii(tok);
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
   /// Opens genuine SoundCloud login portal (`https://soundcloud.com/signin`) and
-  /// extracts authenticated `oauth_token` cookie cleanly across Desktop WebView2 & Mobile WebView.
+  /// extracts authenticated `oauth_token` cleanly across Desktop WebView2 & Mobile WebView.
   Future<WebViewAuthSession> authenticateSoundCloud(
     BuildContext context,
   ) async {
@@ -1620,155 +1934,261 @@ class WebViewAuthBridge {
   Future<WebViewAuthSession> _authenticateSoundCloudDesktop(
     String loginUrl,
   ) async {
-    try {
-      final available = await WebviewWindow.isWebviewAvailable();
-      if (!available) {
-        return const WebViewAuthSession(
-          isSuccess: false,
-          errorMessage: 'Microsoft Edge WebView2 runtime is not installed.',
-        );
-      }
-
-      final webview = await WebviewWindow.create(
-        configuration: CreateConfiguration(
-          windowWidth: 1020,
-          windowHeight: 760,
-          titleBarHeight: 0,
-          title: 'MUXIS — Sign In to SoundCloud',
-          userDataFolderWindows: _resolvePersistentSessionDir(
-            'muxis_sc_session',
-          ),
-        ),
-      );
-
-      final completer = Completer<WebViewAuthSession>();
-      bool finished = false;
-      WebViewAuthSession? lastCaptured;
-      Timer? poller;
-      Timer? safetyTimer;
-
-      void completeOnce(WebViewAuthSession res) {
-        if (finished) return;
-        finished = true;
-        poller?.cancel();
-        safetyTimer?.cancel();
-        if (!completer.isCompleted) completer.complete(res);
-      }
-
-      unawaited(
-        webview.onClose.then((_) {
-          if (lastCaptured != null) {
-            completeOnce(lastCaptured!);
-            return;
-          }
-          completeOnce(
-            const WebViewAuthSession(
-              isSuccess: false,
-              isCancelled: true,
-              errorMessage: 'SoundCloud sign-in was cancelled.',
-            ),
+    return _withSoundCloudLock<WebViewAuthSession>(() async {
+      try {
+        final available = await WebviewWindow.isWebviewAvailable();
+        if (!available) {
+          return const WebViewAuthSession(
+            isSuccess: false,
+            errorMessage: 'Microsoft Edge WebView2 runtime is not installed.',
           );
-        }),
-      );
+        }
 
-      webview.launch(loginUrl);
+        final pkce = SoundCloudPkcePair.generate();
+        final hookScript = _buildSoundCloudHookScript(pkce);
 
-      poller = Timer.periodic(const Duration(milliseconds: 550), (_) async {
-        if (finished) return;
-        try {
-          final rawJson = await webview.evaluateJavaScript('''
+        final webview = await WebviewWindow.create(
+          configuration: CreateConfiguration(
+            windowWidth: 1020,
+            windowHeight: 760,
+            titleBarHeight: 0,
+            title: 'MUXIS — Sign In to SoundCloud',
+            userDataFolderWindows: _resolvePersistentSessionDir(
+              'muxis_sc_session',
+            ),
+          ),
+        );
+
+        final completer = Completer<WebViewAuthSession>();
+        bool finished = false;
+        bool sawGoogleBlockBanner = false;
+        bool handlingCallback = false;
+        WebViewAuthSession? lastCaptured;
+        Timer? poller;
+        Timer? safetyTimer;
+
+        void completeOnce(WebViewAuthSession res) {
+          if (finished) return;
+          finished = true;
+          poller?.cancel();
+          safetyTimer?.cancel();
+          if (!completer.isCompleted) completer.complete(res);
+        }
+
+        unawaited(
+          webview.onClose.then((_) {
+            if (lastCaptured != null) {
+              completeOnce(lastCaptured!);
+              return;
+            }
+            if (sawGoogleBlockBanner) {
+              completeOnce(
+                const WebViewAuthSession(
+                  isSuccess: false,
+                  isBlockedByGoogleWebView: true,
+                  errorMessage: 'Google blocked sign-in in the embedded browser ("This browser or app may not be secure"). Sign in with SoundCloud email & password instead, or open Connect SoundCloud -> Internal / Advanced Options to paste your oauth_token.',
+                ),
+              );
+              return;
+            }
+            completeOnce(
+              const WebViewAuthSession(
+                isSuccess: false,
+                isCancelled: true,
+                errorMessage: 'SoundCloud sign-in was cancelled.',
+              ),
+            );
+          }),
+        );
+
+        webview.addScriptToExecuteOnDocumentCreated(hookScript);
+        webview.launch(loginUrl);
+
+        poller = Timer.periodic(const Duration(milliseconds: 550), (_) async {
+          if (finished || handlingCallback) return;
+          try {
+            final rawJson = await webview.evaluateJavaScript('''
 (function(){
   try {
     var href = window.location.href || '';
+    var host = (window.location.hostname || '').toLowerCase();
+    var bodyTxt = document.body ? (document.body.innerText || '') : '';
     var btn = document.querySelector('.header__userNavUsernameButton, a[href="/you/library"]');
-    var avatar = document.querySelector('.header__userNavItem img, span.sc-artwork[style*="url("]');
     var uname = btn ? (btn.textContent || '').trim() : '';
     return JSON.stringify({
       url: href,
+      host: host,
+      bodyText: bodyTxt.slice(0, 600),
       loggedIn: Boolean(btn) && href.indexOf('/signin') === -1 && href.indexOf('/login') === -1,
       displayName: uname,
       cookies: document.cookie || ''
     });
-  } catch (e) { return JSON.stringify({ url: '', loggedIn: false, cookies: '' }); }
+  } catch (e) { return JSON.stringify({ url: '', host: '', bodyText: '', loggedIn: false, cookies: '' }); }
 })()
 ''');
-          final map = _decodeEvalMap(rawJson);
-          if (map == null) return;
-          final href = (map['url'] as String?) ?? '';
-          final uri = Uri.tryParse(href);
-          final onScHome =
-              uri != null &&
-              uri.host.contains('soundcloud.com') &&
-              !uri.path.contains('signin') &&
-              !uri.path.contains('login');
-          if (!onScHome) return;
+            final map = _decodeEvalMap(rawJson);
+            if (map == null) return;
+            final href = (map['url'] as String?) ?? '';
+            final bodyTxt = (map['bodyText'] as String?) ?? '';
+            if (SoundCloudAuthUrlHelper.looksLikeGoogleWebViewBlock(
+              url: href,
+              bodyText: bodyTxt,
+            )) {
+              sawGoogleBlockBanner = true;
+            }
 
-          String? oauthToken;
-          final docCookies = (map['cookies'] as String?) ?? '';
-          final docMatch = RegExp(r'(?:^|;\s*)oauth_token=([^;\s]+)')
-              .firstMatch(docCookies);
-          if (docMatch != null) {
-            oauthToken = _sanitizeAscii(docMatch.group(1) ?? '');
-          }
-          if (oauthToken == null || oauthToken.isEmpty) {
-            try {
-              final jarCookies = await webview.getAllCookies();
-              for (final c in jarCookies) {
-                if (_sanitizeAscii(c.name) == 'oauth_token') {
-                  final v = _sanitizeAscii(c.value);
-                  if (v.isNotEmpty) {
-                    oauthToken = v;
+            final uri = Uri.tryParse(href);
+            if (SoundCloudAuthUrlHelper.isSigninCallbackUri(uri)) {
+              handlingCallback = true;
+              try {
+                final code = uri!.queryParameters['code']!.trim();
+                var clientId =
+                    SoundCloudPkcePair.extractClientIdFromState(
+                      uri.queryParameters['state'],
+                    ) ??
+                    '';
+                if (clientId.isEmpty) {
+                  clientId =
+                      await _resolveSoundCloudClientIdFallback(Dio()) ?? '';
+                }
+
+                await webview.evaluateJavaScript(
+                  _buildSoundCloudCallbackExchangeJs(
+                    code: code,
+                    pkce: pkce,
+                    clientId: clientId,
+                  ),
+                );
+
+                String? exchangedToken;
+                bool webExchangeRejected = false;
+                for (var attempt = 0; attempt < 20; attempt++) {
+                  if (finished) return;
+                  await Future.delayed(const Duration(milliseconds: 280));
+                  final exRaw = await webview.evaluateJavaScript(
+                    'window.__muxisScExState || ""',
+                  );
+                  final exStr = _decodeEvalString(exRaw) ?? '';
+                  if (exStr == 'pending' || exStr.isEmpty) continue;
+                  try {
+                    final exMap = jsonDecode(exStr);
+                    if (exMap is Map) {
+                      if (exMap['ok'] == true) {
+                        final tok = _sanitizeAscii(
+                          exMap['token']?.toString() ?? '',
+                        );
+                        if (tok.isNotEmpty) {
+                          exchangedToken = tok;
+                          break;
+                        }
+                      } else {
+                        final status = (exMap['status'] as num?)?.toInt() ?? 0;
+                        if (status == 400 || status == 401) {
+                          webExchangeRejected = true;
+                        }
+                        break;
+                      }
+                    }
+                  } catch (_) {
                     break;
                   }
                 }
+
+                if ((exchangedToken == null || exchangedToken.isEmpty) &&
+                    !webExchangeRejected) {
+                  exchangedToken = await _exchangeSoundCloudAuthCodeViaDart(
+                    code: code,
+                    pkce: pkce,
+                    clientId: clientId,
+                  );
+                }
+
+                if (exchangedToken != null && exchangedToken.isNotEmpty) {
+                  final captured = WebViewAuthSession(
+                    isSuccess: true,
+                    scOAuthToken: exchangedToken,
+                    scDisplayName: 'SoundCloud User',
+                  );
+                  lastCaptured = captured;
+                  webview.close();
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  completeOnce(captured);
+                  return;
+                }
+              } finally {
+                handlingCallback = false;
               }
-            } catch (_) {}
-          }
+              return;
+            }
 
-          if ((oauthToken != null && oauthToken.isNotEmpty) ||
-              map['loggedIn'] == true) {
-            final name = (map['displayName'] as String?)?.trim();
-            final captured = WebViewAuthSession(
-              isSuccess: true,
-              scOAuthToken: oauthToken,
-              scDisplayName: (name != null && name.isNotEmpty)
-                  ? name
-                  : 'SoundCloud User',
-            );
-            lastCaptured = captured;
+            if (!SoundCloudAuthUrlHelper.isSignedInHomeUri(uri)) return;
+
+            final docCookies = (map['cookies'] as String?) ?? '';
+            var oauthToken =
+                SoundCloudAuthUrlHelper.extractOAuthTokenFromCookies(
+                  docCookies,
+                );
+            if (oauthToken == null || oauthToken.isEmpty) {
+              try {
+                final jarCookies = await webview.getAllCookies();
+                for (final c in jarCookies) {
+                  if (_sanitizeAscii(c.name) == 'oauth_token') {
+                    final v = _sanitizeAscii(c.value);
+                    if (v.isNotEmpty) {
+                      oauthToken = v;
+                      break;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+
+            if ((oauthToken != null && oauthToken.isNotEmpty) ||
+                map['loggedIn'] == true) {
+              final name = (map['displayName'] as String?)?.trim();
+              final captured = WebViewAuthSession(
+                isSuccess: true,
+                scOAuthToken: oauthToken,
+                scDisplayName: (name != null && name.isNotEmpty)
+                    ? name
+                    : 'SoundCloud User',
+              );
+              lastCaptured = captured;
+              webview.close();
+              await Future.delayed(const Duration(milliseconds: 300));
+              completeOnce(captured);
+            }
+          } catch (_) {}
+        });
+
+        safetyTimer = Timer(const Duration(minutes: 5), () {
+          if (!finished) {
             webview.close();
-            await Future.delayed(const Duration(milliseconds: 300));
-            completeOnce(captured);
+            completeOnce(
+              const WebViewAuthSession(
+                isSuccess: false,
+                isCancelled: true,
+                errorMessage: 'SoundCloud sign-in timed out.',
+              ),
+            );
           }
-        } catch (_) {}
-      });
+        });
 
-      safetyTimer = Timer(const Duration(minutes: 5), () {
-        if (!finished) {
-          webview.close();
-          completeOnce(
-            const WebViewAuthSession(
-              isSuccess: false,
-              isCancelled: true,
-              errorMessage: 'SoundCloud sign-in timed out.',
-            ),
-          );
-        }
-      });
-
-      return await completer.future;
-    } catch (e) {
-      return WebViewAuthSession(
-        isSuccess: false,
-        errorMessage: 'SoundCloud browser window failed: $e',
-      );
-    }
+        return await completer.future;
+      } catch (e) {
+        return WebViewAuthSession(
+          isSuccess: false,
+          errorMessage: 'SoundCloud browser window failed: $e',
+        );
+      }
+    });
   }
 
   Future<WebViewAuthSession> _authenticateSoundCloudMobile(
     BuildContext context,
     String loginUrl,
   ) async {
+    final pkce = SoundCloudPkcePair.generate();
     return await Navigator.of(context).push<WebViewAuthSession>(
           MaterialPageRoute(
             fullscreenDialog: true,
@@ -1776,6 +2196,8 @@ class WebViewAuthBridge {
               title: 'Sign In to SoundCloud',
               initialUrl: loginUrl,
               platform: 'soundcloud',
+              injectedScript: _buildSoundCloudHookScript(pkce),
+              scPkce: pkce,
             ),
           ),
         ) ??
@@ -1874,12 +2296,14 @@ class _MobileWebViewAuthPage extends StatefulWidget {
   final String initialUrl;
   final String platform;
   final String? injectedScript;
+  final SoundCloudPkcePair? scPkce;
 
   const _MobileWebViewAuthPage({
     required this.title,
     required this.initialUrl,
     required this.platform,
     this.injectedScript,
+    this.scPkce,
   });
 
   @override
@@ -1890,6 +2314,8 @@ class _MobileWebViewAuthPageState extends State<_MobileWebViewAuthPage> {
   late final WebViewController _controller;
   Timer? _poller;
   bool _completed = false;
+  bool _scCodeExchangeInFlight = false;
+  bool _sawGoogleBlockBanner = false;
 
   static const String _mobileChromeUa =
       'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
@@ -1911,14 +2337,40 @@ class _MobileWebViewAuthPageState extends State<_MobileWebViewAuthPage> {
             if (widget.injectedScript != null) {
               _controller.runJavaScript(widget.injectedScript!);
             }
+            if (widget.platform == 'soundcloud') {
+              unawaited(_checkMobileSession());
+            }
           },
         ),
       )
       ..loadRequest(Uri.parse(widget.initialUrl));
 
     _poller = Timer.periodic(
-      const Duration(milliseconds: 1100),
+      const Duration(milliseconds: 900),
       (_) => _checkMobileSession(),
+    );
+  }
+
+  void _closeCancelled() {
+    if (_completed || !mounted) return;
+    _completed = true;
+    _poller?.cancel();
+    if (widget.platform == 'soundcloud' && _sawGoogleBlockBanner) {
+      Navigator.of(context).pop(
+        const WebViewAuthSession(
+          isSuccess: false,
+          isBlockedByGoogleWebView: true,
+          errorMessage: 'Google blocked sign-in in Android WebView ("This browser or app may not be secure"). Sign in with SoundCloud email & password instead, or open Connect SoundCloud -> Internal / Advanced Options to paste your oauth_token.',
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(
+      WebViewAuthSession(
+        isSuccess: false,
+        isCancelled: true,
+        errorMessage: '${widget.title} was cancelled.',
+      ),
     );
   }
 
@@ -1926,7 +2378,8 @@ class _MobileWebViewAuthPageState extends State<_MobileWebViewAuthPage> {
     if (_completed || !mounted) return;
     try {
       final url = await _controller.currentUrl() ?? '';
-      final host = Uri.tryParse(url)?.host ?? '';
+      final uri = Uri.tryParse(url);
+      final host = uri?.host ?? '';
       if (widget.platform == 'youtube' && host.endsWith('music.youtube.com')) {
         if (widget.injectedScript != null) {
           await _controller.runJavaScript(widget.injectedScript!);
@@ -1981,32 +2434,148 @@ class _MobileWebViewAuthPageState extends State<_MobileWebViewAuthPage> {
             }
           }
         }
-      } else if (widget.platform == 'soundcloud' &&
-          host.contains('soundcloud.com') &&
-          !url.contains('/signin') &&
-          !url.contains('/login')) {
-        final rawCookies = await _controller.runJavaScriptReturningResult(
-          'document.cookie',
-        );
-        final cookieStr = rawCookies.toString().replaceAll('"', '');
-        final tokMatch = RegExp(r'(?:^|;\s*)oauth_token=([^;\s]+)')
-            .firstMatch(cookieStr);
-        final oauthToken = tokMatch?.group(1)?.trim();
-        final loggedRaw = await _controller.runJavaScriptReturningResult(
-          "Boolean(document.querySelector('.header__userNavUsernameButton, a[href=\"/you/library\"], a[href*=\"/you\"]'))",
-        );
-        final domLoggedIn = loggedRaw.toString().contains('true');
-        if ((oauthToken != null && oauthToken.isNotEmpty) || domLoggedIn) {
-          _completed = true;
-          _poller?.cancel();
-          if (mounted) {
-            Navigator.of(context).pop(
-              WebViewAuthSession(
-                isSuccess: true,
-                scOAuthToken: oauthToken,
-                scDisplayName: 'SoundCloud Listener',
+      } else if (widget.platform == 'soundcloud') {
+        if (host.contains('accounts.google.com')) {
+          final rawBody = await _controller.runJavaScriptReturningResult(
+            'document.body ? (document.body.innerText || "").slice(0, 600) : ""',
+          );
+          final bodyStr = rawBody.toString();
+          if (SoundCloudAuthUrlHelper.looksLikeGoogleWebViewBlock(
+            url: url,
+            bodyText: bodyStr,
+          )) {
+            _sawGoogleBlockBanner = true;
+          }
+          return;
+        }
+
+        if ((SoundCloudAuthUrlHelper.isMainSoundCloudHost(host) ||
+                host.contains('secure.soundcloud.com')) &&
+            !SoundCloudAuthUrlHelper.isSigninCallbackUri(uri) &&
+            widget.injectedScript != null) {
+          await _controller.runJavaScript(widget.injectedScript!);
+        }
+
+        if (SoundCloudAuthUrlHelper.isSigninCallbackUri(uri)) {
+          if (_scCodeExchangeInFlight) return;
+          _scCodeExchangeInFlight = true;
+          try {
+            final pkce = widget.scPkce;
+            if (pkce == null) return;
+            final code = uri!.queryParameters['code']!.trim();
+            var clientId =
+                SoundCloudPkcePair.extractClientIdFromState(
+                  uri.queryParameters['state'],
+                ) ??
+                '';
+            if (clientId.isEmpty) {
+              clientId =
+                  await WebViewAuthBridge._resolveSoundCloudClientIdFallback(
+                    Dio(),
+                  ) ??
+                  '';
+            }
+
+            await _controller.runJavaScript(
+              WebViewAuthBridge._buildSoundCloudCallbackExchangeJs(
+                code: code,
+                pkce: pkce,
+                clientId: clientId,
               ),
             );
+
+            String? exchangedToken;
+            bool webExchangeRejected = false;
+            for (var attempt = 0; attempt < 20; attempt++) {
+              if (_completed || !mounted) return;
+              await Future.delayed(const Duration(milliseconds: 280));
+              final rawRes = await _controller.runJavaScriptReturningResult(
+                'window.__muxisScExState || ""',
+              );
+              var str = rawRes.toString();
+              if (str.startsWith('"') && str.endsWith('"')) {
+                try {
+                  str = jsonDecode(str).toString();
+                } catch (_) {}
+              }
+              if (str == 'pending' || str.isEmpty || str == 'null') continue;
+              try {
+                final exMap = jsonDecode(str);
+                if (exMap is Map) {
+                  if (exMap['ok'] == true) {
+                    final tok = WebViewAuthBridge._sanitizeAscii(
+                      exMap['token']?.toString() ?? '',
+                    );
+                    if (tok.isNotEmpty) {
+                      exchangedToken = tok;
+                      break;
+                    }
+                  } else {
+                    final status = (exMap['status'] as num?)?.toInt() ?? 0;
+                    if (status == 400 || status == 401) {
+                      webExchangeRejected = true;
+                    }
+                    break;
+                  }
+                }
+              } catch (_) {
+                break;
+              }
+            }
+
+            if ((exchangedToken == null || exchangedToken.isEmpty) &&
+                !webExchangeRejected) {
+              exchangedToken =
+                  await WebViewAuthBridge._exchangeSoundCloudAuthCodeViaDart(
+                    code: code,
+                    pkce: pkce,
+                    clientId: clientId,
+                  );
+            }
+
+            if (exchangedToken != null &&
+                exchangedToken.isNotEmpty &&
+                !_completed &&
+                mounted) {
+              _completed = true;
+              _poller?.cancel();
+              Navigator.of(context).pop(
+                WebViewAuthSession(
+                  isSuccess: true,
+                  scOAuthToken: exchangedToken,
+                  scDisplayName: 'SoundCloud Listener',
+                ),
+              );
+            }
+          } finally {
+            _scCodeExchangeInFlight = false;
+          }
+          return;
+        }
+
+        if (SoundCloudAuthUrlHelper.isSignedInHomeUri(uri)) {
+          final rawCookies = await _controller.runJavaScriptReturningResult(
+            'document.cookie',
+          );
+          final cookieStr = rawCookies.toString().replaceAll('"', '');
+          final oauthToken =
+              SoundCloudAuthUrlHelper.extractOAuthTokenFromCookies(cookieStr);
+          final loggedRaw = await _controller.runJavaScriptReturningResult(
+            "Boolean(document.querySelector('.header__userNavUsernameButton, a[href=\"/you/library\"], a[href*=\"/you\"]'))",
+          );
+          final domLoggedIn = loggedRaw.toString().contains('true');
+          if ((oauthToken != null && oauthToken.isNotEmpty) || domLoggedIn) {
+            _completed = true;
+            _poller?.cancel();
+            if (mounted) {
+              Navigator.of(context).pop(
+                WebViewAuthSession(
+                  isSuccess: true,
+                  scOAuthToken: oauthToken,
+                  scDisplayName: 'SoundCloud Listener',
+                ),
+              );
+            }
           }
         }
       }
@@ -2022,13 +2591,25 @@ class _MobileWebViewAuthPageState extends State<_MobileWebViewAuthPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: MuxisColors.surface(isDark),
-        foregroundColor: MuxisColors.textPrimary(isDark),
-        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _closeCancelled();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: MuxisColors.surface(isDark),
+          foregroundColor: MuxisColors.textPrimary(isDark),
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: _closeCancelled,
+          ),
+          title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+        ),
+        body: WebViewWidget(controller: _controller),
       ),
-      body: WebViewWidget(controller: _controller),
     );
   }
 }

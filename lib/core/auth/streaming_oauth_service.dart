@@ -14,6 +14,7 @@ import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/playlist.dart';
 import '../../shared/models/track.dart';
+import '../../shared/utils/soundcloud_auth_utils.dart';
 import '../database/database_service.dart';
 import '../storage/preferences_service.dart';
 import 'webview_auth_bridge.dart';
@@ -1023,9 +1024,11 @@ class StreamingOAuthService {
       return StreamingAuthResult(
         isSuccess: false,
         platform: 'SoundCloud',
-        errorMessage: session.isCancelled
-            ? 'SoundCloud sign-in was cancelled.'
-            : (session.errorMessage ?? 'Unable to connect SoundCloud.'),
+        errorMessage: session.isBlockedByGoogleWebView
+            ? session.errorMessage
+            : (session.isCancelled
+                  ? 'SoundCloud sign-in was cancelled.'
+                  : (session.errorMessage ?? 'Unable to connect SoundCloud.')),
       );
     }
 
@@ -1036,6 +1039,39 @@ class StreamingOAuthService {
     return syncSoundCloudAccount(
       fallbackDisplayName: session.scDisplayName,
       fallbackAvatarUrl: session.scAvatarUrl,
+    );
+  }
+
+  /// Connects SoundCloud directly using an extracted or manually entered `oauth_token` cookie.
+  Future<StreamingAuthResult> connectSoundCloudWithToken(
+    String rawToken,
+  ) async {
+    final cleanToken = SoundCloudAuthUrlHelper.normalizeManualOAuthToken(
+      rawToken,
+    );
+    if (cleanToken.isEmpty) {
+      return const StreamingAuthResult(
+        isSuccess: false,
+        platform: 'SoundCloud',
+        errorMessage: 'Please enter a valid SoundCloud oauth_token value.',
+      );
+    }
+
+    await _prefs.saveScOAuthToken(cleanToken);
+    final sc = SoundCloudMusicProvider(prefs: _prefs, dio: _dio);
+    final profile = await sc.fetchUserProfile();
+    if (profile.isEmpty) {
+      await _prefs.saveScOAuthToken('');
+      return const StreamingAuthResult(
+        isSuccess: false,
+        platform: 'SoundCloud',
+        errorMessage: 'The provided SoundCloud oauth_token was rejected or expired. Copy a fresh oauth_token cookie value from soundcloud.com.',
+      );
+    }
+
+    return syncSoundCloudAccount(
+      fallbackDisplayName: profile['displayName'],
+      fallbackAvatarUrl: profile['avatarUrl'],
     );
   }
 

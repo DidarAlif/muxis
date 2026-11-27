@@ -11,6 +11,7 @@ import '../lib/shared/models/playlist.dart';
 import '../lib/shared/models/radio_station.dart';
 import '../lib/shared/models/track.dart';
 import '../lib/shared/utils/library_filter.dart';
+import '../lib/shared/utils/soundcloud_auth_utils.dart';
 
 void main() {
   print('======================================================');
@@ -556,6 +557,123 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
       );
       expect(remix.length, 1);
       expect(remix.first.id, 't1');
+    },
+  );
+
+  // --- SUITE 12: SOUNDCLOUD SINGLE-WINDOW OAUTH & PKCE ---
+  print('\n[Suite 12: SoundCloud Single-Window OAuth & PKCE]');
+
+  test(
+    'SoundCloud PKCE generates RFC-7636 verifier and encodes client state',
+    () {
+      final rfcVector = SoundCloudPkcePair.fromVerifier(
+        codeVerifier: 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+        nonce: 'test_nonce_1234',
+      );
+      expect(
+        rfcVector.codeChallenge,
+        'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+      );
+
+      final pkce = SoundCloudPkcePair.generate();
+      expectTrue(pkce.codeVerifier.length == 64);
+      expectFalse(pkce.codeChallenge.contains('='));
+      expectTrue(pkce.nonce.length == 32);
+
+      final state = pkce.buildStateJson('zQBXL76oebJv6L1OhUMMtNEmdG6Th0wF');
+      final extracted = SoundCloudPkcePair.extractClientIdFromState(state);
+      expect(extracted, 'zQBXL76oebJv6L1OhUMMtNEmdG6Th0wF');
+    },
+  );
+
+  test('Rewriting embedded web-auth promotes top-level same-window OAuth', () {
+    final pkce = SoundCloudPkcePair.generate();
+    final embedded = Uri.parse(
+      'https://secure.soundcloud.com/web-auth?client_id=testcid123&app_id=46941&theme=dark&ui_evo=true&embedded_in_iframe=true&redirect_uri=https%3A%2F%2Fsoundcloud.com%2Fsignin%2Fcallback',
+    );
+    final rewritten = SoundCloudAuthUrlHelper.rewriteWebAuthToStandAlone(
+      embedded,
+      pkce,
+    );
+    expectTrue(rewritten != null);
+    expect(rewritten!.queryParameters['app_id'], '3152');
+    expect(rewritten.queryParameters['stand_alone'], 'true');
+    expectFalse(rewritten.queryParameters.containsKey('embedded_in_iframe'));
+    expect(rewritten.queryParameters['code_challenge'], pkce.codeChallenge);
+    expect(
+      SoundCloudPkcePair.extractClientIdFromState(
+        rewritten.queryParameters['state'],
+      ),
+      'testcid123',
+    );
+
+    // Must not overwrite returning federated provider callback payload
+    final returningCallback = rewritten.replace(
+      queryParameters: {
+        ...rewritten.queryParameters,
+        'provider_params': 'eyJ0b2tlbiI6Inh5eiJ9',
+      },
+    );
+    expect(
+      SoundCloudAuthUrlHelper.rewriteWebAuthToStandAlone(
+        returningCallback,
+        pkce,
+      ),
+      null,
+    );
+  });
+
+  test('SoundCloud host matcher excludes secure/api subdomains and matches callback', () {
+    expectTrue(SoundCloudAuthUrlHelper.isMainSoundCloudHost('soundcloud.com'));
+    expectTrue(
+      SoundCloudAuthUrlHelper.isMainSoundCloudHost('m.soundcloud.com'),
+    );
+    expectFalse(
+      SoundCloudAuthUrlHelper.isMainSoundCloudHost('secure.soundcloud.com'),
+    );
+    expectFalse(
+      SoundCloudAuthUrlHelper.isMainSoundCloudHost('api-auth.soundcloud.com'),
+    );
+
+    final callbackUri = Uri.parse(
+      'https://soundcloud.com/signin/callback?code=authcode123&state=abc',
+    );
+    expectTrue(SoundCloudAuthUrlHelper.isSigninCallbackUri(callbackUri));
+    expectFalse(SoundCloudAuthUrlHelper.isSignedInHomeUri(callbackUri));
+
+    final secureAuthUri = Uri.parse('https://secure.soundcloud.com/web-auth');
+    expectFalse(SoundCloudAuthUrlHelper.isSignedInHomeUri(secureAuthUri));
+
+    final homeUri = Uri.parse('https://soundcloud.com/discover');
+    expectTrue(SoundCloudAuthUrlHelper.isSignedInHomeUri(homeUri));
+  });
+
+  test(
+    'SoundCloud cookie & manual oauth_token normalizers clean inputs safely',
+    () {
+      final tok = SoundCloudAuthUrlHelper.extractOAuthTokenFromCookies(
+        'sc_anonymous_id=123; oauth_token=2-295843-9911-abc%2Bdef; other=1',
+      );
+      expect(tok, '2-295843-9911-abc+def');
+
+      expect(
+        SoundCloudAuthUrlHelper.normalizeManualOAuthToken(
+          'oauth_token=2-295843-9911-xyz; path=/',
+        ),
+        '2-295843-9911-xyz',
+      );
+      expect(
+        SoundCloudAuthUrlHelper.normalizeManualOAuthToken(
+          'OAuth 2-295843-9911',
+        ),
+        '2-295843-9911',
+      );
+      expectTrue(
+        SoundCloudAuthUrlHelper.looksLikeGoogleWebViewBlock(
+          url: 'https://accounts.google.com/v3/signin/rejected',
+          bodyText: 'This browser or app may not be secure. Learn more',
+        ),
+      );
     },
   );
 
