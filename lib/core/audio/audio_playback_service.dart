@@ -544,13 +544,22 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   void toggleFavoriteCurrentTrack() {
     final track = state.currentTrack;
     if (track == null) return;
+    toggleFavoriteTrack(track);
+  }
 
-    _databaseService?.toggleFavorite(track.id);
-    final updated = track.copyWith(isFavorite: !track.isFavorite);
+  /// Toggles favorite status for any track while keeping player & queue state in sync.
+  void toggleFavoriteTrack(Track target) {
+    final isFavNow =
+        !(_databaseService?.isFavorite(target.id) ?? target.isFavorite);
+    _databaseService?.toggleFavorite(target.id);
+    final updated = target.copyWith(isFavorite: isFavNow);
     final updatedQueue = state.queue
-        .map((t) => t.id == track.id ? updated : t)
+        .map((t) => t.id == target.id ? updated : t)
         .toList();
-    state = state.copyWith(currentTrack: updated, queue: updatedQueue);
+    final updatedCurrent = state.currentTrack?.id == target.id
+        ? updated
+        : state.currentTrack;
+    state = state.copyWith(currentTrack: updatedCurrent, queue: updatedQueue);
   }
 
   @override

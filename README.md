@@ -1,28 +1,80 @@
-# MUXIS — PRISMATIC AURA
-### Advanced Cross-Platform Music Streaming & Local Player Application
-
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
-[![Framework: Flutter](https://img.shields.io/badge/framework-Flutter%203.x-02569B?logo=flutter)](https://flutter.dev)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android%20%7C%20iOS-4FACFE)](#cross-platform-support)
-[![Design System](https://img.shields.io/badge/design-Prismatic%20Aura-00F2FE)](#visual-identity--prismatic-aura)
+<div align="center">
+  <img src="assets/brand/app_icon_1024.png" alt="MUXIS App Icon" width="112" />
+  <h1>MUXIS — PRISMATIC AURA</h1>
+  <p><strong>Cross-Platform Music Streaming, Global Radio &amp; Lossless Audio Player</strong></p>
+  <p>
+    <a href="https://github.com/DidarAlif/muxis/releases/latest">
+      <img src="https://img.shields.io/github/v/release/DidarAlif/muxis?style=for-the-badge&color=00F2FE" alt="Latest Release" />
+    </a>
+    <a href="#8-licensing--compliance">
+      <img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg?style=for-the-badge" alt="License: GPL-3.0" />
+    </a>
+    <img src="https://img.shields.io/badge/framework-Flutter%203.x-02569B?style=for-the-badge&logo=flutter" alt="Framework: Flutter" />
+    <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android%20%7C%20iOS-4FACFE?style=for-the-badge" alt="Platforms" />
+  </p>
+  <p>
+    <a href="https://didaralif.github.io/muxis/download.html">Download Installers</a> •
+    <a href="https://github.com/DidarAlif/muxis/releases">All Releases</a> •
+    <a href="#2-screenshots">Screenshots</a> •
+    <a href="#6-building-and-running">Build from Source</a>
+  </p>
+</div>
 
 ---
 
 ## 1. Overview
 
-**Muxis** is a modern, high-fidelity cross-platform music streaming and local audio player application. Built with an original visual identity named **PRISMATIC AURA**, Muxis combines atmospheric depth, electric cyan and violet illumination, desktop-first ergonomics, and advanced audio DSP capabilities.
+**Muxis** is a modern, high-fidelity cross-platform music streaming, global live radio, and local lossless audio player application. Built around a liquid-glass visual design system (**Prismatic Aura**), Muxis brings your local audio collection together with **YouTube Music**, **Spotify**, **SoundCloud**, and live **Global FM / Online Radio** stations in one responsive desktop and mobile experience.
 
 ### Key Capabilities:
-- **Unified Audio Core:** Seamless playback of local audio files (FLAC, MP3, WAV, AAC, M4A, OGG) and authorized online streams.
-- **Prismatic Aura Visuals:** Original geometric monogram logo, obsidian base surfaces, dynamic ambient lighting derived from album artwork, and real-time audio visualizers.
-- **Desktop Ergonomics:** Collapsible 240px navigation sidebar, persistent 92px bottom playback bar, expandable right drawer (Up-Next Queue & Synced Lyrics), and full-screen **Aurora Now Playing** mode.
-- **Audio Studio & DSP Engine:** 5-band master equalizer with custom presets, real-time vocal reduction (karaoke center-channel extractor), and pitch/tempo stretching (slowed + reverb presets).
-- **Synchronized Lyrics Engine:** Multi-source cascade (LRCLIB, LyricsOVH, local `.lrc`) with line-by-line and word-by-word synced scrolling.
-- **Power User Controls:** Quick command palette (`Ctrl + K`), full media keys support, and precision scrub timeline.
+- **Multi-Platform Streaming Integrations:** Interactive in-app browser sign-in (`YouTube Music`, `Spotify`, and `SoundCloud`) importing personal playlists, liked songs, sets, and home featured shelves with real-time stream resolution.
+- **Unified Audio Core & Virtualized Library:** Smooth playback of local files (`FLAC`, `MP3`, `WAV`, `AAC`, `M4A`, `OGG`, `OPUS`) alongside online streams, with instant sorting (`A–Z`, Artist, Duration, Source), keyword preset chips, and virtualized scrolling for multi-thousand-track libraries.
+- **Prismatic Aura Liquid Glass UI:** Translucent surfaces with interactive hover wave caustics and water-drop click ripples, ambient artwork glow, desktop floating mini-player on minimize, and full-screen **Studio Spectrum Stage** harmonic visualizer.
+- **Audio Studio & 10-Band Parametric DSP:** Master 10-band studio equalizer (`32 Hz` to `16 kHz`) with curated acoustic presets (`Prismatic Neon`, `Sub Bass Thump`, `Vocal Clarity`, etc.), sub-bass drive, treble air, and pitch/tempo control.
+- **Global FM & Radio Tuner:** Country-based station discovery, dial frequency tuning, and instant playback backed by redundant Radio Browser mirrors.
+- **In-App Self-Updater & Native Installers:** Automatic release check popup with direct in-app installer/APK download and verification against SHA-256 checksums, packaged as a standard Windows Inno Setup installer (registered in Start Menu & Installed Apps), macOS Universal `.zip`, Linux `.tar.gz`, and Android `.apk`/`.aab`.
 
 ---
 
-## 2. Visual Identity & Brand System
+## 2. Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/home.jpg" alt="MUXIS Home & Stream Hubs" />
+      <br /><sub><strong>Home &amp; Stream Hubs</strong> — Personalized shelves across YouTube Music, Spotify &amp; SoundCloud</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/library.jpg" alt="MUXIS Your Library" />
+      <br /><sub><strong>Your Library</strong> — Fast virtualized multi-source track list, keyword presets &amp; sort bar</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/spectrum_stage.jpg" alt="MUXIS Studio Spectrum Stage" />
+      <br /><sub><strong>Studio Spectrum Stage</strong> — Full-screen real-time harmonic visualizer &amp; playback stage</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/audio_studio_dsp.jpg" alt="MUXIS Audio Studio 10-Band DSP" />
+      <br /><sub><strong>Audio Studio &amp; 10-Band DSP</strong> — Parametric EQ curve, studio presets &amp; acoustic drives</sub>
+    </td>
+  </tr>
+</table>
+
+<div align="center">
+  <img src="docs/screenshots/mini_player.png" alt="MUXIS Floating Mini-Player" width="420" />
+  <br /><sub><strong>Floating Desktop Mini-Player</strong> — Compact always-accessible transport controls when minimized</sub>
+</div>
+
+---
+
+## 3. Visual Identity & Brand System
+
+<p align="center">
+  <img src="assets/brand/muxis_mark.png" alt="MUXIS Backgroundless Ribbon Mark" height="72" />
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/brand/app_icon_1024.png" alt="MUXIS Squircle Launcher Icon" height="72" />
+</p>
 
 ### Official Color Tokens:
 - **Electric Cyan:** `#00F2FE` (Primary active audio indicator and scrub thumb)
@@ -39,41 +91,33 @@
 
 ---
 
-## 3. Project Architecture
+## 4. Project Architecture
 
 ```
 muxis_player/
-├── assets/
-│   └── brand/               <-- Muxis SVG vector branding and icons
+├── assets/brand/            <-- Muxis ribbon logos, app icons, and platform icon sets
+├── docs/screenshots/        <-- Application screenshots for documentation
+├── installer/windows/       <-- Inno Setup script for Windows Start Menu & Installed Apps
 ├── lib/
 │   ├── main.dart            <-- Application entry point with ProviderScope
-│   ├── app/
-│   │   ├── app.dart         <-- MaterialApp, theme switcher, root router
-│   │   └── theme/           <-- Prismatic Aura colors, gradients, typography, shadows
+│   ├── app/                 <-- MaterialApp, Prismatic Aura themes, GoRouter navigation
 │   ├── core/
-│   │   ├── audio/           <-- Audio playback service, state notifier, queue manager
-│   │   │   └── dsp/         <-- 5-band EQ, karaoke vocal remover, pitch/tempo controller
-│   │   ├── lyrics/          <-- LRCLIB client and synchronized LRC parser
-│   │   └── local_scanner/   <-- Desktop folder & audio metadata scanner
-│   ├── features/
-│   │   ├── shell/           <-- Responsive layout, desktop sidebar, command palette
-│   │   ├── home/            <-- Spotlight hero, recently played, recommended shelves
-│   │   ├── explore/         <-- Mood stations & open stream catalogs
-│   │   ├── search/          <-- Instant search with filters and chips
-│   │   ├── library/         <-- Track, album, and artist collections with folder import
-│   │   ├── player/          <-- Bottom bar, Aurora Now Playing, audio visualizer
-│   │   ├── studio/          <-- Audio Studio DSP sheet
-│   │   └── settings/        <-- Appearance, audio fidelity, storage & cache
-│   ├── providers/           <-- MusicProvider abstraction (Local, InnerTube, Public Domain)
-│   └── shared/
-│       ├── models/          <-- Track, Album, Artist, Playlist, LyricsLine
-│       └── widgets/         <-- Reusable Muxis buttons, sliders, cards, badges, track rows
+│   │   ├── audio/           <-- Audio playback engine, queue manager & 10-band DSP
+│   │   ├── auth/            <-- Single-window OAuth WebView bridge (YT/Spotify/SoundCloud)
+│   │   ├── database/        <-- Local indexed library, playlists, favorites & history store
+│   │   ├── lyrics/          <-- LRCLIB & local synchronized .lrc parser
+│   │   ├── local_scanner/   <-- Desktop/mobile audio metadata scanner
+│   │   └── updates/         <-- GitHub Releases in-app self-updater & SHA-256 verifier
+│   ├── features/            <-- Shell, Home, Explore, Search, Radio, Library, Player, Studio, Settings
+│   ├── providers/           <-- Local, InnerTube (YT), Spotify, SoundCloud & Radio Browser providers
+│   └── shared/              <-- Models, sorting/auth utils, liquid-glass & virtualized widgets
+├── test/                    <-- Standalone pure-Dart unit test suite
 └── pubspec.yaml
 ```
 
 ---
 
-## 4. Desktop Keyboard Shortcuts
+## 5. Desktop Keyboard Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
@@ -87,10 +131,10 @@ muxis_player/
 
 ---
 
-## 5. Building and Running
+## 6. Building and Running
 
 ### Prerequisites:
-- Flutter SDK (3.16.0 or later)
+- Flutter SDK (`3.27.x` stable or `3.16.0+`)
 - Visual Studio 2022 with C++ Desktop Workload (for Windows native desktop runner)
 
 ### Commands:
@@ -98,59 +142,33 @@ muxis_player/
 # 1. Install dependencies
 flutter pub get
 
-# 2. Run Windows Desktop application
+# 2. Run standalone unit tests
+dart test/run_unit_tests.dart
+
+# 3. Run Windows Desktop application
 flutter run -d windows
 
-# 3. Build release executable installer for Windows
+# 4. Build release binaries
 flutter build windows --release
-
-# 4. Build for mobile (Android / iOS)
 flutter build apk --release
-flutter build ipa --release
 ```
-
----
-
-## 6. Cloud Infrastructure & Backend
-
-Muxis is engineered as an **offline-first local player** with optional cloud synchronization:
-
-- **Supabase Cloud Backend (`supabase/`):**
-  - PostgreSQL schema with version-controlled SQL migrations.
-  - Granular Row-Level Security (RLS) on all user data (`profiles`, `playlists`, `playlist_tracks`, `favorites`, `listening_history`, `user_settings`).
-  - Secure authentication (Email/Password, Google OAuth, Apple OAuth, Account Deletion).
-  - Last-Write-Wins (LWW) conflict resolution and soft-deletion tombstone sync.
-  - Serverless Edge Function for authenticated account deletion and data cascade.
-- **Cloudflare Pages (`website/`):**
-  - High-performance marketing and documentation site built with the Prismatic Aura visual identity.
-  - Automated deployment on push via GitHub Actions.
-- **Cloudflare R2 & Worker Gateway (`cloudflare/`):**
-  - R2 object storage for custom user avatars and approved playlist artwork.
-  - Cloudflare Worker (`cloudflare/src/index.ts`) providing `/api/version` updates, pre-authorized image uploads, and edge-cached asset distribution.
-  - **Zero Audio Upload Rule:** Strictly rejects all audio file uploads at the gateway level.
 
 ---
 
 ## 7. Cross-Platform CI/CD Pipelines
 
 Automated GitHub Actions workflows in `.github/workflows/`:
-1. `validate_pr.yml`: Code formatting, static analysis (`flutter analyze --fatal-infos`), unit tests, SQL migration linting, and TypeScript compilation for Cloudflare Workers.
+1. `validate_pr.yml`: Code formatting, static analysis (`flutter analyze --fatal-infos`), unit tests, SQL migration linting, and TypeScript compilation.
 2. `build_all_platforms.yml`: Cross-platform build matrix producing Windows x64, macOS Universal, Linux x64, Android APK/AAB, and iOS bundles.
-3. `release.yml`: Triggered on version tags (`v*`), compiles optimized release binaries across platforms, generates SHA-256 checksums, and publishes GitHub Releases.
-4. `deploy_website.yml`: Continuous delivery of `website/` to Cloudflare Pages.
+3. `release.yml`: Triggered on version tags (`v*`), compiles optimized release binaries across platforms, builds the Windows Inno Setup installer, generates SHA-256 checksums, and publishes GitHub Releases.
+4. `deploy_website.yml`: Continuous delivery of `website/` to GitHub Pages.
 
 Deployment documentation is available in `docs/deployment/`:
-- `SUPABASE_SETUP.md`: Database setup, migrations, auth providers, and rollback instructions.
-- `CLOUDFLARE_SETUP.md`: Pages, R2 storage bucket, and Worker API setup.
-- `GITHUB_SECRETS.md`: Required secrets catalog for GitHub Actions.
-- `SECURITY_CHECKLIST.md`: RLS verification, privacy guarantees, and token safety.
-- `ESTIMATED_COSTS.md`: Free-tier bounds and scaling cost projections.
+- `SUPABASE_SETUP.md`, `CLOUDFLARE_SETUP.md`, `GITHUB_SECRETS.md`, `SECURITY_CHECKLIST.md`, `ESTIMATED_COSTS.md`.
 
 ---
 
 ## 8. Licensing & Compliance
 
-- Muxis is released under the **GNU General Public License v3.0 (GPL-3.0)** in compliance with referenced open-source libraries.
-- REA (`E:\Desktop\rea`) is licensed under the **MIT License**.
-- The Square Android reference application (`E:\Desktop\Muxis`) remains intact and unmodified.
+- The `README` references the **GNU General Public License v3.0 (GPL-3.0)** in relation to the Android reference project (`E:\Desktop\Muxis`, which includes a GPL-3.0 `LICENSE` file). *(Note: if you intend to distribute under GPL-3.0, add a root `LICENSE` file with the GPL-3.0 text; if you built this codebase independently and want a permissive license like MIT/Apache-2.0 or proprietary licensing, update this section accordingly.)*
 - No private API credentials or proprietary keys are bundled. All configuration is loaded from `.env` or `--dart-define`.

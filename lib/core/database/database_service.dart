@@ -19,6 +19,14 @@ class DatabaseService {
   final List<String> _historyIds = [];
   final Map<String, List<String>> _playlists = {};
   final List<Map<String, dynamic>> _offlineMutations = [];
+  int _revision = 0;
+
+  /// Monotonically incremented whenever tracks, favorites, history, or playlists change.
+  int get revision => _revision;
+
+  int get trackCount => _tracks.length;
+  int get favoriteCount => _favoriteIds.length;
+  int get playlistCount => _playlists.length;
 
   Future<void> init() async {
     try {
@@ -89,6 +97,8 @@ class DatabaseService {
               list.removeWhere(staleFakeIds.contains);
             }
             await _persist();
+          } else {
+            _revision++;
           }
         }
       }
@@ -98,11 +108,15 @@ class DatabaseService {
   }
 
   Future<void> saveTracks(List<Track> tracks) async {
+    final indexMap = {
+      for (var i = 0; i < _tracks.length; i++) _tracks[i].id: i,
+    };
     for (final t in tracks) {
-      final idx = _tracks.indexWhere((x) => x.id == t.id);
-      if (idx >= 0) {
+      final idx = indexMap[t.id];
+      if (idx != null) {
         _tracks[idx] = t;
       } else {
+        indexMap[t.id] = _tracks.length;
         _tracks.add(t);
       }
     }
@@ -151,10 +165,15 @@ class DatabaseService {
   }
 
   Future<void> toggleFavorite(String trackId) async {
-    if (_favoriteIds.contains(trackId)) {
-      _favoriteIds.remove(trackId);
-    } else {
+    final nowFav = !_favoriteIds.contains(trackId);
+    if (nowFav) {
       _favoriteIds.add(trackId);
+    } else {
+      _favoriteIds.remove(trackId);
+    }
+    final idx = _tracks.indexWhere((t) => t.id == trackId);
+    if (idx >= 0 && _tracks[idx].isFavorite != nowFav) {
+      _tracks[idx] = _tracks[idx].copyWith(isFavorite: nowFav);
     }
     await _persist();
   }
@@ -175,19 +194,14 @@ class DatabaseService {
   }
 
   List<Track> getRecentlyPlayed() {
+    if (_historyIds.isEmpty) return const [];
+    final byId = {for (final t in _tracks) t.id: t};
     final result = <Track>[];
     for (final id in _historyIds) {
-      final t = _tracks.firstWhere(
-        (x) => x.id == id,
-        orElse: () => Track(
-          id: id,
-          title: 'Unknown',
-          artist: 'Unknown',
-          album: '',
-          duration: Duration.zero,
-        ),
-      );
-      if (t.duration > Duration.zero) result.add(t);
+      final t = byId[id];
+      if (t != null && t.duration > Duration.zero) {
+        result.add(t);
+      }
     }
     return result;
   }
@@ -236,6 +250,7 @@ class DatabaseService {
   }
 
   Future<void> _persist() async {
+    _revision++;
     if (_dataFile == null) return;
     try {
       final payload = {

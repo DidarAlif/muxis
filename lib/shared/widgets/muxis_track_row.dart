@@ -36,6 +36,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -45,7 +46,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
         enableGlass: false,
         blurSigma: 0,
         borderRadius: 12,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         colorOverride: widget.isPlaying
             ? (isDark
                   ? MuxisColors.elevatedSurface.withOpacity(0.85)
@@ -64,7 +65,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
         child: Row(
           children: [
             // Index or Playing Equalizer Indicator (hidden on narrow mobile rows)
-            if (MediaQuery.sizeOf(context).width >= 540)
+            if (viewportWidth >= 540)
               SizedBox(
                 width: 32,
                 child: widget.isPlaying
@@ -102,10 +103,10 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
                       widget.track.artworkUrl!.isNotEmpty
                   ? Image.network(
                       widget.track.artworkUrl!,
-                      width: 44,
-                      height: 44,
-                      cacheWidth: 120,
-                      cacheHeight: 120,
+                      width: 40,
+                      height: 40,
+                      cacheWidth: 96,
+                      cacheHeight: 96,
                       gaplessPlayback: true,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Center(
@@ -161,7 +162,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
             ),
 
             // Album Name (Hidden on mobile / narrow viewports)
-            if (MediaQuery.sizeOf(context).width >= 680)
+            if (viewportWidth >= 680)
               Expanded(
                 flex: 3,
                 child: Text(
@@ -173,8 +174,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
               ),
 
             // Audio Format Badge (e.g. FLAC 24-bit) — desktop/tablet only
-            if (MediaQuery.sizeOf(context).width >= 600 &&
-                widget.track.audioFormat != null)
+            if (viewportWidth >= 600 && widget.track.audioFormat != null)
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: MuxisBadge(label: widget.track.audioFormat!),
@@ -182,6 +182,8 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
 
             // Favorite Heart Toggle
             IconButton(
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              padding: const EdgeInsets.all(6),
               icon: Icon(
                 widget.track.isFavorite
                     ? Icons.favorite_rounded
@@ -199,7 +201,7 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
             ),
 
             // Duration (hidden on ultra-narrow mobile phones so title stays legible)
-            if (MediaQuery.sizeOf(context).width >= 430)
+            if (viewportWidth >= 430)
               SizedBox(
                 width: 44,
                 child: Text(
@@ -214,6 +216,8 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
 
             // Quick Context Menu Actions
             PopupMenuButton<String>(
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               icon: Icon(
                 Icons.more_horiz_rounded,
                 size: 18,

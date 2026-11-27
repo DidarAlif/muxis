@@ -677,6 +677,58 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
     },
   );
 
+  // --- SUITE 13: HIGH-VOLUME LIBRARY SORT & FILTER ---
+  print('\n[Suite 13: High-Volume Library Sort & Filter]');
+
+  test(
+    'Pre-keyed library sort handles 2000 tracks accurately across all modes',
+    () {
+      final largeTracks = List<Track>.generate(2000, (i) {
+        final rev = 1999 - i;
+        return Track(
+          id: 'tr-$i',
+          title: 'Track ${rev.toString().padLeft(4, '0')}',
+          artist: 'Artist ${(i % 50).toString().padLeft(2, '0')}',
+          album: 'Album ${i % 25}',
+          duration: Duration(seconds: 60 + i),
+          source: MusicSource.values[i % MusicSource.values.length],
+          isFavorite: i % 10 == 0,
+        );
+      });
+
+      final titleAsc = applyLibrarySortAndFilter(
+        tracks: largeTracks,
+        sortOption: LibrarySortOption.titleAsc,
+      );
+      expect(titleAsc.length, 2000);
+      expect(titleAsc.first.title, 'Track 0000');
+      expect(titleAsc.last.title, 'Track 1999');
+
+      final titleDesc = applyLibrarySortAndFilter(
+        tracks: largeTracks,
+        sortOption: LibrarySortOption.titleDesc,
+      );
+      expect(titleDesc.first.title, 'Track 1999');
+      expect(titleDesc.last.title, 'Track 0000');
+
+      final recentFastPath = applyLibrarySortAndFilter(tracks: largeTracks);
+      expect(recentFastPath.first.id, 'tr-1999');
+      expect(recentFastPath.last.id, 'tr-0');
+
+      final byArtist = applyLibrarySortAndFilter(
+        tracks: largeTracks,
+        sortOption: LibrarySortOption.artistAsc,
+      );
+      expect(byArtist.first.artist, 'Artist 00');
+
+      final bySource = applyLibrarySortAndFilter(
+        tracks: largeTracks,
+        sortOption: LibrarySortOption.source,
+      );
+      expect(bySource.first.source, MusicSource.values.first);
+    },
+  );
+
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');
   print('======================================================');
