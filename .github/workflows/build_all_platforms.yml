@@ -186,16 +186,11 @@ jobs:
       - name: Generate Android Scaffolding
         run: flutter create --platforms=android --org app.muxis .
 
-      - name: Inject Android Brand Icons
+      - name: Inject Android Brand Icons & Audio Service
         run: |
           cp -rf assets/brand/icons/android/mipmap-* android/app/src/main/res/
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
-          if [ -f android/app/src/main/AndroidManifest.xml ]; then
-            sed -i 's/android:label="muxis"/android:label="MUXIS"/g' android/app/src/main/AndroidManifest.xml
-            if ! grep -q 'android:scheme="muxis"' android/app/src/main/AndroidManifest.xml; then
-              python3 -c 'import pathlib; p=pathlib.Path("android/app/src/main/AndroidManifest.xml"); s=p.read_text(); intent="<intent-filter><action android:name=\"android.intent.action.VIEW\"/><category android:name=\"android.intent.category.DEFAULT\"/><category android:name=\"android.intent.category.BROWSABLE\"/><data android:scheme=\"muxis\" android:host=\"auth-callback\"/></intent-filter>\n        </activity>"; p.write_text(s.replace("</activity>", intent, 1))'
-            fi
-          fi
+          python3 scripts/configure_android_audio.py
 
       - name: Upgrade Android Gradle Plugin for WebView AAR
         run: |

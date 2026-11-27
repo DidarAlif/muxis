@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app.dart';
+import 'core/audio/muxis_audio_handler.dart';
 import 'core/config/app_config.dart';
 import 'core/database/database_service.dart';
 
@@ -58,6 +59,9 @@ void main(List<String> args) async {
   // 3. Initialize Local Offline Database
   final databaseService = DatabaseService();
   await databaseService.init();
+
+  // 4. Initialize Android / iOS Background Media Notification Service
+  await MuxisAudioHandler.initGlobal();
 
   runApp(
     ProviderScope(

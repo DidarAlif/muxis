@@ -12,6 +12,7 @@ import '../../shared/models/track.dart';
 import '../database/database_service.dart';
 import 'dsp/equalizer_node.dart';
 import 'dsp/vocal_remover.dart';
+import 'muxis_audio_handler.dart';
 import 'playback_state.dart';
 
 final playbackServiceProvider =
@@ -40,6 +41,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   final SpotifyMusicProvider _spotifyProvider;
   final SoundCloudMusicProvider _soundCloudProvider;
   final DatabaseService? _databaseService;
+  final MuxisAudioHandler? _audioHandler;
 
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<Duration>? _positionSub;
@@ -51,6 +53,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   int _playRequestId = 0;
   bool _hasLoadedSource = false;
   DateTime _lastPositionEmit = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastHandlerPositionSync = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastBufferEmit = DateTime.fromMillisecondsSinceEpoch(0);
   String? _lastPrefetchedTrackId;
 
@@ -63,12 +66,15 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     SpotifyMusicProvider? spotifyProvider,
     SoundCloudMusicProvider? soundCloudProvider,
     DatabaseService? databaseService,
+    MuxisAudioHandler? audioHandler,
   }) : _player = player ?? AudioPlayer(),
        _innerTubeProvider = innerTubeProvider ?? InnerTubeMusicProvider(),
        _spotifyProvider = spotifyProvider ?? SpotifyMusicProvider(),
        _soundCloudProvider = soundCloudProvider ?? SoundCloudMusicProvider(),
        _databaseService = databaseService,
+       _audioHandler = audioHandler ?? MuxisAudioHandler.instance,
        super(const PlaybackState()) {
+    _bindAudioHandler();
     _initAudioListeners();
     if (_databaseService != null) {
       final saved = _databaseService!.getAllTracks();
@@ -76,6 +82,30 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         loadInitialTracks(saved);
       }
     }
+  }
+
+  void _bindAudioHandler() {
+    final handler = _audioHandler;
+    if (handler == null) return;
+    handler.onPlayCallback = play;
+    handler.onPauseCallback = pause;
+    handler.onStopCallback = stop;
+    handler.onNextCallback = playNext;
+    handler.onPreviousCallback = playPrevious;
+    handler.onSeekCallback = seek;
+  }
+
+  void _syncHandlerState({bool forceActive = false}) {
+    final handler = _audioHandler;
+    if (handler == null) return;
+    handler.syncPlaybackState(
+      playing: _player.playing,
+      processingState: _player.processingState,
+      position: state.position,
+      bufferedPosition: state.bufferedPosition,
+      speed: _currentStudio.playbackSpeed,
+      forceActive: forceActive,
+    );
   }
 
   void updateEqualizer(EqualizerState eq) {
@@ -131,12 +161,19 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         }
 
         state = state.copyWith(status: status);
+        _syncHandlerState(forceActive: status == PlaybackStatus.loading);
       },
       onError: (Object err) {
         if (!_isDisposed) {
           state = state.copyWith(
             status: PlaybackStatus.error,
             errorMessage: 'Audio Engine Error: $err',
+          );
+          _audioHandler?.syncPlaybackState(
+            playing: false,
+            processingState: ProcessingState.idle,
+            position: Duration.zero,
+            bufferedPosition: Duration.zero,
           );
         }
       },
@@ -151,12 +188,19 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
           now.difference(_lastPositionEmit).inMilliseconds >= 220) {
         _lastPositionEmit = now;
         state = state.copyWith(position: pos);
+        if (jumped ||
+            pos == Duration.zero ||
+            now.difference(_lastHandlerPositionSync).inMilliseconds >= 2000) {
+          _lastHandlerPositionSync = now;
+          _syncHandlerState();
+        }
       }
     });
 
     _durationSub = _player.durationStream.listen((dur) {
       if (!_isDisposed && dur != null) {
         state = state.copyWith(duration: dur);
+        _audioHandler?.updateDuration(dur);
       }
     });
 
@@ -189,6 +233,9 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       duration: tracks[0].duration,
       status: PlaybackStatus.idle,
     );
+    _audioHandler?.syncQueue(tracks);
+    _audioHandler?.updateNowPlaying(tracks[0]);
+    _syncHandlerState();
   }
 
   Future<void> playTrack(Track track, {List<Track>? newQueue}) async {
@@ -208,6 +255,17 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       duration: track.duration,
       bufferedPosition: Duration.zero,
       errorMessage: null,
+    );
+    _audioHandler?.activateAudioFocus();
+    _audioHandler?.syncQueue(queue);
+    _audioHandler?.updateNowPlaying(track);
+    _audioHandler?.syncPlaybackState(
+      playing: true,
+      processingState: ProcessingState.loading,
+      position: Duration.zero,
+      bufferedPosition: Duration.zero,
+      speed: _currentStudio.playbackSpeed,
+      forceActive: true,
     );
 
     try {
@@ -322,12 +380,24 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
           status: PlaybackStatus.error,
           errorMessage: 'Unable to resolve ad-free stream for: ${track.title}',
         );
+        _audioHandler?.syncPlaybackState(
+          playing: false,
+          processingState: ProcessingState.idle,
+          position: Duration.zero,
+          bufferedPosition: Duration.zero,
+        );
       }
     } catch (e) {
       if (!_isDisposed && requestId == _playRequestId) {
         state = state.copyWith(
           status: PlaybackStatus.error,
           errorMessage: 'Playback error: $e',
+        );
+        _audioHandler?.syncPlaybackState(
+          playing: false,
+          processingState: ProcessingState.idle,
+          position: Duration.zero,
+          bufferedPosition: Duration.zero,
         );
       }
     }
@@ -350,11 +420,29 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       playTrack(state.queue[0]);
       return;
     }
+    _audioHandler?.activateAudioFocus();
     _player.play();
+    _audioHandler?.syncPlaybackState(
+      playing: true,
+      processingState: _player.processingState == ProcessingState.idle
+          ? ProcessingState.loading
+          : _player.processingState,
+      position: state.position,
+      bufferedPosition: state.bufferedPosition,
+      speed: _currentStudio.playbackSpeed,
+      forceActive: true,
+    );
   }
 
   void pause() {
     _player.pause();
+    _audioHandler?.syncPlaybackState(
+      playing: false,
+      processingState: _player.processingState,
+      position: state.position,
+      bufferedPosition: state.bufferedPosition,
+      speed: _currentStudio.playbackSpeed,
+    );
   }
 
   void stop() {
@@ -365,6 +453,12 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       status: PlaybackStatus.idle,
       position: Duration.zero,
     );
+    _audioHandler?.syncPlaybackState(
+      playing: false,
+      processingState: ProcessingState.idle,
+      position: Duration.zero,
+      bufferedPosition: Duration.zero,
+    );
   }
 
   void seek(Duration position) {
@@ -373,6 +467,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         : (position > state.duration ? state.duration : position);
     _player.seek(clamped);
     state = state.copyWith(position: clamped);
+    _syncHandlerState();
   }
 
   void setVolume(double volume) {
@@ -565,6 +660,7 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   @override
   void dispose() {
     _isDisposed = true;
+    _audioHandler?.clearCallbacks();
     _playerStateSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();

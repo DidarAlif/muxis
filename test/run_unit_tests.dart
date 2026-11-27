@@ -12,6 +12,7 @@ import '../lib/shared/models/radio_station.dart';
 import '../lib/shared/models/track.dart';
 import '../lib/shared/utils/cloud_auth_utils.dart';
 import '../lib/shared/utils/library_filter.dart';
+import '../lib/shared/utils/media_notification_utils.dart';
 import '../lib/shared/utils/soundcloud_auth_utils.dart';
 
 void main() {
@@ -785,6 +786,82 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
         CloudAuthHelper.isCompletedCallbackUri(
           Uri.parse('http://localhost:3000/auth-callback?error=access_denied'),
         ),
+      );
+    },
+  );
+
+  // Suite 15: Android / iOS Media Notification Helper Tests
+  print('\nSuite 15: Media Notification Metadata & Artwork Helpers');
+  test('MediaNotificationHelper resolves http/file artwork URIs and rejects invalid schemes', () {
+    expect(
+      MediaNotificationHelper.resolveArtworkUri('https://cdn.muxis.app/art.jpg')
+          .toString(),
+      'https://cdn.muxis.app/art.jpg',
+    );
+    expect(
+      MediaNotificationHelper.resolveArtworkUri(
+        'http://radio.example/cover.png',
+      ).toString(),
+      'http://radio.example/cover.png',
+    );
+    expect(
+      MediaNotificationHelper.resolveArtworkUri(
+        'file:///storage/emulated/0/Music/cover.jpg',
+      )?.scheme,
+      'file',
+    );
+    expect(MediaNotificationHelper.resolveArtworkUri(''), null);
+    expect(MediaNotificationHelper.resolveArtworkUri('   '), null);
+    expect(
+      MediaNotificationHelper.resolveArtworkUri('javascript:alert(1)'),
+      null,
+    );
+  });
+
+  test(
+    'MediaNotificationHelper normalizes Radio live duration vs track duration',
+    () {
+      final radioTrack = Track(
+        id: 'radio_1',
+        title: 'London Jazz FM',
+        artist: 'UK • 102.2 FM',
+        album: '',
+        duration: const Duration(minutes: 3),
+        source: MusicSource.radio,
+      );
+      expect(
+        MediaNotificationHelper.resolveNotificationDuration(radioTrack),
+        null,
+      );
+      final radioMeta = MediaNotificationHelper.resolveDisplayMetadata(
+        radioTrack,
+      );
+      expect(radioMeta.title, 'London Jazz FM');
+      expect(radioMeta.artist, 'UK • 102.2 FM');
+      expect(radioMeta.album, 'MUXIS Global FM');
+
+      final musicTrack = Track(
+        id: 'yt_1',
+        title: 'Midnight Horizon',
+        artist: '',
+        album: '',
+        duration: const Duration(seconds: 215),
+        source: MusicSource.youtube,
+      );
+      expect(
+        MediaNotificationHelper.resolveNotificationDuration(musicTrack),
+        const Duration(seconds: 215),
+      );
+      final musicMeta = MediaNotificationHelper.resolveDisplayMetadata(
+        musicTrack,
+      );
+      expect(musicMeta.artist, 'Unknown Artist');
+      expect(musicMeta.album, 'Midnight Horizon');
+
+      final zeroDurTrack = musicTrack.copyWith(duration: Duration.zero);
+      expect(
+        MediaNotificationHelper.resolveNotificationDuration(zeroDurTrack),
+        null,
       );
     },
   );
