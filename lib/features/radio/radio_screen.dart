@@ -343,7 +343,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            gradient: MuxisGradients.primaryCtaGradient,
+                            gradient: MuxisGradients.prismaticPrimary,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(

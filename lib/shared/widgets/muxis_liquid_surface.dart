@@ -159,14 +159,6 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
   }
 
   @override
-  void dispose() {
-    _waveCtrl.dispose();
-    _hoverBlendCtrl.dispose();
-    _dropTickCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = widget.accentColor ?? MuxisColors.accent(isDark);
