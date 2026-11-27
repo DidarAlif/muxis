@@ -247,10 +247,18 @@ jobs:
           cache: true
 
       - name: Generate iOS Scaffolding
-        run: flutter create --platforms=ios --org app.muxis .
+        run: |
+          flutter create --platforms=ios --org app.muxis .
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g' ios/Runner.xcodeproj/project.pbxproj
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Configure iOS Podfile Deployment Target
+        run: |
+          if [ -f ios/Podfile ]; then
+            sed -i '' "s/^# *platform :ios, '.*'/platform :ios, '14.0'/" ios/Podfile
+          fi
 
       - name: Build iOS App
         run: flutter build ios --release --no-codesign --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
