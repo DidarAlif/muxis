@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../shared/utils/theme_catalog.dart';
+import '../../shared/utils/theme_catalog.dart';
 
 /// Centralized Muxis Brand & Surface Colors (Dynamic Multi-Theme + Liquid Glass)
 class MuxisColors {
