@@ -238,7 +238,6 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
         fit: StackFit.passthrough,
         clipBehavior: Clip.hardEdge,
         children: [
-          Padding(padding: widget.padding, child: widget.child),
           if (widget.enableHoverWave || widget.enableDropRipple)
             Positioned.fill(
               child: IgnorePointer(
@@ -273,6 +272,7 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
                 ),
               ),
             ),
+          Padding(padding: widget.padding, child: widget.child),
         ],
       ),
     );

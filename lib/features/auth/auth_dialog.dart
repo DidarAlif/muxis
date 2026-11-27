@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
+import '../../app/theme/muxis_typography.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/auth/supabase_auth_service.dart';
 import '../../shared/widgets/muxis_button.dart';
@@ -23,6 +24,9 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
   final TextEditingController _regNameCtrl = TextEditingController();
   final TextEditingController _regEmailCtrl = TextEditingController();
   final TextEditingController _regPassCtrl = TextEditingController();
+
+  bool _hideLoginPass = true;
+  bool _hideRegPass = true;
 
   @override
   void initState() {
@@ -46,8 +50,22 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
     final authState = ref.watch(authServiceProvider);
     final authService = ref.read(authServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final isMobile = MediaQuery.sizeOf(context).width < 520;
+
+    ref.listen<AuthState>(authServiceProvider, (prev, next) {
+      if (!mounted) return;
+      if ((prev == null || !prev.isAuthenticated) && next.isAuthenticated) {
+        Navigator.of(context).pop();
+        return;
+      }
+      if ((prev?.needsEmailConfirmation != true) &&
+          next.needsEmailConfirmation &&
+          next.pendingConfirmationEmail != null &&
+          _tabController.index == 1) {
+        _loginEmailCtrl.text = next.pendingConfirmationEmail!;
+        _tabController.animateTo(0);
+      }
+    });
 
     return Dialog(
       backgroundColor: isDark ? MuxisColors.obsidian : MuxisColors.whiteSurface,
@@ -64,9 +82,9 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
         ),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 620),
         child: Padding(
-          padding: EdgeInsets.all(isMobile ? 18 : 28),
+          padding: EdgeInsets.all(isMobile ? 18 : 26),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -85,12 +103,11 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                       const SizedBox(width: 12),
                       Text(
                         'MUXIS CLOUD',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2.0,
+                        style: MuxisTypography.mono(
+                          fontSize: 13.5,
+                          letterSpacing: 1.8,
                           color: MuxisColors.accent(isDark),
+                          isDark: isDark,
                         ),
                       ),
                     ],
@@ -101,7 +118,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
               // Tabs (Sign In / Register)
               TabBar(
@@ -116,37 +133,39 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                   Tab(text: 'Create Account'),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // Error display if any
-              if (authState.errorMessage != null)
+              // Info banner (e.g., email confirmation sent)
+              if (authState.infoMessage != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 8,
+                    vertical: 10,
                   ),
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: MuxisColors.error.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    color: MuxisColors.accent(isDark).withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: MuxisColors.error.withOpacity(0.4),
+                      color: MuxisColors.accent(isDark).withOpacity(0.45),
                     ),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        color: MuxisColors.error,
-                        size: 16,
+                      Icon(
+                        Icons.mark_email_read_outlined,
+                        color: MuxisColors.accent(isDark),
+                        size: 18,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          authState.errorMessage!,
-                          style: const TextStyle(
+                          authState.infoMessage!,
+                          style: TextStyle(
                             fontSize: 12,
-                            color: MuxisColors.error,
+                            height: 1.35,
+                            color: MuxisColors.textPrimary(isDark),
                           ),
                         ),
                       ),
@@ -154,16 +173,74 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
                   ),
                 ),
 
+              // Error display if any
+              if (authState.errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: MuxisColors.error.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: MuxisColors.error.withOpacity(0.45),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: MuxisColors.error,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          authState.errorMessage!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: Color(0xFFFCA5A5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (authState.needsEmailConfirmation) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: MuxisButton(
+                    label: 'Resend Confirmation Email',
+                    icon: const Icon(Icons.forward_to_inbox_rounded, size: 17),
+                    variant: MuxisButtonVariant.secondary,
+                    height: 36,
+                    isLoading: authState.isLoading,
+                    onPressed: () {
+                      final email = _loginEmailCtrl.text.trim().isNotEmpty
+                          ? _loginEmailCtrl.text.trim()
+                          : _regEmailCtrl.text.trim();
+                      authService.resendConfirmationEmail(email);
+                    },
+                  ),
+                ),
+              ],
+
               // Tab Views
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    // --- TAB 1: SIGN IN ---
-                    _buildSignInTab(authService, authState, isDark),
-
-                    // --- TAB 2: REGISTER ---
-                    _buildRegisterTab(authService, authState, isDark),
+                    SingleChildScrollView(
+                      child: _buildSignInTab(authService, authState, isDark),
+                    ),
+                    SingleChildScrollView(
+                      child: _buildRegisterTab(authService, authState, isDark),
+                    ),
                   ],
                 ),
               ),
@@ -184,7 +261,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
       children: [
         _buildTextField(
           _loginEmailCtrl,
-          'Email Address',
+          'Gmail / Email Address',
           Icons.email_outlined,
           false,
           isDark,
@@ -194,10 +271,12 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
           _loginPassCtrl,
           'Password',
           Icons.lock_outline_rounded,
-          true,
+          _hideLoginPass,
           isDark,
+          onToggleObscure: () =>
+              setState(() => _hideLoginPass = !_hideLoginPass),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
 
         MuxisButton(
           label: 'Sign In to Muxis Cloud',
@@ -212,22 +291,22 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
           },
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton(
-              onPressed: () {
-                if (_loginEmailCtrl.text.isNotEmpty) {
-                  authService.sendPasswordReset(_loginEmailCtrl.text);
+              onPressed: () async {
+                if (_loginEmailCtrl.text.trim().isEmpty) {
+                  authService.clearMessages();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text(
-                        'Password reset instructions sent if email exists.',
-                      ),
+                      content: Text('Enter your Gmail / email address first.'),
                     ),
                   );
+                  return;
                 }
+                await authService.sendPasswordReset(_loginEmailCtrl.text);
               },
               child: Text(
                 'Forgot Password?',
@@ -240,31 +319,8 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
           ],
         ),
 
-        const Spacer(),
-        // OAuth Buttons
-        Row(
-          children: [
-            Expanded(
-              child: MuxisButton(
-                label: 'Google',
-                icon: const Icon(Icons.g_mobiledata_rounded, size: 22),
-                variant: MuxisButtonVariant.secondary,
-                height: 38,
-                onPressed: () => authService.signInWithGoogle(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: MuxisButton(
-                label: 'Apple',
-                icon: const Icon(Icons.apple_rounded, size: 18),
-                variant: MuxisButtonVariant.secondary,
-                height: 38,
-                onPressed: () => authService.signInWithApple(),
-              ),
-            ),
-          ],
-        ),
+        const SizedBox(height: 12),
+        _buildOAuthSection(authService, authState, isDark),
       ],
     );
   }
@@ -287,7 +343,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
         const SizedBox(height: 12),
         _buildTextField(
           _regEmailCtrl,
-          'Email Address',
+          'Gmail / Email Address',
           Icons.email_outlined,
           false,
           isDark,
@@ -295,12 +351,13 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
         const SizedBox(height: 12),
         _buildTextField(
           _regPassCtrl,
-          'Password (min. 8 characters)',
+          'Password (min. 6 characters)',
           Icons.lock_outline_rounded,
-          true,
+          _hideRegPass,
           isDark,
+          onToggleObscure: () => setState(() => _hideRegPass = !_hideRegPass),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
 
         MuxisButton(
           label: 'Create Free Account',
@@ -316,15 +373,74 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
           },
         ),
 
+        const SizedBox(height: 14),
+        _buildOAuthSection(authService, authState, isDark),
+
         const SizedBox(height: 12),
         Text(
-          'By signing up, your playlists and preferences will sync securely across your devices. Your local music library files are never uploaded.',
+          'Your playlists and preferences sync securely across devices. Local music library files are never uploaded.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 11.5,
             color: MuxisColors.textMuted(isDark),
-            height: 1.3,
+            height: 1.35,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOAuthSection(
+    SupabaseAuthService authService,
+    AuthState authState,
+    bool isDark,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Divider(color: MuxisColors.border(isDark))),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                'OR CONTINUE WITH',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: MuxisColors.textMuted(isDark),
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: MuxisColors.border(isDark))),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: MuxisButton(
+                label: 'Google',
+                icon: const Icon(Icons.g_mobiledata_rounded, size: 22),
+                variant: MuxisButtonVariant.secondary,
+                height: 38,
+                isLoading: authState.isLoading,
+                onPressed: () => authService.signInWithGoogle(),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: MuxisButton(
+                label: 'Apple',
+                icon: const Icon(Icons.apple_rounded, size: 18),
+                variant: MuxisButtonVariant.secondary,
+                height: 38,
+                isLoading: authState.isLoading,
+                onPressed: () => authService.signInWithApple(),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -335,22 +451,35 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
     String hint,
     IconData icon,
     bool obscure,
-    bool isDark,
-  ) {
+    bool isDark, {
+    VoidCallback? onToggleObscure,
+  }) {
     return TextField(
       controller: ctrl,
       obscureText: obscure,
       style: TextStyle(
-        fontSize: 13,
+        fontSize: 13.5,
         color: isDark ? Colors.white : MuxisColors.textPrimaryLight,
       ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
-          fontSize: 12,
+          fontSize: 12.5,
           color: MuxisColors.textMuted(isDark),
         ),
         prefixIcon: Icon(icon, size: 18, color: MuxisColors.accent(isDark)),
+        suffixIcon: onToggleObscure == null
+            ? null
+            : IconButton(
+                icon: Icon(
+                  obscure
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
+                  color: MuxisColors.textMuted(isDark),
+                ),
+                onPressed: onToggleObscure,
+              ),
         filled: true,
         fillColor: isDark
             ? MuxisColors.deepSpace

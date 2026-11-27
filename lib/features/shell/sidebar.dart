@@ -107,10 +107,9 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                                 Text(
                                   'LIQUID AUDIO',
                                   style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 8.5,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.8,
+                                    letterSpacing: 1.5,
                                     color: MuxisColors.accent(isDark),
                                   ),
                                 ),
@@ -378,10 +377,9 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
       child: Text(
         title,
         style: TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 10,
+          fontSize: 10.5,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
+          letterSpacing: 1.0,
           color: MuxisColors.textMuted(isDark),
         ),
       ),

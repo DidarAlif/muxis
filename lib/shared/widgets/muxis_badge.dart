@@ -24,20 +24,22 @@ class MuxisBadge extends StatelessWidget {
             : (isDark ? MuxisColors.prismaticBlue : MuxisColors.velvetViolet));
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: primaryColor.withOpacity(0.12),
+        color: primaryColor.withOpacity(isDark ? 0.20 : 0.14),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: primaryColor.withOpacity(0.35), width: 0.8),
+        border: Border.all(
+          color: primaryColor.withOpacity(isDark ? 0.50 : 0.42),
+          width: 0.9,
+        ),
       ),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 10,
+          fontSize: 10.5,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.6,
-          color: primaryColor,
+          letterSpacing: 0.45,
+          color: isDark ? Colors.white : primaryColor,
         ),
       ),
     );

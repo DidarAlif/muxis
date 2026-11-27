@@ -226,10 +226,9 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                           Text(
                             'STUDIO PRESETS',
                             style: TextStyle(
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 11,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.0,
                               color: MuxisColors.accent(isDark),
                             ),
                           ),
@@ -347,20 +346,17 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                                   child: Text(
                                     '${band.gainDb >= 0 ? '+' : ''}${band.gainDb.toStringAsFixed(1)}',
                                     style: TextStyle(
-                                      fontSize: 10,
-                                      fontFamily: 'JetBrains Mono',
-                                      fontWeight: isBoost || isCut
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
                                       color: isBoost
                                           ? MuxisColors.accent(isDark)
                                           : (isCut
                                                 ? Colors.redAccent
                                                 : (isDark
                                                       ? MuxisColors
-                                                            .textMutedDark
+                                                            .textSecondaryDark
                                                       : MuxisColors
-                                                            .textMutedLight)),
+                                                            .textSecondaryLight)),
                                     ),
                                   ),
                                 ),
@@ -400,9 +396,8 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                                 Text(
                                   _formatFreq(band.frequencyHz),
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
-                                    fontFamily: 'JetBrains Mono',
                                     color: isDark
                                         ? MuxisColors.textPrimaryDark
                                         : MuxisColors.textPrimaryLight,
@@ -435,10 +430,9 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                             Text(
                               'ACOUSTIC ENHANCEMENT DRIVES',
                               style: TextStyle(
-                                fontFamily: 'JetBrains Mono',
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
+                                letterSpacing: 1.0,
                                 color: MuxisColors.accent(isDark),
                               ),
                             ),
@@ -659,10 +653,10 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 10,
+                  style: TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    fontFamily: 'JetBrains Mono',
+                    color: MuxisColors.textPrimary(isDark),
                   ),
                 ),
               ],
@@ -670,8 +664,7 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
             Text(
               display,
               style: TextStyle(
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
+                fontSize: 11.5,
                 fontWeight: FontWeight.w700,
                 color: MuxisColors.accent(isDark),
               ),

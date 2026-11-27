@@ -119,168 +119,178 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        children: [
-                          if (isMobile) ...[
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.24),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+            foregroundDecoration: null,
+            child: Container(
+              padding: EdgeInsets.all(isMobile ? 14 : 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(isMobile ? 14 : 16),
+                color: isDark
+                    ? const Color(0xBD060A12)
+                    : const Color(0x9E0B1320),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            if (isMobile) ...[
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.24),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Image.asset(
+                                  'assets/brand/app_icon_1024.png',
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            Expanded(
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  _heroBadge(
+                                    accounts.hasAnyConnected
+                                        ? '${accounts.connectedCount} STREAM PLATFORM${accounts.connectedCount > 1 ? 'S' : ''} LINKED'
+                                        : 'MULTI-PLATFORM AD-FREE AUDIO',
                                   ),
+                                  if (accounts.youtube.isConnected)
+                                    _heroBadge('YT MUSIC LIVE'),
+                                  if (accounts.spotify.isConnected)
+                                    _heroBadge('SPOTIFY BRIDGE LIVE'),
+                                  if (accounts.soundcloud.isConnected)
+                                    _heroBadge('SOUNDCLOUD LIVE'),
                                 ],
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Image.asset(
-                                'assets/brand/app_icon_1024.png',
-                                fit: BoxFit.cover,
-                                filterQuality: FilterQuality.high,
-                              ),
                             ),
-                            const SizedBox(width: 10),
                           ],
-                          Expanded(
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                _heroBadge(
-                                  accounts.hasAnyConnected
-                                      ? '${accounts.connectedCount} STREAM PLATFORM${accounts.connectedCount > 1 ? 'S' : ''} LINKED'
-                                      : 'MULTI-PLATFORM AD-FREE AUDIO',
-                                ),
-                                if (accounts.youtube.isConnected)
-                                  _heroBadge('YT MUSIC LIVE'),
-                                if (accounts.spotify.isConnected)
-                                  _heroBadge('SPOTIFY BRIDGE LIVE'),
-                                if (accounts.soundcloud.isConnected)
-                                  _heroBadge('SOUNDCLOUD LIVE'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: isMobile ? 10 : 12),
-                      Text(
-                        'Prismatic Horizons',
-                        style: TextStyle(
-                          fontSize: isMobile ? 22 : 28,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.black : Colors.white,
-                          letterSpacing: -0.5,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        accounts.hasAnyConnected
-                            ? 'Your connected streaming libraries are synced below and ready for instant ad-free playback.'
-                            : 'Sign in through the web browser to link YouTube Music, Spotify, and SoundCloud and stream seamlessly without ads.',
-                        maxLines: isMobile ? 3 : 2,
-                        style: TextStyle(
-                          fontSize: isMobile ? 12 : 13,
-                          fontWeight: FontWeight.w500,
-                          color: isDark
-                              ? const Color(0xCC000000)
-                              : Colors.white.withOpacity(0.92),
+                        SizedBox(height: isMobile ? 10 : 12),
+                        Text(
+                          'Prismatic Horizons',
+                          style: TextStyle(
+                            fontSize: isMobile ? 22 : 28,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -0.4,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: isMobile ? 12 : 16),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          MuxisButton(
-                            label: 'Play Spotlight',
-                            icon: Icon(
-                              Icons.play_arrow_rounded,
-                              color: isDark ? Colors.black : Colors.white,
+                        const SizedBox(height: 5),
+                        Text(
+                          accounts.hasAnyConnected
+                              ? 'Your connected streaming libraries are synced below and ready for instant ad-free playback.'
+                              : 'Sign in through the web browser to link YouTube Music, Spotify, and SoundCloud and stream seamlessly without ads.',
+                          maxLines: isMobile ? 3 : 2,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        SizedBox(height: isMobile ? 12 : 16),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          children: [
+                            MuxisButton(
+                              label: 'Play Spotlight',
+                              icon: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.black,
+                              ),
+                              variant: MuxisButtonVariant.primary,
+                              height: isMobile ? 34 : 38,
+                              onPressed: () {
+                                if (queue.isNotEmpty) {
+                                  audioService.playTrack(queue[0]);
+                                } else if (accounts
+                                    .youtube
+                                    .recommendedTracks
+                                    .isNotEmpty) {
+                                  audioService.playTrack(
+                                    accounts.youtube.recommendedTracks[0],
+                                    newQueue:
+                                        accounts.youtube.recommendedTracks,
+                                  );
+                                } else if (accounts
+                                    .spotify
+                                    .recommendedTracks
+                                    .isNotEmpty) {
+                                  audioService.playTrack(
+                                    accounts.spotify.recommendedTracks[0],
+                                    newQueue:
+                                        accounts.spotify.recommendedTracks,
+                                  );
+                                } else if (accounts
+                                    .soundcloud
+                                    .recommendedTracks
+                                    .isNotEmpty) {
+                                  audioService.playTrack(
+                                    accounts.soundcloud.recommendedTracks[0],
+                                    newQueue:
+                                        accounts.soundcloud.recommendedTracks,
+                                  );
+                                } else if (_trendingTracks.isNotEmpty) {
+                                  audioService.playTrack(
+                                    _trendingTracks[0],
+                                    newQueue: _trendingTracks,
+                                  );
+                                }
+                              },
                             ),
-                            variant: MuxisButtonVariant.secondary,
-                            height: isMobile ? 34 : 38,
-                            onPressed: () {
-                              if (queue.isNotEmpty) {
-                                audioService.playTrack(queue[0]);
-                              } else if (accounts
-                                  .youtube
-                                  .recommendedTracks
-                                  .isNotEmpty) {
-                                audioService.playTrack(
-                                  accounts.youtube.recommendedTracks[0],
-                                  newQueue: accounts.youtube.recommendedTracks,
-                                );
-                              } else if (accounts
-                                  .spotify
-                                  .recommendedTracks
-                                  .isNotEmpty) {
-                                audioService.playTrack(
-                                  accounts.spotify.recommendedTracks[0],
-                                  newQueue: accounts.spotify.recommendedTracks,
-                                );
-                              } else if (accounts
-                                  .soundcloud
-                                  .recommendedTracks
-                                  .isNotEmpty) {
-                                audioService.playTrack(
-                                  accounts.soundcloud.recommendedTracks[0],
-                                  newQueue:
-                                      accounts.soundcloud.recommendedTracks,
-                                );
-                              } else if (_trendingTracks.isNotEmpty) {
-                                audioService.playTrack(
-                                  _trendingTracks[0],
-                                  newQueue: _trendingTracks,
-                                );
-                              }
-                            },
-                          ),
-                          MuxisButton(
-                            label: 'Search Catalog',
-                            variant: MuxisButtonVariant.liquidGlass,
-                            height: isMobile ? 34 : 38,
-                            onPressed: () => widget.onNavigate(2),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isMobile) ...[
-                  const SizedBox(width: 24),
-                  Container(
-                    width: 116,
-                    height: 116,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.32),
-                          blurRadius: 22,
-                          offset: const Offset(0, 10),
+                            MuxisButton(
+                              label: 'Search Catalog',
+                              variant: MuxisButtonVariant.secondary,
+                              height: isMobile ? 34 : 38,
+                              onPressed: () => widget.onNavigate(2),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      'assets/brand/app_icon_1024.png',
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                    ),
                   ),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 24),
+                    Container(
+                      width: 116,
+                      height: 116,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.32),
+                            blurRadius: 22,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset(
+                        'assets/brand/app_icon_1024.png',
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
 
@@ -603,16 +613,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.18),
+        color: const Color(0xCC060910),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.18), width: 0.8),
       ),
       child: Text(
         text,
         style: const TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.0,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.7,
           color: Colors.white,
         ),
       ),

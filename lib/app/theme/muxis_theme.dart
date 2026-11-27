@@ -34,6 +34,13 @@ class MuxisTheme {
               .apply(
                 bodyColor: MuxisColors.textPrimaryDark,
                 displayColor: MuxisColors.textPrimaryDark,
+                fontFamilyFallback: const [
+                  'Segoe UI',
+                  'Inter',
+                  'Roboto',
+                  'Arial',
+                  'sans-serif',
+                ],
               ),
 
       sliderTheme: SliderThemeData(
@@ -106,6 +113,13 @@ class MuxisTheme {
               .apply(
                 bodyColor: MuxisColors.textPrimaryLight,
                 displayColor: MuxisColors.textPrimaryLight,
+                fontFamilyFallback: const [
+                  'Segoe UI',
+                  'Inter',
+                  'Roboto',
+                  'Arial',
+                  'sans-serif',
+                ],
               ),
 
       sliderTheme: SliderThemeData(

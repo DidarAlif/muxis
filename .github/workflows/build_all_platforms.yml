@@ -192,6 +192,9 @@ jobs:
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
             sed -i 's/android:label="muxis"/android:label="MUXIS"/g' android/app/src/main/AndroidManifest.xml
+            if ! grep -q 'android:scheme="muxis"' android/app/src/main/AndroidManifest.xml; then
+              python3 -c 'import pathlib; p=pathlib.Path("android/app/src/main/AndroidManifest.xml"); s=p.read_text(); intent="<intent-filter><action android:name=\"android.intent.action.VIEW\"/><category android:name=\"android.intent.category.DEFAULT\"/><category android:name=\"android.intent.category.BROWSABLE\"/><data android:scheme=\"muxis\" android:host=\"auth-callback\"/></intent-filter>\n        </activity>"; p.write_text(s.replace("</activity>", intent, 1))'
+            fi
           fi
 
       - name: Upgrade Android Gradle Plugin for WebView AAR

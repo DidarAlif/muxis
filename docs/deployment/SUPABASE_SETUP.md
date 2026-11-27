@@ -111,10 +111,11 @@ supabase db push
 1. Go to **Authentication** -> **URL Configuration**.
 2. **Site URL:** `https://muxis.app`
 3. **Redirect URLs:** Add the following list:
-   - `muxis://auth-callback` (Muxis Desktop & Mobile deep-link scheme)
+   - `muxis://auth-callback` (Muxis Mobile deep-link scheme)
+   - `http://localhost:3000/auth-callback` (Desktop loopback OAuth primary)
+   - `http://localhost:8080/auth-callback` (Desktop loopback OAuth fallback)
+   - `http://127.0.0.1:*/auth-callback` (Dynamic loopback fallback)
    - `https://muxis.app/auth/callback`
-   - `http://localhost:3000/auth/callback` (Local testing)
-   - `http://localhost:8080/auth/callback`
 
 ---
 

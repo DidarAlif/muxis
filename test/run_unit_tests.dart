@@ -10,6 +10,7 @@ import '../lib/shared/models/featured_section.dart';
 import '../lib/shared/models/playlist.dart';
 import '../lib/shared/models/radio_station.dart';
 import '../lib/shared/models/track.dart';
+import '../lib/shared/utils/cloud_auth_utils.dart';
 import '../lib/shared/utils/library_filter.dart';
 import '../lib/shared/utils/soundcloud_auth_utils.dart';
 
@@ -726,6 +727,65 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
         sortOption: LibrarySortOption.source,
       );
       expect(bySource.first.source, MusicSource.values.first);
+    },
+  );
+
+  // --- SUITE 14: MUXIS CLOUD AUTH HELPERS ---
+  print('\n[Suite 14: MUXIS Cloud Auth Helpers]');
+
+  test(
+    'CloudAuthHelper parses Supabase /auth/v1/settings and callback URIs',
+    () {
+      final disabled = CloudAuthHelper.parseAuthSettings({
+        'external': {'google': false, 'apple': false, 'email': true},
+        'mailer_autoconfirm': false,
+      });
+      expectFalse(disabled.google);
+      expectFalse(disabled.apple);
+      expectTrue(disabled.email);
+      expectFalse(disabled.autoconfirm);
+
+      final enabled = CloudAuthHelper.parseAuthSettings(
+        '{"external":{"google":true,"apple":true,"email":true},"mailer_autoconfirm":true}',
+      );
+      expectTrue(enabled.google);
+      expectTrue(enabled.apple);
+      expectTrue(enabled.autoconfirm);
+
+      expectTrue(
+        CloudAuthHelper.validateSignup(email: 'bad', password: 'password123') !=
+            null,
+      );
+      expectTrue(
+        CloudAuthHelper.validateSignup(
+              email: 'user@gmail.com',
+              password: '123',
+            ) !=
+            null,
+      );
+      expect(
+        CloudAuthHelper.validateSignup(
+          email: 'user@gmail.com',
+          password: 'password123',
+        ),
+        null,
+      );
+
+      expectFalse(
+        CloudAuthHelper.isCompletedCallbackUri(
+          Uri.parse('http://localhost:3000/auth-callback'),
+        ),
+      );
+      expectTrue(
+        CloudAuthHelper.isCompletedCallbackUri(
+          Uri.parse('http://localhost:3000/auth-callback?code=abc123'),
+        ),
+      );
+      expectTrue(
+        CloudAuthHelper.isCompletedCallbackUri(
+          Uri.parse('http://localhost:3000/auth-callback?error=access_denied'),
+        ),
+      );
     },
   );
 

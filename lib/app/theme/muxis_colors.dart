@@ -50,16 +50,16 @@ class MuxisColors {
   static const Color neonBorderLight = Color(0x4500A859);
 
   // --- Dark Text & Icon Colors ---
-  static const Color textPrimaryDark = Color(0xFFF8FAFC);
-  static const Color textSecondaryDark = Color(0xFFA3B3C9);
-  static const Color textMutedDark = Color(0xFF6B7D96);
-  static const Color textDisabledDark = Color(0xFF475569);
+  static const Color textPrimaryDark = Color(0xFFFFFFFF);
+  static const Color textSecondaryDark = Color(0xFFD2DFEE);
+  static const Color textMutedDark = Color(0xFF9FB2C9);
+  static const Color textDisabledDark = Color(0xFF7B8FA8);
 
   // --- Light Text & Icon Colors (Crisp Ink Contrast on Luminous Surfaces) ---
   static const Color textPrimaryLight = Color(0xFF0B1320);
-  static const Color textSecondaryLight = Color(0xFF2E4057);
-  static const Color textMutedLight = Color(0xFF5A6D84);
-  static const Color textDisabledLight = Color(0xFF94A3B8);
+  static const Color textSecondaryLight = Color(0xFF1E2D40);
+  static const Color textMutedLight = Color(0xFF475B73);
+  static const Color textDisabledLight = Color(0xFF7D90A6);
 
   // --- Status & Feedback Tokens ---
   static const Color success = Color(0xFF00E676);

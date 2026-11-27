@@ -135,8 +135,7 @@ class MuxisMiniPlayer extends ConsumerWidget {
                                 child: const Text(
                                   'LIVE',
                                   style: TextStyle(
-                                    fontFamily: 'JetBrains Mono',
-                                    fontSize: 8.5,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     color: MuxisColors.electricCyan,
                                   ),

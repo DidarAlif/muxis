@@ -106,13 +106,11 @@ class _MuxisButtonState extends State<MuxisButton> {
       child: content,
     );
 
-    // Spring micro-interaction
+    // Spring press feedback without fractional hover zoom so label glyphs stay 1:1 sharp
     Widget animatedButton = AnimatedScale(
-      scale: _isPressed && isEnabled
-          ? 0.95
-          : (_isHovered && isEnabled ? 1.02 : 1.0),
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOutBack,
+      scale: _isPressed && isEnabled ? 0.97 : 1.0,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
       child: buttonSurface,
     );
 

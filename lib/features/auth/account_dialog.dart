@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
+import '../../app/theme/muxis_typography.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/auth/supabase_auth_service.dart';
 import '../../core/sync/sync_engine.dart';
@@ -50,14 +51,13 @@ class AccountDialog extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'MUXIS ACCOUNT',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
+                    style: MuxisTypography.mono(
+                      fontSize: 12.5,
+                      letterSpacing: 1.4,
                       color: MuxisColors.electricCyan,
+                      isDark: isDark,
                     ),
                   ),
                   IconButton(
@@ -123,11 +123,10 @@ class AccountDialog extends ConsumerWidget {
                           ),
                           child: Text(
                             user?.subscriptionTier.toUpperCase() ?? 'FREE',
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontFamily: 'JetBrains Mono',
+                            style: MuxisTypography.mono(
+                              fontSize: 10,
                               color: MuxisColors.electricCyan,
-                              fontWeight: FontWeight.bold,
+                              isDark: isDark,
                             ),
                           ),
                         ),

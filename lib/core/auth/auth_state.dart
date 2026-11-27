@@ -36,13 +36,23 @@ class AuthState {
   final AuthStatus status;
   final MuxisUser? user;
   final String? errorMessage;
+  final String? infoMessage;
   final bool isCloudAvailable;
+  final bool needsEmailConfirmation;
+  final String? pendingConfirmationEmail;
+  final bool isGoogleOAuthEnabled;
+  final bool isAppleOAuthEnabled;
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.errorMessage,
+    this.infoMessage,
     this.isCloudAvailable = false,
+    this.needsEmailConfirmation = false,
+    this.pendingConfirmationEmail,
+    this.isGoogleOAuthEnabled = false,
+    this.isAppleOAuthEnabled = false,
   });
 
   bool get isAuthenticated =>
@@ -52,14 +62,27 @@ class AuthState {
   AuthState copyWith({
     AuthStatus? status,
     MuxisUser? user,
+    bool clearUser = false,
     String? errorMessage,
+    String? infoMessage,
     bool? isCloudAvailable,
+    bool? needsEmailConfirmation,
+    String? pendingConfirmationEmail,
+    bool? isGoogleOAuthEnabled,
+    bool? isAppleOAuthEnabled,
   }) {
     return AuthState(
       status: status ?? this.status,
-      user: user ?? this.user,
+      user: clearUser ? null : (user ?? this.user),
       errorMessage: errorMessage,
+      infoMessage: infoMessage,
       isCloudAvailable: isCloudAvailable ?? this.isCloudAvailable,
+      needsEmailConfirmation:
+          needsEmailConfirmation ?? this.needsEmailConfirmation,
+      pendingConfirmationEmail:
+          pendingConfirmationEmail ?? this.pendingConfirmationEmail,
+      isGoogleOAuthEnabled: isGoogleOAuthEnabled ?? this.isGoogleOAuthEnabled,
+      isAppleOAuthEnabled: isAppleOAuthEnabled ?? this.isAppleOAuthEnabled,
     );
   }
 }
