@@ -115,7 +115,7 @@ final appUpdateProvider =
 class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
   static const String githubOwner = 'DidarAlif';
   static const String githubRepo = 'muxis';
-  static const String fallbackAppVersion = '1.2.5';
+  static const String fallbackAppVersion = '1.2.6';
 
   final PreferencesService _prefs;
   final Dio _dio = Dio(

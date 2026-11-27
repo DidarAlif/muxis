@@ -37,10 +37,10 @@ class MuxisAmbientBackdrop extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      (primaryTint ?? MuxisColors.neonGreen).withOpacity(
+                      (primaryTint ?? MuxisColors.accent(isDark)).withOpacity(
                         isDark ? 0.16 : 0.30,
                       ),
-                      (primaryTint ?? MuxisColors.neonMint).withOpacity(
+                      (primaryTint ?? MuxisColors.teal(isDark)).withOpacity(
                         isDark ? 0.05 : 0.12,
                       ),
                       Colors.transparent,
@@ -63,8 +63,10 @@ class MuxisAmbientBackdrop extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      MuxisColors.cyberTeal.withOpacity(isDark ? 0.13 : 0.25),
-                      MuxisColors.cyberTeal.withOpacity(isDark ? 0.03 : 0.09),
+                      MuxisColors.teal(isDark)
+                          .withOpacity(isDark ? 0.13 : 0.25),
+                      MuxisColors.teal(isDark)
+                          .withOpacity(isDark ? 0.03 : 0.09),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.5, 1.0],
@@ -85,12 +87,10 @@ class MuxisAmbientBackdrop extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      MuxisColors.auroraViolet.withOpacity(
-                        isDark ? 0.16 : 0.22,
-                      ),
-                      MuxisColors.auroraViolet.withOpacity(
-                        isDark ? 0.04 : 0.08,
-                      ),
+                      MuxisColors.violet(isDark)
+                          .withOpacity(isDark ? 0.16 : 0.22),
+                      MuxisColors.violet(isDark)
+                          .withOpacity(isDark ? 0.04 : 0.08),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.52, 1.0],
@@ -111,7 +111,8 @@ class MuxisAmbientBackdrop extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      MuxisColors.coralPulse.withOpacity(isDark ? 0.09 : 0.18),
+                      MuxisColors.coral(isDark)
+                          .withOpacity(isDark ? 0.09 : 0.18),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 1.0],

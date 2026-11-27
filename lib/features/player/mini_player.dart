@@ -42,12 +42,12 @@ class MuxisMiniPlayer extends ConsumerWidget {
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      MuxisColors.deepSpace.withOpacity(0.92),
-                      MuxisColors.obsidian.withOpacity(0.95),
+                      MuxisColors.secondaryBg(true).withOpacity(0.94),
+                      MuxisColors.background(true).withOpacity(0.96),
                     ]
                   : [
-                      Colors.white.withOpacity(0.92),
-                      const Color(0xFFF1F6FF).withOpacity(0.96),
+                      MuxisColors.surface(false).withOpacity(0.94),
+                      MuxisColors.secondaryBg(false).withOpacity(0.96),
                     ],
             ),
             border: Border.all(

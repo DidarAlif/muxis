@@ -14,6 +14,7 @@ import '../lib/shared/utils/cloud_auth_utils.dart';
 import '../lib/shared/utils/library_filter.dart';
 import '../lib/shared/utils/media_notification_utils.dart';
 import '../lib/shared/utils/soundcloud_auth_utils.dart';
+import '../lib/shared/utils/theme_catalog.dart';
 
 void main() {
   print('======================================================');
@@ -898,6 +899,31 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
     );
     expectTrue(dnsMsg.contains('Download Manually'));
     expectFalse(dnsMsg.contains('errno = 7'));
+  });
+
+  // Suite 17: Multi-Theme Studio & Accent Taste Catalog Tests
+  print('\nSuite 17: ThemeCatalog Presets & Accent Tastes');
+  test('ThemeCatalog provides dark/AMOLED/light presets and resolves accent tastes cleanly', () {
+    expectTrue(ThemeCatalog.presets.length >= 10);
+    expectTrue(ThemeCatalog.darkPresets.any((p) => p.id == 'pure_amoled'));
+    expectTrue(ThemeCatalog.lightPresets.any((p) => p.id == 'sakura_pearl'));
+
+    final oled = ThemeCatalog.findPreset('pure_amoled', isDark: true);
+    expect(oled.background, 0xFF000000);
+
+    // Invalid or mismatched brightness falls back to defaults safely
+    final fallbackDark = ThemeCatalog.findPreset('sakura_pearl', isDark: true);
+    expect(fallbackDark.id, ThemeCatalog.defaultDarkId);
+
+    // Custom accent taste overrides dark & light highlights distinctly
+    final defaultHex = ThemeCatalog.resolveAccentHex(
+      oled,
+      ThemeCatalog.defaultAccentTasteId,
+    );
+    expect(defaultHex, oled.accent);
+
+    final goldHex = ThemeCatalog.resolveAccentHex(oled, 'studio_gold');
+    expect(goldHex, 0xFFFBBF24);
   });
 
   print('\n======================================================');

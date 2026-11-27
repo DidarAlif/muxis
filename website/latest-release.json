@@ -1,10 +1,10 @@
 {
-  "tag_name": "v1.2.5",
-  "name": "MUXIS v1.2.5 — Prismatic Aura",
+  "tag_name": "v1.2.6",
+  "name": "MUXIS v1.2.6 — Prismatic Aura",
   "draft": false,
   "prerelease": false,
-  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.5",
-  "body": "### What's New in MUXIS v1.2.5\n- Ensures Android release APKs include INTERNET & ACCESS_NETWORK_STATE permissions and adds resilient GitHub Release update fallbacks\n- Fixes Gmail confirmation redirect landing and desktop localhost:3000 verification handling\n- Clarifies Supabase Cloud OAuth provider status inside Cloud Sign-In",
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.6",
+  "body": "### What's New in MUXIS v1.2.6\n- Introduces Theme Studio with 10 signature themes (Dark Obsidian, Pure AMOLED OLED, Midnight Sapphire, Botanical Leaf, Crimson Velvet, Amber Vinyl, Ultraviolet Synth, Luminous Aurora, Sakura Pearl, Nordic Studio) plus independent Accent Taste customization\n- Adds 'by A Leaf' attribution beneath the MUXIS brand logo",
   "assets": [
     {
       "name": "Muxis-Android.apk",

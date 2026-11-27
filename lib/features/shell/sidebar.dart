@@ -53,13 +53,13 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
           child: Container(
             decoration: BoxDecoration(
               color: isDark
-                  ? MuxisColors.obsidian.withOpacity(0.72)
-                  : Colors.white.withOpacity(0.68),
+                  ? MuxisColors.background(true).withOpacity(0.76)
+                  : MuxisColors.surface(false).withOpacity(0.72),
               border: Border(
                 right: BorderSide(
                   color: isDark
                       ? Colors.white.withOpacity(0.08)
-                      : Colors.white.withOpacity(0.88),
+                      : MuxisColors.border(false).withOpacity(0.7),
                   width: 1,
                 ),
               ),
@@ -67,11 +67,11 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header: Brand Logo & Collapse Toggle
+                // Header: Brand Logo + "by A Leaf" Attribution & Collapse Toggle
                 Container(
-                  height: 72,
+                  height: 76,
                   padding: EdgeInsets.symmetric(
-                    horizontal: _isCollapsed ? 14 : 20,
+                    horizontal: _isCollapsed ? 10 : 20,
                   ),
                   alignment: Alignment.centerLeft,
                   child: Row(
@@ -80,19 +80,20 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                         : MainAxisAlignment.spaceBetween,
                     children: [
                       if (!_isCollapsed)
-                        Row(
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Image.asset(
-                              'assets/brand/muxis_mark.png',
-                              height: 26,
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.high,
-                            ),
-                            const SizedBox(width: 11),
-                            Column(
+                            Row(
                               mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Image.asset(
+                                  'assets/brand/muxis_mark.png',
+                                  height: 24,
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                                const SizedBox(width: 10),
                                 Text(
                                   'MUXIS',
                                   style: TextStyle(
@@ -103,27 +104,42 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                                     color: MuxisColors.textPrimary(isDark),
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'LIQUID AUDIO',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5,
-                                    color: MuxisColors.accent(isDark),
-                                  ),
-                                ),
                               ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'by A Leaf',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: MuxisColors.accent(isDark),
+                              ),
                             ),
                           ],
                         )
                       else
-                        Image.asset(
-                          'assets/brand/muxis_mark_square.png',
-                          width: 34,
-                          height: 34,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/brand/muxis_mark_square.png',
+                              width: 30,
+                              height: 30,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'by A Leaf',
+                              style: TextStyle(
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                                color: MuxisColors.accent(isDark),
+                              ),
+                            ),
+                          ],
                         ),
                       if (!_isCollapsed)
                         IconButton(
@@ -293,57 +309,78 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                         : MainAxisAlignment.spaceBetween,
                     children: [
                       if (!_isCollapsed)
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final auth = ref.watch(authServiceProvider);
-                            final isAuth = auth.isAuthenticated;
-                            final name = isAuth
-                                ? (auth.user?.displayName ?? 'Listener')
-                                : 'Cloud Sign In';
+                        Expanded(
+                          child: Consumer(
+                            builder: (context, ref, _) {
+                              final auth = ref.watch(authServiceProvider);
+                              final isAuth = auth.isAuthenticated;
+                              final name = isAuth
+                                  ? (auth.user?.displayName ?? 'Listener')
+                                  : 'Cloud Sign In';
 
-                            return InkWell(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => isAuth
-                                      ? const AccountDialog()
-                                      : const AuthDialog(),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: isAuth
-                                        ? MuxisColors.accent(isDark)
-                                              .withOpacity(0.2)
-                                        : (isDark
-                                              ? MuxisColors.elevatedSurface
-                                              : MuxisColors.secondarySurface),
-                                    child: Icon(
-                                      isAuth
-                                          ? Icons.person_rounded
-                                          : Icons.cloud_outlined,
-                                      size: 18,
-                                      color: MuxisColors.accent(isDark),
+                              return InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => isAuth
+                                        ? const AccountDialog()
+                                        : const AuthDialog(),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: isAuth
+                                          ? MuxisColors.accent(isDark)
+                                                .withOpacity(0.2)
+                                          : (isDark
+                                                ? MuxisColors.elevatedSurface
+                                                : MuxisColors.secondarySurface),
+                                      child: Icon(
+                                        isAuth
+                                            ? Icons.person_rounded
+                                            : Icons.cloud_outlined,
+                                        size: 18,
+                                        color: MuxisColors.accent(isDark),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: MuxisColors.textPrimary(isDark),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: MuxisColors.textPrimary(
+                                            isDark,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      if (!_isCollapsed)
+                        IconButton(
+                          icon: Icon(
+                            Icons.palette_outlined,
+                            size: 18,
+                            color: MuxisColors.teal(isDark),
+                          ),
+                          tooltip: 'Theme Studio (10 Themes & Accent Taste)',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          onPressed: () => widget.onDestinationSelected(10),
                         ),
                       IconButton(
                         icon: Icon(
@@ -356,6 +393,11 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                         tooltip: isDark
                             ? 'Switch to Light Theme'
                             : 'Switch to Dark Theme',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
                         onPressed: () => ref
                             .read(themeControllerProvider.notifier)
                             .toggleTheme(),

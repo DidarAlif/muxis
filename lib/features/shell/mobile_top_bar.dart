@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/muxis_colors.dart';
+import '../../app/theme/muxis_gradients.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
 
@@ -28,12 +29,12 @@ class MobileTopBar extends ConsumerWidget {
     final accounts = ref.watch(streamingAccountsProvider);
 
     return Container(
-      height: 54,
+      height: 58,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: isDark
-            ? MuxisColors.obsidian.withOpacity(0.76)
-            : Colors.white.withOpacity(0.84),
+            ? MuxisColors.background(true).withOpacity(0.80)
+            : MuxisColors.surface(false).withOpacity(0.86),
         border: Border(
           bottom: BorderSide(
             color: MuxisColors.border(isDark).withOpacity(0.7),
@@ -42,36 +43,49 @@ class MobileTopBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // Brand Logo & Wordmark (backgroundless 3D M wave floats cleanly on glass)
+          // Brand Logo, Wordmark & "by A Leaf" below logo
           GestureDetector(
             onTap: () => onNavigate(0),
             behavior: HitTestBehavior.opaque,
-            child: Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.asset(
-                  'assets/brand/muxis_mark.png',
-                  height: 22,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                ),
-                const SizedBox(width: 8),
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [
-                      MuxisColors.neonGreen,
-                      MuxisColors.cyberTeal,
-                      MuxisColors.coralPulse,
-                    ],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'MUXIS',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.2,
-                      color: Colors.white,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'assets/brand/muxis_mark.png',
+                      height: 20,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
+                    const SizedBox(width: 7),
+                    ShaderMask(
+                      shaderCallback: (bounds) =>
+                          MuxisGradients.activeHero(isDark)
+                              .createShader(bounds),
+                      child: const Text(
+                        'MUXIS',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.2,
+                          height: 1.0,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'by A Leaf',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.9,
+                    color: MuxisColors.accent(isDark),
                   ),
                 ),
               ],

@@ -104,16 +104,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: EdgeInsets.all(isMobile ? 18 : 28),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
-              gradient: isDark
-                  ? MuxisGradients.auroraSpectrum
-                  : MuxisGradients.auroraLightHero,
+              gradient: MuxisGradients.activeHero(isDark),
               boxShadow: [
                 BoxShadow(
-                  color:
-                      (isDark
-                              ? MuxisColors.neonGreen
-                              : MuxisColors.neonGreenLight)
-                          .withOpacity(0.28),
+                  color: MuxisColors.accent(isDark).withOpacity(0.28),
                   blurRadius: 28,
                   offset: const Offset(0, 10),
                 ),
@@ -268,25 +262,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   if (!isMobile) ...[
                     const SizedBox(width: 24),
-                    Container(
-                      width: 116,
-                      height: 116,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.32),
-                            blurRadius: 22,
-                            offset: const Offset(0, 10),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 112,
+                          height: 112,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.32),
+                                blurRadius: 22,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Image.asset(
-                        'assets/brand/app_icon_1024.png',
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.high,
-                      ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Image.asset(
+                            'assets/brand/app_icon_1024.png',
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'by A Leaf',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],

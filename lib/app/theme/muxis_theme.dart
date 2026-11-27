@@ -3,37 +3,45 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'muxis_colors.dart';
 
-/// Complete ThemeData configurations for Muxis (Aligned Dark Obsidian & Light Botanical Aurora)
+/// Complete ThemeData configurations for Muxis across all Dark & Light Presets
 class MuxisTheme {
   MuxisTheme._();
 
-  /// Dark Theme (Aura Obsidian with Neon Green, Cyber Teal & Violet Energy)
   static ThemeData darkTheme() {
+    final bg = MuxisColors.background(true);
+    final secBg = MuxisColors.secondaryBg(true);
+    final surf = MuxisColors.surface(true);
+    final border = MuxisColors.border(true);
+    final primaryText = MuxisColors.textPrimary(true);
+    final secondaryText = MuxisColors.textSecondary(true);
+    final accent = MuxisColors.accent(true);
+    final teal = MuxisColors.teal(true);
+    final violet = MuxisColors.violet(true);
+    final onAccent = MuxisColors.onAccent(true);
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: MuxisColors.obsidian,
-      primaryColor: MuxisColors.neonGreen,
-      canvasColor: MuxisColors.deepSpace,
-      cardColor: MuxisColors.elevatedSurface,
-      dividerColor: MuxisColors.subtleBorderDark,
-
-      colorScheme: const ColorScheme.dark(
-        primary: MuxisColors.neonGreen,
-        secondary: MuxisColors.cyberTeal,
-        tertiary: MuxisColors.auroraViolet,
-        surface: MuxisColors.elevatedSurface,
+      scaffoldBackgroundColor: bg,
+      primaryColor: accent,
+      canvasColor: secBg,
+      cardColor: surf,
+      dividerColor: border,
+      colorScheme: ColorScheme.dark(
+        primary: accent,
+        secondary: teal,
+        tertiary: violet,
+        surface: surf,
         error: MuxisColors.error,
-        onPrimary: Colors.black,
+        onPrimary: onAccent,
         onSecondary: Colors.black,
-        onSurface: MuxisColors.textPrimaryDark,
+        onSurface: primaryText,
       ),
-
       textTheme:
           GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme)
               .apply(
-                bodyColor: MuxisColors.textPrimaryDark,
-                displayColor: MuxisColors.textPrimaryDark,
+                bodyColor: primaryText,
+                displayColor: primaryText,
                 fontFamilyFallback: const [
                   'Segoe UI',
                   'Inter',
@@ -42,77 +50,77 @@ class MuxisTheme {
                   'sans-serif',
                 ],
               ),
-
       sliderTheme: SliderThemeData(
-        activeTrackColor: MuxisColors.neonGreen,
-        inactiveTrackColor: MuxisColors.subtleBorderDark,
-        thumbColor: MuxisColors.neonGreen,
-        overlayColor: MuxisColors.neonGreen.withOpacity(0.2),
+        activeTrackColor: accent,
+        inactiveTrackColor: border,
+        thumbColor: accent,
+        overlayColor: accent.withOpacity(0.2),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
-
-      iconTheme: const IconThemeData(
-        color: MuxisColors.textSecondaryDark,
-        size: 20,
-      ),
-
+      iconTheme: IconThemeData(color: secondaryText, size: 20),
       dialogTheme: DialogTheme(
-        backgroundColor: MuxisColors.elevatedSurface,
+        backgroundColor: surf,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: MuxisColors.subtleBorderDark),
+          side: BorderSide(color: border),
         ),
       ),
-
       chipTheme: ChipThemeData(
-        backgroundColor: MuxisColors.deepSpace,
-        selectedColor: MuxisColors.neonGreen.withOpacity(0.2),
-        side: const BorderSide(color: MuxisColors.subtleBorderDark),
-        labelStyle: const TextStyle(color: MuxisColors.textPrimaryDark),
+        backgroundColor: secBg,
+        selectedColor: accent.withOpacity(0.2),
+        side: BorderSide(color: border),
+        labelStyle: TextStyle(color: primaryText),
       ),
-
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: MuxisColors.elevatedSurface,
+          color: surf,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: MuxisColors.subtleBorderDark),
+          border: Border.all(color: border),
         ),
         textStyle: GoogleFonts.plusJakartaSans(
           fontSize: 12,
-          color: MuxisColors.textPrimaryDark,
+          color: primaryText,
         ),
       ),
     );
   }
 
-  /// Light Theme (Luminous Aurora Daylight with Multi-Tone Liquid Glass)
   static ThemeData lightTheme() {
+    final bg = MuxisColors.background(false);
+    final secBg = MuxisColors.secondaryBg(false);
+    final surf = MuxisColors.surface(false);
+    final border = MuxisColors.border(false);
+    final primaryText = MuxisColors.textPrimary(false);
+    final secondaryText = MuxisColors.textSecondary(false);
+    final accent = MuxisColors.accent(false);
+    final teal = MuxisColors.teal(false);
+    final violet = MuxisColors.violet(false);
+    final onAccent = MuxisColors.onAccent(false);
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      scaffoldBackgroundColor: MuxisColors.porcelain,
-      primaryColor: MuxisColors.neonGreenLight,
-      canvasColor: MuxisColors.secondarySurface,
-      cardColor: MuxisColors.whiteSurface,
-      dividerColor: MuxisColors.subtleBorderLight,
-
-      colorScheme: const ColorScheme.light(
-        primary: MuxisColors.neonGreenLight,
-        secondary: MuxisColors.cyberTealLight,
-        tertiary: MuxisColors.auroraVioletLight,
-        surface: MuxisColors.whiteSurface,
+      scaffoldBackgroundColor: bg,
+      primaryColor: accent,
+      canvasColor: secBg,
+      cardColor: surf,
+      dividerColor: border,
+      colorScheme: ColorScheme.light(
+        primary: accent,
+        secondary: teal,
+        tertiary: violet,
+        surface: surf,
         error: MuxisColors.error,
-        onPrimary: Colors.white,
+        onPrimary: onAccent,
         onSecondary: Colors.white,
-        onSurface: MuxisColors.textPrimaryLight,
+        onSurface: primaryText,
       ),
-
       textTheme:
           GoogleFonts.plusJakartaSansTextTheme(ThemeData.light().textTheme)
               .apply(
-                bodyColor: MuxisColors.textPrimaryLight,
-                displayColor: MuxisColors.textPrimaryLight,
+                bodyColor: primaryText,
+                displayColor: primaryText,
                 fontFamilyFallback: const [
                   'Segoe UI',
                   'Inter',
@@ -121,41 +129,33 @@ class MuxisTheme {
                   'sans-serif',
                 ],
               ),
-
       sliderTheme: SliderThemeData(
-        activeTrackColor: MuxisColors.neonGreenLight,
-        inactiveTrackColor: MuxisColors.subtleBorderLight,
-        thumbColor: MuxisColors.neonGreenLight,
-        overlayColor: MuxisColors.neonGreenLight.withOpacity(0.18),
+        activeTrackColor: accent,
+        inactiveTrackColor: border,
+        thumbColor: accent,
+        overlayColor: accent.withOpacity(0.18),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
-
-      iconTheme: const IconThemeData(
-        color: MuxisColors.textSecondaryLight,
-        size: 20,
-      ),
-
+      iconTheme: IconThemeData(color: secondaryText, size: 20),
       dialogTheme: DialogTheme(
-        backgroundColor: const Color(0xF5FFFFFF),
+        backgroundColor: surf.withOpacity(0.96),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: MuxisColors.subtleBorderLight),
+          side: BorderSide(color: border),
         ),
       ),
-
       chipTheme: ChipThemeData(
-        backgroundColor: MuxisColors.whiteSurface.withOpacity(0.85),
-        selectedColor: MuxisColors.neonGreenLight.withOpacity(0.16),
-        side: const BorderSide(color: MuxisColors.subtleBorderLight),
-        labelStyle: const TextStyle(color: MuxisColors.textPrimaryLight),
+        backgroundColor: surf.withOpacity(0.85),
+        selectedColor: accent.withOpacity(0.16),
+        side: BorderSide(color: border),
+        labelStyle: TextStyle(color: primaryText),
       ),
-
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: MuxisColors.whiteSurface,
+          color: surf,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: MuxisColors.subtleBorderLight),
+          border: Border.all(color: border),
           boxShadow: const [
             BoxShadow(
               color: Color(0x18000000),
@@ -166,7 +166,7 @@ class MuxisTheme {
         ),
         textStyle: GoogleFonts.plusJakartaSans(
           fontSize: 12,
-          color: MuxisColors.textPrimaryLight,
+          color: primaryText,
         ),
       ),
     );

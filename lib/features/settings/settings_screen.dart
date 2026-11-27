@@ -12,6 +12,7 @@ import '../../core/auth/streaming_oauth_service.dart';
 import '../../core/database/database_service.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../core/updates/app_update_service.dart';
+import '../../shared/utils/theme_catalog.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_glass_card.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
@@ -725,6 +726,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeControllerProvider);
     final themeNotifier = ref.read(themeControllerProvider.notifier);
+    final themeState = ref.watch(muxisThemeProvider);
+    final muxisThemeCtrl = ref.read(muxisThemeProvider.notifier);
     final accounts = ref.watch(streamingAccountsProvider);
     final accountsNotifier = ref.read(streamingAccountsProvider.notifier);
     final updateState = ref.watch(appUpdateProvider);
@@ -1370,17 +1373,344 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         items: const [
                           DropdownMenuItem(
                             value: ThemeMode.dark,
-                            child: Text('Dark Obsidian'),
+                            child: Text('Dark Mode'),
                           ),
                           DropdownMenuItem(
                             value: ThemeMode.light,
-                            child: Text('Light Aurora Glass'),
+                            child: Text('Light Mode'),
                           ),
                           DropdownMenuItem(
                             value: ThemeMode.system,
-                            child: Text('System Appearance'),
+                            child: Text('System Auto'),
                           ),
                         ],
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: MuxisColors.border(isDark)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'Theme Studio',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: MuxisColors.accent(isDark)
+                                  .withOpacity(0.16),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              ThemeCatalog.findPreset(
+                                isDark
+                                    ? themeState.darkPresetId
+                                    : themeState.lightPresetId,
+                                isDark: isDark,
+                              ).name,
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: MuxisColors.accent(isDark),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap any Dark, Pure AMOLED, or Light Glass theme to personalize MUXIS to your taste.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: MuxisColors.textSecondary(isDark),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cols = constraints.maxWidth >= 780
+                              ? 3
+                              : (constraints.maxWidth >= 430 ? 2 : 1);
+                          const gap = 10.0;
+                          final cardWidth =
+                              (constraints.maxWidth - gap * (cols - 1)) / cols;
+                          final activeId = themeState
+                              .activePresetIdForBrightness(
+                                isDark ? Brightness.dark : Brightness.light,
+                              );
+
+                          return Wrap(
+                            spacing: gap,
+                            runSpacing: gap,
+                            children: ThemeCatalog.presets.map((preset) {
+                              final isSelected =
+                                  activeId == preset.id &&
+                                  preset.isDark == isDark;
+                              final presetAccent = Color(preset.accent);
+                              final presetSec = Color(preset.secondary);
+                              final presetTert = Color(preset.tertiary);
+                              return SizedBox(
+                                width: cardWidth,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () =>
+                                      muxisThemeCtrl.selectPreset(preset),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(11),
+                                    decoration: BoxDecoration(
+                                      color: Color(preset.surface)
+                                          .withOpacity(0.95),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? MuxisColors.accent(isDark)
+                                            : Color(preset.border),
+                                        width: isSelected ? 1.8 : 1,
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: presetAccent.withOpacity(
+                                                  0.24,
+                                                ),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Miniature Swatch Orb
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(preset.background),
+                                                Color(preset.orb3),
+                                              ],
+                                            ),
+                                            border: Border.all(
+                                              color: Color(preset.border),
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 9,
+                                                  height: 9,
+                                                  decoration: BoxDecoration(
+                                                    color: presetAccent,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Container(
+                                                  width: 7,
+                                                  height: 7,
+                                                  decoration: BoxDecoration(
+                                                    color: presetSec,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Container(
+                                                  width: 5,
+                                                  height: 5,
+                                                  decoration: BoxDecoration(
+                                                    color: presetTert,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      preset.name,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        fontSize: 12.5,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: Color(
+                                                          preset.textPrimary,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 5,
+                                                          vertical: 1.5,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: presetAccent
+                                                          .withOpacity(0.16),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      preset.id == 'pure_amoled'
+                                                          ? 'OLED'
+                                                          : (preset.isDark
+                                                                ? 'DARK'
+                                                                : 'LIGHT'),
+                                                      style: TextStyle(
+                                                        fontFamily:
+                                                            'JetBrains Mono',
+                                                        fontSize: 8.5,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: presetAccent,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                preset.subtitle,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  color: Color(
+                                                    preset.textMuted,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (isSelected) ...[
+                                          const SizedBox(width: 6),
+                                          Icon(
+                                            Icons.check_circle_rounded,
+                                            size: 16,
+                                            color: MuxisColors.accent(isDark),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Accent Highlight Taste',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                          color: MuxisColors.textPrimary(isDark),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ThemeCatalog.accentTastes.map((taste) {
+                          final selected = themeState.accentTasteId == taste.id;
+                          final dotColor =
+                              taste.id == ThemeCatalog.defaultAccentTasteId
+                              ? Color(MuxisColors.presetFor(isDark).accent)
+                              : Color(
+                                  isDark ? taste.darkColor : taste.lightColor,
+                                );
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () =>
+                                muxisThemeCtrl.setAccentTaste(taste.id),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? dotColor.withOpacity(0.18)
+                                    : MuxisColors.secondaryBg(isDark),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: selected
+                                      ? dotColor
+                                      : MuxisColors.border(isDark),
+                                  width: selected ? 1.4 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 11,
+                                    height: 11,
+                                    decoration: BoxDecoration(
+                                      color: dotColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    taste.name,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: MuxisColors.textPrimary(isDark),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ],
                   ),
@@ -1845,23 +2175,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         borderRadius: BorderRadius.circular(10),
                         child: Image.asset(
                           'assets/brand/app_icon_1024.png',
-                          width: 38,
-                          height: 38,
+                          width: 40,
+                          height: 40,
                           fit: BoxFit.cover,
                           filterQuality: FilterQuality.high,
                         ),
                       ),
-                      Text(
-                        'MUXIS',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
-                          color: MuxisColors.accent(isDark),
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'MUXIS',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 3,
+                              height: 1.0,
+                              color: MuxisColors.accent(isDark),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'by A Leaf',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                              color: MuxisColors.textMuted(isDark),
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
-                        'v${updateState.currentVersion} • SoundCloud, Global Radio, Mini-Player & Zero-Lag Glass',
+                        'v${updateState.currentVersion} • SoundCloud, Global Radio, Mini-Player & Custom Themes',
                         style: TextStyle(
                           fontSize: 12,
                           color: MuxisColors.textMuted(isDark),

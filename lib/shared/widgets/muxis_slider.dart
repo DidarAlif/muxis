@@ -92,24 +92,25 @@ class _MuxisSliderState extends State<MuxisSlider> {
                       ),
                     ),
 
-                  // Active Track (Electric Cyan -> Prismatic Blue gradient)
+                  // Active Track (Theme-aware Accent -> Secondary gradient)
                   Container(
                     width: activeWidth,
                     height: _isHovered || _isDragging ? 5 : 4,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [
-                          MuxisColors.electricCyan,
-                          MuxisColors.prismaticBlue,
+                          MuxisColors.accent(isDark),
+                          MuxisColors.teal(isDark),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(3),
                       boxShadow: _isHovered || _isDragging
-                          ? const [
+                          ? [
                               BoxShadow(
-                                color: Color(0x6600F2FE),
+                                color: MuxisColors.accent(isDark)
+                                    .withOpacity(0.42),
                                 blurRadius: 8,
-                                offset: Offset(0, 0),
+                                offset: const Offset(0, 0),
                               ),
                             ]
                           : null,
@@ -127,12 +128,13 @@ class _MuxisSliderState extends State<MuxisSlider> {
                           color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: MuxisColors.electricCyan,
+                            color: MuxisColors.accent(isDark),
                             width: 2,
                           ),
-                          boxShadow: const [
+                          boxShadow: [
                             BoxShadow(
-                              color: Color(0x8000F2FE),
+                              color: MuxisColors.accent(isDark)
+                                  .withOpacity(0.5),
                               blurRadius: 10,
                               spreadRadius: 1,
                             ),

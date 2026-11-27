@@ -45,8 +45,8 @@ class BottomPlaybackBar extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: BoxDecoration(
             color: isDark
-                ? MuxisColors.obsidian.withOpacity(0.76)
-                : Colors.white.withOpacity(0.76),
+                ? MuxisColors.background(true).withOpacity(0.80)
+                : MuxisColors.surface(false).withOpacity(0.82),
             border: Border(
               top: BorderSide(
                 color: isDark
@@ -229,10 +229,17 @@ class BottomPlaybackBar extends ConsumerWidget {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              gradient: MuxisGradients.prismaticPrimary,
+                              gradient: MuxisGradients.activePrimary(isDark),
                               shape: BoxShape.circle,
                               boxShadow: playback.isPlaying
-                                  ? MuxisShadows.prismaticGlow
+                                  ? [
+                                      BoxShadow(
+                                        color: MuxisColors.accent(isDark)
+                                            .withOpacity(0.42),
+                                        blurRadius: 16,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
                                   : null,
                             ),
                             child: Center(
@@ -240,7 +247,7 @@ class BottomPlaybackBar extends ConsumerWidget {
                                 playback.isPlaying
                                     ? Icons.pause_rounded
                                     : Icons.play_arrow_rounded,
-                                color: Colors.black,
+                                color: MuxisColors.onAccent(isDark),
                                 size: 26,
                               ),
                             ),
@@ -270,10 +277,8 @@ class BottomPlaybackBar extends ConsumerWidget {
                                 : Icons.repeat_rounded,
                             size: 18,
                             color: playback.repeatMode != RepeatMode.off
-                                ? MuxisColors.electricCyan
-                                : (isDark
-                                      ? MuxisColors.textSecondaryDark
-                                      : MuxisColors.textSecondaryLight),
+                                ? MuxisColors.accent(isDark)
+                                : MuxisColors.textSecondary(isDark),
                           ),
                           tooltip: 'Repeat: ${playback.repeatMode.name}',
                           onPressed: () => audioService.cycleRepeatMode(),

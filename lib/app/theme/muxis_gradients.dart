@@ -87,70 +87,89 @@ class MuxisGradients {
     end: Alignment.bottomRight,
   );
 
+  /// Dynamic primary gradient reflecting the currently active theme preset & taste
+  static LinearGradient activePrimary(bool isDark) {
+    return LinearGradient(
+      colors: [MuxisColors.accent(isDark), MuxisColors.teal(isDark)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  /// Dynamic full-spectrum hero gradient reflecting active theme & accent taste
+  static LinearGradient activeHero(bool isDark) {
+    return LinearGradient(
+      colors: [
+        MuxisColors.accent(isDark),
+        MuxisColors.teal(isDark),
+        MuxisColors.violet(isDark),
+        MuxisColors.coral(isDark),
+      ],
+      stops: const [0.0, 0.35, 0.72, 1.0],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
   /// Dark Theme Luxury Ambient Mesh Background
   static BoxDecoration darkAmbientBackground() {
-    return const BoxDecoration(
-      color: MuxisColors.obsidian,
+    final preset = MuxisColors.presetFor(true);
+    return BoxDecoration(
+      color: Color(preset.background),
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          Color(0xFF071318), // Subtle emerald-teal night top left
-          Color(0xFF060910), // Obsidian center
-          Color(0xFF0E0B1A), // Subtle violet obsidian depth bottom right
-        ],
-        stops: [0.0, 0.5, 1.0],
+        colors: [Color(preset.orb1), Color(preset.orb2), Color(preset.orb3)],
+        stops: const [0.0, 0.5, 1.0],
       ),
     );
   }
 
   /// Light Theme Luminous Colorful Mesh Background
   static BoxDecoration lightAmbientBackground() {
-    return const BoxDecoration(
-      color: MuxisColors.porcelain,
+    final preset = MuxisColors.presetFor(false);
+    return BoxDecoration(
+      color: Color(preset.background),
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFDDF9F1), // Fresh mint mist top-left
-          Color(0xFFEAF4FF), // Iridescent sky center
-          Color(0xFFF3ECFF), // Soft aurora lavender-rose bottom-right
-        ],
-        stops: [0.0, 0.5, 1.0],
+        colors: [Color(preset.orb1), Color(preset.orb2), Color(preset.orb3)],
+        stops: const [0.0, 0.5, 1.0],
       ),
     );
   }
 
   /// Ambient background radial aura for Now Playing (Dark)
   static RadialGradient auroraAuraRadial({
-    Color dominantColor = MuxisColors.neonGreen,
-    Color secondaryColor = MuxisColors.auroraViolet,
+    Color? dominantColor,
+    Color? secondaryColor,
   }) {
+    final accent = dominantColor ?? MuxisColors.accent(true);
+    final secondary = secondaryColor ?? MuxisColors.violet(true);
     return RadialGradient(
       center: const Alignment(0.0, -0.15),
       radius: 1.25,
       colors: [
-        dominantColor.withOpacity(0.28),
-        secondaryColor.withOpacity(0.18),
-        MuxisColors.cyberTeal.withOpacity(0.10),
-        MuxisColors.obsidian.withOpacity(0.0),
+        accent.withOpacity(0.28),
+        secondary.withOpacity(0.18),
+        MuxisColors.teal(true).withOpacity(0.10),
+        MuxisColors.background(true).withOpacity(0.0),
       ],
       stops: const [0.0, 0.38, 0.70, 1.0],
     );
   }
 
   /// Ambient background radial aura for Light theme (Colorful Luminous Bloom)
-  static RadialGradient auroraAuraRadialLight({
-    Color dominantColor = MuxisColors.neonGreenLight,
-  }) {
+  static RadialGradient auroraAuraRadialLight({Color? dominantColor}) {
+    final accent = dominantColor ?? MuxisColors.accent(false);
     return RadialGradient(
       center: const Alignment(0.0, -0.15),
       radius: 1.3,
       colors: [
-        dominantColor.withOpacity(0.24),
-        MuxisColors.cyberTeal.withOpacity(0.18),
-        MuxisColors.auroraViolet.withOpacity(0.16),
-        MuxisColors.porcelain.withOpacity(0.0),
+        accent.withOpacity(0.24),
+        MuxisColors.teal(false).withOpacity(0.18),
+        MuxisColors.violet(false).withOpacity(0.16),
+        MuxisColors.background(false).withOpacity(0.0),
       ],
       stops: const [0.0, 0.35, 0.70, 1.0],
     );
