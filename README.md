@@ -6,7 +6,7 @@
     <a href="https://github.com/DidarAlif/muxis/releases/latest">
       <img src="https://img.shields.io/github/v/release/DidarAlif/muxis?style=for-the-badge&color=00F2FE" alt="Latest Release" />
     </a>
-    <a href="#8-licensing--compliance">
+    <a href="LICENSE">
       <img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg?style=for-the-badge" alt="License: GPL-3.0" />
     </a>
     <img src="https://img.shields.io/badge/framework-Flutter%203.x-02569B?style=for-the-badge&logo=flutter" alt="Framework: Flutter" />
@@ -170,5 +170,8 @@ Deployment documentation is available in `docs/deployment/`:
 
 ## 8. Licensing & Compliance
 
-- The `README` references the **GNU General Public License v3.0 (GPL-3.0)** in relation to the Android reference project (`E:\Desktop\Muxis`, which includes a GPL-3.0 `LICENSE` file). *(Note: if you intend to distribute under GPL-3.0, add a root `LICENSE` file with the GPL-3.0 text; if you built this codebase independently and want a permissive license like MIT/Apache-2.0 or proprietary licensing, update this section accordingly.)*
+- Copyright © 2026 **DidarAlif**.
+- Released under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**: you are free to use, study, modify, and redistribute this software (including compiled releases), provided derivative works and distributed binaries are accompanied by source code licensed under GPL-3.0 with original copyright and license notices intact.
+- Permissive third-party dependencies (`MIT`, `BSD`, `Apache-2.0`) and open-source reference acknowledgments (`E:\Desktop\Muxis` GPL-3.0; `E:\Desktop\rea` MIT) remain under their respective licenses.
+- **Third-Party Trademarks & Disclaimer:** YouTube Music, Spotify, SoundCloud, and Radio Browser belong to their respective owners. MUXIS is an independent cross-platform client and is not affiliated with, sponsored by, or endorsed by any third-party service.
 - No private API credentials or proprietary keys are bundled. All configuration is loaded from `.env` or `--dart-define`.
