@@ -46,7 +46,7 @@ class _MuxisCardState extends State<MuxisCard> {
           onTap: widget.onTap,
           borderRadius: 18,
           padding: const EdgeInsets.all(12),
-          blurSigma: 20,
+          blurSigma: 0,
           boxShadowOverride: _isHovered
               ? (isDark ? MuxisShadows.cardHover : MuxisShadows.cardHoverLight)
               : (isDark ? MuxisShadows.card : MuxisShadows.cardLight),
@@ -80,9 +80,13 @@ class _MuxisCardState extends State<MuxisCard> {
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
+                    child:
+                        widget.imageUrl != null && widget.imageUrl!.isNotEmpty
                         ? Image.network(
                             widget.imageUrl!,
+                            cacheWidth: 360,
+                            cacheHeight: 360,
+                            gaplessPlayback: true,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _buildFallbackIcon(),
                           )

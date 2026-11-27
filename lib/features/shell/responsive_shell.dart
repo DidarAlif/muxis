@@ -1,14 +1,20 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
+
+import '../player/mini_player.dart';
 import '../player/mobile_playback_bar.dart';
 import '../studio/mobile_audio_studio_sheet.dart';
 import 'mobile_top_bar.dart';
 
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../app/theme/muxis_colors.dart';
 import '../../core/audio/audio_playback_service.dart';
+import '../../core/storage/preferences_service.dart';
 import '../../core/updates/app_update_service.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_ambient_backdrop.dart';
@@ -20,6 +26,7 @@ import '../platforms/platform_stream_screen.dart';
 import '../player/aurora_now_playing.dart';
 import '../player/bottom_playback_bar.dart';
 import '../player/right_drawer_panel.dart';
+import '../radio/radio_screen.dart';
 import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
 import '../studio/audio_studio_sheet.dart';
@@ -33,16 +40,27 @@ class ResponsiveShell extends ConsumerStatefulWidget {
   ConsumerState<ResponsiveShell> createState() => _ResponsiveShellState();
 }
 
-class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
+class _ResponsiveShellState extends ConsumerState<ResponsiveShell>
+    with WindowListener {
   int _navIndex = 0;
   bool _isRightDrawerOpen = false;
   bool _isNowPlayingExpanded = false;
+  bool _isMiniPlayerMode = false;
+  bool _bypassNextMinimizeMorph = false;
+  Size _savedWindowSize = const Size(1240, 820);
+  Offset? _savedWindowPos;
 
   final FocusNode _keyboardFocusNode = FocusNode();
+
+  bool get _isDesktopOS =>
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   @override
   void initState() {
     super.initState();
+    if (_isDesktopOS) {
+      windowManager.addListener(this);
+    }
     Future<void>.delayed(const Duration(seconds: 2), _checkForStartupUpdate);
   }
 
@@ -57,8 +75,86 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
 
   @override
   void dispose() {
+    if (_isDesktopOS) {
+      windowManager.removeListener(this);
+    }
     _keyboardFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void onWindowMinimize() {
+    unawaited(_handleWindowMinimize());
+  }
+
+  Future<void> _handleWindowMinimize() async {
+    if (!_isDesktopOS || !mounted) return;
+    if (_bypassNextMinimizeMorph) {
+      _bypassNextMinimizeMorph = false;
+      return;
+    }
+    if (_isMiniPlayerMode) return;
+    final enabled = await ref
+        .read(preferencesServiceProvider)
+        .getMiniPlayerOnMinimize();
+    if (!enabled || !mounted) return;
+    await _enterMiniPlayerMode(fromMinimizeEvent: true);
+  }
+
+  Future<void> _enterMiniPlayerMode({bool fromMinimizeEvent = false}) async {
+    if (!_isDesktopOS || !mounted || _isMiniPlayerMode) return;
+    try {
+      if (fromMinimizeEvent) {
+        await windowManager.restore();
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+      }
+      _savedWindowSize = await windowManager.getSize();
+      _savedWindowPos = await windowManager.getPosition();
+
+      setState(() {
+        _isNowPlayingExpanded = false;
+        _isMiniPlayerMode = true;
+      });
+
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      );
+      await windowManager.setMinimumSize(const Size(360, 128));
+      await windowManager.setSize(const Size(396, 144));
+      await windowManager.setResizable(false);
+      await windowManager.setAlwaysOnTop(true);
+      await windowManager.setAlignment(Alignment.bottomRight);
+    } catch (_) {}
+  }
+
+  Future<void> _exitMiniPlayerMode() async {
+    if (!_isDesktopOS || !mounted) return;
+    try {
+      setState(() => _isMiniPlayerMode = false);
+      await windowManager.setAlwaysOnTop(false);
+      await windowManager.setResizable(true);
+      await windowManager.setMinimumSize(const Size(420, 600));
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.normal,
+        windowButtonVisibility: true,
+      );
+      await windowManager.setSize(_savedWindowSize);
+      if (_savedWindowPos != null) {
+        await windowManager.setPosition(_savedWindowPos!);
+      } else {
+        await windowManager.center();
+      }
+      await windowManager.focus();
+    } catch (_) {}
+  }
+
+  Future<void> _minimizeMiniPlayerToTaskbar() async {
+    if (!_isDesktopOS) return;
+    _bypassNextMinimizeMorph = true;
+    try {
+      await windowManager.minimize();
+    } catch (_) {}
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -140,7 +236,7 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
       case 2:
         return const SearchScreen();
       case 3:
-        return const ExploreScreen();
+        return const RadioScreen();
       case 4:
         return const LibraryScreen(initialTabIndex: 0);
       case 5:
@@ -159,6 +255,8 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
         return const PlatformStreamScreen(platform: MusicSource.youtube);
       case 12:
         return const PlatformStreamScreen(platform: MusicSource.spotify);
+      case 13:
+        return const PlatformStreamScreen(platform: MusicSource.soundcloud);
       default:
         return HomeScreen(onNavigate: (i) => setState(() => _navIndex = i));
     }
@@ -187,6 +285,19 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 768;
 
+    if (_isMiniPlayerMode) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Padding(
+          padding: const EdgeInsets.all(6),
+          child: MuxisMiniPlayer(
+            onExpandFull: _exitMiniPlayerMode,
+            onMinimizeToTaskbar: _minimizeMiniPlayerToTaskbar,
+          ),
+        ),
+      );
+    }
+
     if (_isNowPlayingExpanded) {
       return AuroraNowPlaying(
         onClose: () => setState(() => _isNowPlayingExpanded = false),
@@ -208,7 +319,13 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
         body: MuxisAmbientBackdrop(
           primaryTint: _navIndex == 12
               ? MuxisColors.spotifyGreen
-              : (_navIndex == 11 ? MuxisColors.youtubeRed : null),
+              : (_navIndex == 11
+                    ? MuxisColors.youtubeRed
+                    : (_navIndex == 13
+                          ? MuxisColors.soundcloudOrange
+                          : (_navIndex == 3
+                                ? MuxisColors.electricCyan
+                                : null))),
           child: SafeArea(
             top: !isDesktop,
             bottom: false,
@@ -259,6 +376,9 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
                       () => _isRightDrawerOpen = !_isRightDrawerOpen,
                     ),
                     onOpenAudioStudio: _openAudioStudio,
+                    onEnterMiniPlayer: _isDesktopOS
+                        ? () => _enterMiniPlayerMode(fromMinimizeEvent: false)
+                        : null,
                     isLyricsActive: _isRightDrawerOpen,
                     isQueueActive: _isRightDrawerOpen,
                   )

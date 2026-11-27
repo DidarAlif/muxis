@@ -72,11 +72,13 @@ class DatabaseService {
 
           // Clean up any synthetic demo/fallback entries saved by earlier versions
           final staleFakeIds = _tracks
-              .where((t) =>
-                  t.id == 'sp-starboy' ||
-                  t.id == 'sp-midnight-city' ||
-                  t.artist == 'Muxis Frequency Studio' ||
-                  t.title.endsWith(' (Prismatic Mix)'))
+              .where(
+                (t) =>
+                    t.id == 'sp-starboy' ||
+                    t.id == 'sp-midnight-city' ||
+                    t.artist == 'Muxis Frequency Studio' ||
+                    t.title.endsWith(' (Prismatic Mix)'),
+              )
               .map((t) => t.id)
               .toSet();
           if (staleFakeIds.isNotEmpty) {

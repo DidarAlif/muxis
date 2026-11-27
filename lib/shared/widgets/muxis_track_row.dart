@@ -102,6 +102,11 @@ class _MuxisTrackRowState extends State<MuxisTrackRow> {
                       widget.track.artworkUrl!.isNotEmpty
                   ? Image.network(
                       widget.track.artworkUrl!,
+                      width: 44,
+                      height: 44,
+                      cacheWidth: 120,
+                      cacheHeight: 120,
+                      gaplessPlayback: true,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Center(
                         child: Icon(

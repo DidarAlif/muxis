@@ -1,4 +1,4 @@
-enum MusicSource { local, youtube, spotify, publicDomain }
+enum MusicSource { local, youtube, spotify, soundcloud, radio, publicDomain }
 
 class Track {
   final String id;
@@ -34,8 +34,9 @@ class Track {
     this.trackNumber,
     this.year,
     bool? isLocal,
-  }) : source = source ??
-            (isLocal == false ? MusicSource.youtube : MusicSource.local);
+  }) : source =
+           source ??
+           (isLocal == false ? MusicSource.youtube : MusicSource.local);
 
   bool get isLocal => source == MusicSource.local;
 
@@ -113,7 +114,9 @@ class Track {
         orElse: () => MusicSource.local,
       ),
       isFavorite: (map['isFavorite'] as int? ?? 0) == 1,
-      isLocal: map['isLocal'] is bool ? map['isLocal'] as bool : (map['source'] == 'local'),
+      isLocal: map['isLocal'] is bool
+          ? map['isLocal'] as bool
+          : (map['source'] == 'local'),
       audioFormat: map['audioFormat'] as String? ?? 'FLAC',
       trackNumber: map['trackNumber'] as int?,
       year: map['year'] as int?,

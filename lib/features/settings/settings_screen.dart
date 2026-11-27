@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,6 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _googleClientSecret;
   String _activeSource = 'youtube';
   String _audioQuality = 'FLAC 24-bit Lossless';
+  bool _miniPlayerOnMinimize = true;
   int _dbSizeBytes = 0;
   bool _isLoading = true;
   bool _isBrowserAuthRunning = false;
@@ -54,6 +57,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final gSec = await prefs.getGoogleClientSecret();
     final active = await prefs.getActiveSource();
     final quality = await prefs.getAudioQuality();
+    final miniOnMin = await prefs.getMiniPlayerOnMinimize();
     final dbBytes = await db.getStorageUsageBytes();
 
     await ref.read(streamingAccountsProvider.notifier).refreshFromStorage();
@@ -68,6 +72,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _googleClientSecret = gSec;
         _activeSource = active;
         _audioQuality = quality;
+        _miniPlayerOnMinimize = miniOnMin;
         _dbSizeBytes = dbBytes;
         _isLoading = false;
       });
@@ -109,6 +114,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           result.isSuccess
               ? 'Connected to Spotify as ${result.displayName}! Synced ${result.playlistsImported} playlists & ${result.tracksImported} tracks.'
               : (result.errorMessage ?? 'Spotify sign-in cancelled.'),
+        ),
+        backgroundColor: result.isSuccess
+            ? MuxisColors.success
+            : MuxisColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _startSoundCloudDirectBrowserLogin() async {
+    setState(() => _isBrowserAuthRunning = true);
+    final accounts = ref.read(streamingAccountsProvider.notifier);
+    final result = await accounts.connectSoundCloudWithBrowser(context);
+    if (!mounted) return;
+    setState(() => _isBrowserAuthRunning = false);
+    await _loadSettings();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.isSuccess
+              ? 'Connected to SoundCloud as ${result.displayName}! Synced ${result.playlistsImported} sets & ${result.tracksImported} tracks.'
+              : (result.errorMessage ?? 'SoundCloud sign-in cancelled.'),
         ),
         backgroundColor: result.isSuccess
             ? MuxisColors.success
@@ -531,6 +558,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showSoundCloudSignInDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: MuxisColors.surface(isDark),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: MuxisColors.border(isDark)),
+          ),
+          title: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  gradient: MuxisGradients.soundcloudPlatformGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.cloud_queue_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Connect SoundCloud',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: MuxisColors.textPrimary(isDark),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sign in via SoundCloud\'s web portal to import your likes, playlists, sets, and personalized SoundCloud picks into MUXIS.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: MuxisColors.textSecondary(isDark),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                MuxisButton(
+                  label: 'Sign In via Web Browser',
+                  icon: const Icon(Icons.open_in_browser_rounded, size: 20),
+                  variant: MuxisButtonVariant.primary,
+                  height: 44,
+                  width: double.infinity,
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _startSoundCloudDirectBrowserLogin();
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: MuxisColors.textMuted(isDark)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeControllerProvider);
@@ -547,6 +654,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final hasYt = accounts.youtube.isConnected;
     final hasSp = accounts.spotify.isConnected;
+    final hasSc = accounts.soundcloud.isConnected;
 
     return MuxisScrollView(
       child: Column(
@@ -565,7 +673,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Choose your default search & quick-play source. Linking 1 or 2 platforms unlocks dedicated Streaming Hub sections directly in your navigation.',
+                    'Choose your default search & quick-play source. Linking streaming platforms unlocks dedicated Streaming Hub sections directly in your navigation.',
                     style: TextStyle(
                       fontSize: 13,
                       color: MuxisColors.textSecondary(isDark),
@@ -576,10 +684,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const gap = 10.0;
-                      final cols = constraints.maxWidth >= 620 ? 3 : 1;
+                      final cols = constraints.maxWidth >= 820
+                          ? 4
+                          : (constraints.maxWidth >= 500 ? 2 : 1);
                       final itemW = cols == 1
                           ? constraints.maxWidth
-                          : (constraints.maxWidth - gap * 2) / 3;
+                          : (constraints.maxWidth - gap * (cols - 1)) / cols;
                       return Wrap(
                         spacing: gap,
                         runSpacing: gap,
@@ -606,6 +716,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               subtitle: hasSp
                                   ? 'Connected • Ad-Free Bridge'
                                   : 'Connect via Browser',
+                            ),
+                          ),
+                          SizedBox(
+                            width: itemW,
+                            child: _buildPlatformChoice(
+                              id: 'soundcloud',
+                              title: 'SoundCloud',
+                              icon: Icons.cloud_queue_rounded,
+                              activeColor: MuxisColors.soundcloudOrange,
+                              subtitle: hasSc
+                                  ? 'Connected • Sets & Likes'
+                                  : 'Public & Account Stream',
                             ),
                           ),
                           SizedBox(
@@ -950,70 +1072,286 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
+                Divider(height: 1, color: MuxisColors.border(isDark)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              gradient:
+                                  MuxisGradients.soundcloudPlatformGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child:
+                                accounts.soundcloud.avatarUrl != null &&
+                                    accounts.soundcloud.avatarUrl!.isNotEmpty
+                                ? Image.network(
+                                    accounts.soundcloud.avatarUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.cloud_queue_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.cloud_queue_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'SoundCloud',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: MuxisColors.textPrimary(isDark),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: hasSc
+                                            ? MuxisColors.soundcloudOrange
+                                                  .withOpacity(0.18)
+                                            : Colors.grey.withOpacity(0.16),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        hasSc
+                                            ? 'LINKED • SYNCED'
+                                            : 'NOT LINKED',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: hasSc
+                                              ? MuxisColors.soundcloudOrange
+                                              : MuxisColors.textMuted(isDark),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  hasSc
+                                      ? '${accounts.soundcloud.displayName ?? 'SoundCloud Account'} • ${accounts.soundcloud.playlists.length} sets synced'
+                                      : 'Log in via browser redirection to import SoundCloud sets, likes & personalized picks.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: MuxisColors.textSecondary(isDark),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (hasSc) ...[
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.sync_rounded,
+                                size: 20,
+                                color: MuxisColors.soundcloudOrange,
+                              ),
+                              tooltip: 'Sync SoundCloud Library',
+                              onPressed: () async {
+                                final msg = await accountsNotifier
+                                    .syncSoundCloudLive();
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(msg),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.logout_rounded,
+                                size: 20,
+                                color: MuxisColors.textMuted(isDark),
+                              ),
+                              tooltip: 'Disconnect SoundCloud',
+                              onPressed: () async {
+                                await accountsNotifier.disconnectSoundCloud();
+                                await _loadSettings();
+                              },
+                            ),
+                          ],
+                          MuxisButton(
+                            label: hasSc ? 'Manage' : 'Sign In via Browser',
+                            variant: hasSc
+                                ? MuxisButtonVariant.secondary
+                                : MuxisButtonVariant.primary,
+                            height: 34,
+                            isLoading:
+                                _isBrowserAuthRunning ||
+                                accounts.soundcloud.isSyncing,
+                            onPressed: hasSc
+                                ? _showSoundCloudSignInDialog
+                                : _startSoundCloudDirectBrowserLogin,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
 
           const SizedBox(height: 22),
 
-          // --- SECTION 3: APPEARANCE & THEME ---
-          _buildSectionTitle('APPEARANCE', isDark),
+          // --- SECTION 3: APPEARANCE & WINDOW ---
+          _buildSectionTitle('APPEARANCE & WINDOW', isDark),
           _buildCard(
             isDark,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        'Theme Mode',
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Theme Mode',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Aligned Luminous Aurora Light Glass & Dark Obsidian Glass',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: MuxisColors.textSecondary(isDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                      DropdownButton<ThemeMode>(
+                        value: themeMode,
+                        dropdownColor: MuxisColors.surface(isDark),
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
                           color: MuxisColors.textPrimary(isDark),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Aligned Luminous Aurora Light Glass & Dark Obsidian Glass',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: MuxisColors.textSecondary(isDark),
-                        ),
+                        underline: const SizedBox(),
+                        onChanged: (mode) {
+                          if (mode != null) themeNotifier.setTheme(mode);
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: ThemeMode.dark,
+                            child: Text('Dark Obsidian'),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.light,
+                            child: Text('Light Aurora Glass'),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.system,
+                            child: Text('System Appearance'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  DropdownButton<ThemeMode>(
-                    value: themeMode,
-                    dropdownColor: MuxisColors.surface(isDark),
-                    style: TextStyle(color: MuxisColors.textPrimary(isDark)),
-                    underline: const SizedBox(),
-                    onChanged: (mode) {
-                      if (mode != null) themeNotifier.setTheme(mode);
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: ThemeMode.dark,
-                        child: Text('Dark Obsidian'),
-                      ),
-                      DropdownMenuItem(
-                        value: ThemeMode.light,
-                        child: Text('Light Aurora Glass'),
-                      ),
-                      DropdownMenuItem(
-                        value: ThemeMode.system,
-                        child: Text('System Appearance'),
-                      ),
-                    ],
+                ),
+                if (Platform.isWindows ||
+                    Platform.isMacOS ||
+                    Platform.isLinux) ...[
+                  Divider(height: 1, color: MuxisColors.border(isDark)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Floating Mini-Player on Minimize',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: MuxisColors.textPrimary(isDark),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Switch to an always-on-top compact player widget automatically when you minimize MUXIS.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: MuxisColors.textSecondary(isDark),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch.adaptive(
+                          value: _miniPlayerOnMinimize,
+                          activeColor: MuxisColors.accent(isDark),
+                          onChanged: (val) async {
+                            setState(() => _miniPlayerOnMinimize = val);
+                            await ref
+                                .read(preferencesServiceProvider)
+                                .saveMiniPlayerOnMinimize(val);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
 
@@ -1430,7 +1768,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'v${updateState.currentVersion} • In-App Auto-Updater, Windows Setup & Mobile UX',
+                        'v${updateState.currentVersion} • SoundCloud, Global Radio, Mini-Player & Zero-Lag Glass',
                         style: TextStyle(
                           fontSize: 12,
                           color: MuxisColors.textMuted(isDark),
@@ -1440,7 +1778,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Cross-Platform Music Streaming & Local Player with Luminous Aurora Liquid Glass design, automatic browser authentication for YouTube Music and Spotify, dedicated per-platform streaming hubs, 10-band studio DSP, and kinetic audio spectrum visualization.',
+                    'Cross-Platform Music Streaming, Global Live Radio & Local Audio Player with Luminous Aurora Liquid Glass design, automatic browser authentication for YouTube Music, Spotify, and SoundCloud, featured home shelves, floating desktop mini-player, and 10-band studio DSP.',
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.4,

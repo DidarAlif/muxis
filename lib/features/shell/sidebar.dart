@@ -167,94 +167,114 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                       primary: false,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       children: [
-                      if (!_isCollapsed) _buildGroupHeader('DISCOVER', isDark),
-                      _buildNavItem(0, Icons.home_filled, 'Home', isDark),
-                      _buildNavItem(1, Icons.explore_rounded, 'Explore', isDark),
-                      _buildNavItem(2, Icons.search_rounded, 'Search', isDark),
-                      _buildNavItem(3, Icons.radio_rounded, 'Radio', isDark),
+                        if (!_isCollapsed)
+                          _buildGroupHeader('DISCOVER', isDark),
+                        _buildNavItem(0, Icons.home_filled, 'Home', isDark),
+                        _buildNavItem(
+                          1,
+                          Icons.explore_rounded,
+                          'Explore',
+                          isDark,
+                        ),
+                        _buildNavItem(
+                          2,
+                          Icons.search_rounded,
+                          'Search',
+                          isDark,
+                        ),
+                        _buildNavItem(3, Icons.radio_rounded, 'Radio', isDark),
 
-                      // Dynamic Linked Streaming Platform Section(s)
-                      if (accounts.hasAnyConnected) ...[
+                        // Dynamic Linked Streaming Platform Section(s)
+                        if (accounts.hasAnyConnected) ...[
+                          const SizedBox(height: 18),
+                          if (!_isCollapsed)
+                            _buildGroupHeader('STREAM PLATFORMS', isDark),
+                          if (accounts.youtube.isConnected)
+                            _buildNavItem(
+                              11,
+                              Icons.smart_display_rounded,
+                              'YouTube Music',
+                              isDark,
+                              accentOverride: MuxisColors.youtubeRed,
+                              showLiveDot: true,
+                            ),
+                          if (accounts.spotify.isConnected)
+                            _buildNavItem(
+                              12,
+                              Icons.graphic_eq_rounded,
+                              'Spotify',
+                              isDark,
+                              accentOverride: MuxisColors.spotifyGreen,
+                              showLiveDot: true,
+                            ),
+                          if (accounts.soundcloud.isConnected)
+                            _buildNavItem(
+                              13,
+                              Icons.cloud_queue_rounded,
+                              'SoundCloud',
+                              isDark,
+                              accentOverride: MuxisColors.soundcloudOrange,
+                              showLiveDot: true,
+                            ),
+                        ] else if (!_isCollapsed) ...[
+                          const SizedBox(height: 16),
+                          _buildGroupHeader('CONNECT PLATFORMS', isDark),
+                          _buildActionItem(
+                            Icons.link_rounded,
+                            'Link Platforms',
+                            isDark,
+                            () => widget.onDestinationSelected(10),
+                            accentOverride: MuxisColors.accent(isDark),
+                          ),
+                        ],
+
                         const SizedBox(height: 18),
                         if (!_isCollapsed)
-                          _buildGroupHeader('STREAM PLATFORMS', isDark),
-                        if (accounts.youtube.isConnected)
-                          _buildNavItem(
-                            11,
-                            Icons.smart_display_rounded,
-                            'YouTube Music',
-                            isDark,
-                            accentOverride: MuxisColors.youtubeRed,
-                            showLiveDot: true,
-                          ),
-                        if (accounts.spotify.isConnected)
-                          _buildNavItem(
-                            12,
-                            Icons.graphic_eq_rounded,
-                            'Spotify',
-                            isDark,
-                            accentOverride: MuxisColors.spotifyGreen,
-                            showLiveDot: true,
-                          ),
-                      ] else if (!_isCollapsed) ...[
-                        const SizedBox(height: 16),
-                        _buildGroupHeader('CONNECT PLATFORMS', isDark),
-                        _buildActionItem(
-                          Icons.link_rounded,
-                          'Link YT / Spotify',
+                          _buildGroupHeader('YOUR COLLECTION', isDark),
+                        _buildNavItem(
+                          4,
+                          Icons.library_music_rounded,
+                          'Library',
                           isDark,
-                          () => widget.onDestinationSelected(10),
-                          accentOverride: MuxisColors.accent(isDark),
+                        ),
+                        _buildNavItem(
+                          5,
+                          Icons.playlist_play_rounded,
+                          'Playlists',
+                          isDark,
+                        ),
+                        _buildNavItem(6, Icons.album_rounded, 'Albums', isDark),
+                        _buildNavItem(7, Icons.mic_rounded, 'Artists', isDark),
+                        _buildNavItem(
+                          8,
+                          Icons.favorite_rounded,
+                          'Favorites',
+                          isDark,
+                        ),
+                        _buildNavItem(
+                          9,
+                          Icons.history_rounded,
+                          'Recently Played',
+                          isDark,
+                        ),
+
+                        const SizedBox(height: 18),
+                        if (!_isCollapsed) _buildGroupHeader('SYSTEM', isDark),
+                        _buildActionItem(
+                          Icons.tune_rounded,
+                          'Audio Studio',
+                          isDark,
+                          widget.onOpenAudioStudio,
+                        ),
+                        _buildNavItem(
+                          10,
+                          Icons.settings_rounded,
+                          'Settings',
+                          isDark,
                         ),
                       ],
-
-                      const SizedBox(height: 18),
-                      if (!_isCollapsed)
-                        _buildGroupHeader('YOUR COLLECTION', isDark),
-                      _buildNavItem(
-                        4,
-                        Icons.library_music_rounded,
-                        'Library',
-                        isDark,
-                      ),
-                      _buildNavItem(
-                        5,
-                        Icons.playlist_play_rounded,
-                        'Playlists',
-                        isDark,
-                      ),
-                      _buildNavItem(6, Icons.album_rounded, 'Albums', isDark),
-                      _buildNavItem(7, Icons.mic_rounded, 'Artists', isDark),
-                      _buildNavItem(
-                        8,
-                        Icons.favorite_rounded,
-                        'Favorites',
-                        isDark,
-                      ),
-                      _buildNavItem(
-                        9,
-                        Icons.history_rounded,
-                        'Recently Played',
-                        isDark,
-                      ),
-
-                      const SizedBox(height: 18),
-                      if (!_isCollapsed) _buildGroupHeader('SYSTEM', isDark),
-                      _buildActionItem(
-                        Icons.tune_rounded,
-                        'Audio Studio',
-                        isDark,
-                        widget.onOpenAudioStudio,
-                      ),
-                      _buildNavItem(
-                        10,
-                        Icons.settings_rounded,
-                        'Settings',
-                        isDark,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
                 ),
 
                 // Footer Profile & Theme Toggle
@@ -298,10 +318,10 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
                                     radius: 16,
                                     backgroundColor: isAuth
                                         ? MuxisColors.accent(isDark)
-                                            .withOpacity(0.2)
+                                              .withOpacity(0.2)
                                         : (isDark
-                                            ? MuxisColors.elevatedSurface
-                                            : MuxisColors.secondarySurface),
+                                              ? MuxisColors.elevatedSurface
+                                              : MuxisColors.secondarySurface),
                                     child: Icon(
                                       isAuth
                                           ? Icons.person_rounded
@@ -422,7 +442,7 @@ class _MuxisSidebarState extends ConsumerState<MuxisSidebar> {
               color: isSelected
                   ? activeAccent
                   : (accentOverride?.withOpacity(0.85) ??
-                      MuxisColors.textSecondary(isDark)),
+                        MuxisColors.textSecondary(isDark)),
             ),
             if (!_isCollapsed) ...[
               const SizedBox(width: 14),

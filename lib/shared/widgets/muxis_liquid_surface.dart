@@ -25,6 +25,7 @@ class MuxisLiquidSurface extends StatefulWidget {
   final bool enableHoverWave;
   final bool enableDropRipple;
   final double blurSigma;
+  final bool enableBackdropBlur;
   final Color? accentColor;
   final BoxBorder? borderOverride;
   final Gradient? gradientOverride;
@@ -42,6 +43,7 @@ class MuxisLiquidSurface extends StatefulWidget {
     this.enableHoverWave = true,
     this.enableDropRipple = true,
     this.blurSigma = 22,
+    this.enableBackdropBlur = false,
     this.accentColor,
     this.borderOverride,
     this.gradientOverride,
@@ -62,7 +64,8 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
 
   bool _isHovered = false;
   bool _isPressed = false;
-  Offset? _hoverPos;
+  final ValueNotifier<Offset?> _hoverPosNotifier = ValueNotifier<Offset?>(null);
+  Offset? _pointerDownPos;
   final List<_DropletPulse> _droplets = [];
   static const int _dropDurationUs = 820000;
 
@@ -81,6 +84,15 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..addListener(_pruneDroplets);
+  }
+
+  @override
+  void dispose() {
+    _hoverPosNotifier.dispose();
+    _waveCtrl.dispose();
+    _hoverBlendCtrl.dispose();
+    _dropTickCtrl.dispose();
+    super.dispose();
   }
 
   void _pruneDroplets() {
@@ -113,10 +125,12 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
   }
 
   void _onHoverEnter(PointerEvent event) {
-    setState(() {
-      _isHovered = true;
-      _hoverPos = event.localPosition;
-    });
+    _hoverPosNotifier.value = event.localPosition;
+    if (!_isHovered) {
+      setState(() {
+        _isHovered = true;
+      });
+    }
     if (widget.enableHoverWave) {
       _hoverBlendCtrl.forward();
       if (!_waveCtrl.isAnimating) {
@@ -127,9 +141,7 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
 
   void _onHoverMove(PointerEvent event) {
     if (!widget.enableHoverWave) return;
-    setState(() {
-      _hoverPos = event.localPosition;
-    });
+    _hoverPosNotifier.value = event.localPosition;
   }
 
   void _onHoverExit(PointerEvent event) {
@@ -163,12 +175,16 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
     final BoxDecoration decoration;
     if (widget.enableGlass) {
       decoration = BoxDecoration(
-        color: widget.colorOverride ??
+        color:
+            widget.colorOverride ??
             (isDark
-                ? MuxisColors.elevatedSurface.withOpacity(_isHovered ? 0.62 : 0.50)
+                ? MuxisColors.elevatedSurface.withOpacity(
+                    _isHovered ? 0.62 : 0.50,
+                  )
                 : Colors.white.withOpacity(_isHovered ? 0.82 : 0.68)),
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        border: widget.borderOverride ??
+        border:
+            widget.borderOverride ??
             Border.all(
               color: _isHovered
                   ? accent.withOpacity(isDark ? 0.45 : 0.60)
@@ -177,7 +193,8 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
                         : Colors.white.withOpacity(0.95)),
               width: 1.2,
             ),
-        gradient: widget.gradientOverride ??
+        gradient:
+            widget.gradientOverride ??
             LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -193,7 +210,8 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
                       const Color(0xC2F1ECFF),
                     ],
             ),
-        boxShadow: widget.boxShadowOverride ??
+        boxShadow:
+            widget.boxShadowOverride ??
             [
               BoxShadow(
                 color: isDark
@@ -228,10 +246,7 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
         fit: StackFit.passthrough,
         clipBehavior: Clip.hardEdge,
         children: [
-          Padding(
-            padding: widget.padding,
-            child: widget.child,
-          ),
+          Padding(padding: widget.padding, child: widget.child),
           if (widget.enableHoverWave || widget.enableDropRipple)
             Positioned.fill(
               child: IgnorePointer(
@@ -241,6 +256,7 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
                       _waveCtrl,
                       _hoverBlendCtrl,
                       _dropTickCtrl,
+                      _hoverPosNotifier,
                     ]),
                     builder: (context, _) {
                       final hoverBlend = _hoverBlendCtrl.value;
@@ -251,7 +267,7 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
                         painter: _LiquidEffectsPainter(
                           wavePhase: _waveCtrl.value,
                           hoverBlend: hoverBlend,
-                          hoverPos: _hoverPos,
+                          hoverPos: _hoverPosNotifier.value,
                           droplets: List<_DropletPulse>.from(_droplets),
                           nowUs: DateTime.now().microsecondsSinceEpoch,
                           dropDurationUs: _dropDurationUs,
@@ -269,7 +285,9 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
       ),
     );
 
-    if (widget.enableGlass && widget.blurSigma > 0) {
+    if (widget.enableBackdropBlur &&
+        widget.enableGlass &&
+        widget.blurSigma > 0) {
       surface = ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         child: BackdropFilter(
@@ -309,15 +327,21 @@ class _MuxisLiquidSurfaceState extends State<MuxisLiquidSurface>
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (e) {
+          _pointerDownPos = e.localPosition;
           if (widget.onTap != null) {
             setState(() => _isPressed = true);
           }
-          _spawnDroplet(e.localPosition);
         },
-        onPointerUp: (_) {
+        onPointerUp: (e) {
           if (_isPressed) setState(() => _isPressed = false);
+          final down = _pointerDownPos;
+          _pointerDownPos = null;
+          if (down == null || (e.localPosition - down).distance <= 14.0) {
+            _spawnDroplet(e.localPosition);
+          }
         },
         onPointerCancel: (_) {
+          _pointerDownPos = null;
           if (_isPressed) setState(() => _isPressed = false);
         },
         child: surface,
@@ -377,13 +401,14 @@ class _LiquidEffectsPainter extends CustomPainter {
         final amp = (layer == 0 ? 9.0 : 6.0) * hoverBlend;
         final yBase =
             (center.dy.clamp(size.height * 0.18, size.height * 0.85)) +
-                (layer == 0 ? -4.0 : 12.0);
+            (layer == 0 ? -4.0 : 12.0);
 
         final path = Path();
         path.moveTo(0, size.height);
         for (double x = 0; x <= size.width + 12; x += 12) {
           final normX = x / math.max(1.0, size.width);
-          final y = yBase +
+          final y =
+              yBase +
               math.sin(normX * math.pi * freq + phase) * amp +
               math.cos(normX * math.pi * 1.5 - phase * 0.7) * (amp * 0.45);
           path.lineTo(x, y);
@@ -391,15 +416,17 @@ class _LiquidEffectsPainter extends CustomPainter {
         path.lineTo(size.width, size.height);
         path.close();
 
-        final waveColor = (layer == 0 ? secondaryAccent : accent)
-            .withOpacity((isDark ? 0.075 : 0.09) * hoverBlend);
+        final waveColor = (layer == 0 ? secondaryAccent : accent).withOpacity(
+          (isDark ? 0.075 : 0.09) * hoverBlend,
+        );
         canvas.drawPath(path, Paint()..color = waveColor);
 
         // Specular crest highlight line
         final crestPath = Path();
         for (double x = 0; x <= size.width + 12; x += 12) {
           final normX = x / math.max(1.0, size.width);
-          final y = yBase +
+          final y =
+              yBase +
               math.sin(normX * math.pi * freq + phase) * amp +
               math.cos(normX * math.pi * 1.5 - phase * 0.7) * (amp * 0.45);
           if (x == 0) {
@@ -413,7 +440,9 @@ class _LiquidEffectsPainter extends CustomPainter {
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1.2
-            ..color = Colors.white.withOpacity((isDark ? 0.16 : 0.45) * hoverBlend),
+            ..color = Colors.white.withOpacity(
+              (isDark ? 0.16 : 0.45) * hoverBlend,
+            ),
         );
       }
     }
@@ -452,8 +481,10 @@ class _LiquidEffectsPainter extends CustomPainter {
           final ringColor = ring == 0
               ? Colors.white.withOpacity((isDark ? 0.52 : 0.70) * alpha)
               : (ring == 1
-                  ? secondaryAccent.withOpacity((isDark ? 0.55 : 0.50) * alpha)
-                  : accent.withOpacity((isDark ? 0.40 : 0.38) * alpha));
+                    ? secondaryAccent.withOpacity(
+                        (isDark ? 0.55 : 0.50) * alpha,
+                      )
+                    : accent.withOpacity((isDark ? 0.40 : 0.38) * alpha));
           final strokeW = (2.6 - ring * 0.65) * (1.0 - rt * 0.55);
 
           canvas.drawCircle(
@@ -470,5 +501,12 @@ class _LiquidEffectsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LiquidEffectsPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _LiquidEffectsPainter oldDelegate) {
+    return oldDelegate.wavePhase != wavePhase ||
+        oldDelegate.hoverBlend != hoverBlend ||
+        oldDelegate.hoverPos != hoverPos ||
+        droplets.isNotEmpty ||
+        oldDelegate.droplets.isNotEmpty ||
+        oldDelegate.isDark != isDark;
+  }
 }

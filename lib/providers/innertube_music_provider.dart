@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 import '../core/storage/preferences_service.dart';
 import '../shared/models/album.dart';
+import '../shared/models/featured_section.dart';
 import '../shared/models/playlist.dart';
 import '../shared/models/track.dart';
 import 'music_provider.dart';
@@ -14,13 +15,18 @@ class InnerTubeMusicProvider implements MusicProvider {
   final Dio _dio;
   final PreferencesService _prefs;
 
+  static final Map<String, ({String url, DateTime expiresAt})> _streamUrlCache =
+      {};
+
   InnerTubeMusicProvider({Dio? dio, PreferencesService? prefs})
-      : _dio = dio ?? Dio(),
-        _prefs = prefs ?? PreferencesService();
+    : _dio = dio ?? Dio(),
+      _prefs = prefs ?? PreferencesService();
 
   static const String _youtubeMusicOrigin = 'https://music.youtube.com';
-  static const String _youtubeiBaseUrl = 'https://music.youtube.com/youtubei/v1';
-  static const String _youtubePlayerUrl = 'https://www.youtube.com/youtubei/v1/player';
+  static const String _youtubeiBaseUrl =
+      'https://music.youtube.com/youtubei/v1';
+  static const String _youtubePlayerUrl =
+      'https://www.youtube.com/youtubei/v1/player';
 
   static const String _androidUserAgent =
       'com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip';
@@ -38,13 +44,13 @@ class InnerTubeMusicProvider implements MusicProvider {
   MusicSource get source => MusicSource.youtube;
 
   Map<String, dynamic> get _webRemixContext => {
-        'client': {
-          'clientName': 'WEB_REMIX',
-          'clientVersion': '1.20260114.03.00',
-          'hl': 'en',
-          'gl': 'US',
-        },
-      };
+    'client': {
+      'clientName': 'WEB_REMIX',
+      'clientVersion': '1.20260114.03.00',
+      'hl': 'en',
+      'gl': 'US',
+    },
+  };
 
   /// Sanitizes any HTTP header value to printable ASCII to avoid dart:io HttpHeaders FormatException.
   static String sanitizeHeaderValue(String? raw) {
@@ -75,9 +81,8 @@ class InnerTubeMusicProvider implements MusicProvider {
 
   static String? _extractCookieValue(String cookieHeader, List<String> keys) {
     for (final key in keys) {
-      final match = RegExp(
-        '(?:^|;\\s*)${RegExp.escape(key)}=([^;\\s]+)',
-      ).firstMatch(cookieHeader);
+      final match = RegExp('(?:^|;\\s*)${RegExp.escape(key)}=([^;\\s]+)')
+          .firstMatch(cookieHeader);
       if (match != null) {
         final val = match.group(1)?.trim() ?? '';
         if (val.isNotEmpty) return val;
@@ -110,17 +115,21 @@ class InnerTubeMusicProvider implements MusicProvider {
     final cookie = sanitizeAndDeduplicateCookie(rawCookie);
     var sapisid = sanitizeHeaderValue(rawSapisid);
     if (sapisid.isEmpty && cookie.isNotEmpty) {
-      sapisid = _extractCookieValue(
-            cookie,
-            const ['SAPISID', '__Secure-3PAPISID', '__Secure-1PAPISID'],
-          ) ??
+      sapisid =
+          _extractCookieValue(cookie, const [
+            'SAPISID',
+            '__Secure-3PAPISID',
+            '__Secure-1PAPISID',
+          ]) ??
           '';
     }
-    final authUser =
-        RegExp(r'^\d+$').hasMatch(rawAuthUser.trim()) ? rawAuthUser.trim() : '0';
+    final authUser = RegExp(r'^\d+$').hasMatch(rawAuthUser.trim())
+        ? rawAuthUser.trim()
+        : '0';
 
     if (sapisid.isNotEmpty) {
-      final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+      final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000)
+          .toString();
       final authParts = <String>[];
       final sapisid1p = cookie.isNotEmpty
           ? _extractCookieValue(cookie, const ['__Secure-1PAPISID'])
@@ -195,7 +204,8 @@ class InnerTubeMusicProvider implements MusicProvider {
         if (tok != null && tok.isNotEmpty) return tok;
       }
     } else if (node is Map) {
-      final nextCont = node['nextContinuationData']?['continuation']?.toString();
+      final nextCont = node['nextContinuationData']?['continuation']
+          ?.toString();
       if (nextCont != null && nextCont.isNotEmpty) return nextCont;
       final cmdCont = node['continuationCommand']?['token']?.toString();
       if (cmdCont != null && cmdCont.isNotEmpty) return cmdCont;
@@ -211,7 +221,8 @@ class InnerTubeMusicProvider implements MusicProvider {
   Future<Map<String, String?>> fetchUserProfile() async {
     try {
       final headers = await _buildHeaders();
-      if (!headers.containsKey('Authorization') && !headers.containsKey('Cookie')) {
+      if (!headers.containsKey('Authorization') &&
+          !headers.containsKey('Cookie')) {
         return {};
       }
       final res = await _dio.post(
@@ -229,9 +240,8 @@ class InnerTubeMusicProvider implements MusicProvider {
         final actions = data['actions'] as List?;
         dynamic header;
         if (actions != null && actions.isNotEmpty) {
-          header = actions[0]?['openPopupAction']?['popup']
-              ?['multiPageMenuRenderer']?['header']
-              ?['activeAccountHeaderRenderer'];
+          header =
+              actions[0]?['openPopupAction']?['popup']?['multiPageMenuRenderer']?['header']?['activeAccountHeaderRenderer'];
         }
         header ??= _findRendererRecursive(data, 'activeAccountHeaderRenderer');
         if (header is Map) {
@@ -256,15 +266,15 @@ class InnerTubeMusicProvider implements MusicProvider {
 
   /// Fetches the authenticated user's personal YouTube Music playlists.
   Future<List<Playlist>> fetchUserPlaylists() async {
-    for (final browseId in const ['FEmusic_liked_playlists', 'FEmusic_library_landing']) {
+    for (final browseId in const [
+      'FEmusic_liked_playlists',
+      'FEmusic_library_landing',
+    ]) {
       try {
         final headers = await _buildHeaders();
         final res = await _dio.post(
           '$_youtubeiBaseUrl/browse',
-          data: {
-            'context': _webRemixContext,
-            'browseId': browseId,
-          },
+          data: {'context': _webRemixContext, 'browseId': browseId},
           options: Options(
             headers: headers,
             validateStatus: (s) => s != null && s < 500,
@@ -302,16 +312,18 @@ class InnerTubeMusicProvider implements MusicProvider {
     }
 
     try {
-      final browseId = (playlistId.startsWith('VL') || playlistId.startsWith('FE'))
+      final browseId =
+          (playlistId.startsWith('VL') ||
+              playlistId.startsWith('FE') ||
+              playlistId.startsWith('RD') ||
+              playlistId.startsWith('OLAK') ||
+              playlistId.startsWith('MPRE'))
           ? playlistId
           : 'VL$playlistId';
       final headers = await _buildHeaders();
       final res = await _dio.post(
         '$_youtubeiBaseUrl/browse',
-        data: {
-          'context': _webRemixContext,
-          'browseId': browseId,
-        },
+        data: {'context': _webRemixContext, 'browseId': browseId},
         options: Options(
           headers: headers,
           validateStatus: (s) => s != null && s < 500,
@@ -323,22 +335,18 @@ class InnerTubeMusicProvider implements MusicProvider {
         if (decoded != null) {
           appendTracks(_extractTracksFromBrowse(decoded));
           var contToken = _extractContinuationToken(decoded);
-          for (int page = 1;
-              page < maxPages &&
-                  contToken != null &&
-                  contToken.isNotEmpty &&
-                  seenTokens.add(contToken);
-              page++) {
+          for (
+            int page = 1;
+            page < maxPages &&
+                contToken != null &&
+                contToken.isNotEmpty &&
+                seenTokens.add(contToken);
+            page++
+          ) {
             final pageRes = await _dio.post(
               '$_youtubeiBaseUrl/browse',
-              queryParameters: {
-                'continuation': contToken,
-                'type': 'next',
-              },
-              data: {
-                'context': _webRemixContext,
-                'continuation': contToken,
-              },
+              queryParameters: {'continuation': contToken, 'type': 'next'},
+              data: {'context': _webRemixContext, 'continuation': contToken},
               options: Options(
                 headers: headers,
                 validateStatus: (s) => s != null && s < 500,
@@ -387,10 +395,7 @@ class InnerTubeMusicProvider implements MusicProvider {
         final headers = await _buildHeaders();
         final res = await _dio.post(
           '$_youtubeiBaseUrl/browse',
-          data: {
-            'context': _webRemixContext,
-            'browseId': browseId,
-          },
+          data: {'context': _webRemixContext, 'browseId': browseId},
           options: Options(
             headers: headers,
             validateStatus: (s) => s != null && s < 500,
@@ -415,10 +420,7 @@ class InnerTubeMusicProvider implements MusicProvider {
         final headers = await _buildHeaders(authenticated: false);
         final res = await _dio.post(
           '$_youtubeiBaseUrl/browse',
-          data: {
-            'context': _webRemixContext,
-            'browseId': browseId,
-          },
+          data: {'context': _webRemixContext, 'browseId': browseId},
           options: Options(
             headers: headers,
             validateStatus: (s) => s != null && s < 500,
@@ -435,8 +437,9 @@ class InnerTubeMusicProvider implements MusicProvider {
     }
 
     // Live Global Top chart playlist fallback
-    final chartTracks =
-        await fetchPlaylistTracks('VLPL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0');
+    final chartTracks = await fetchPlaylistTracks(
+      'VLPL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0',
+    );
     if (chartTracks.isNotEmpty) {
       return chartTracks.take(25).toList();
     }
@@ -444,40 +447,186 @@ class InnerTubeMusicProvider implements MusicProvider {
     return collected;
   }
 
+  /// Extracts main-account titled shelves from YouTube Music Home (`FEmusic_home`)
+  /// & Explore (`FEmusic_explore`), preserving shelf headers like "Quick picks",
+  /// "Listen again", "Mixed for you", and "Trending", with both mixes & tracks.
+  Future<List<FeaturedSection>> fetchHomeFeaturedSections() async {
+    final sections = <FeaturedSection>[];
+    final seenSectionTitles = <String>{};
+
+    for (final browseId in const ['FEmusic_home', 'FEmusic_explore']) {
+      try {
+        final headers = await _buildHeaders();
+        final res = await _dio.post(
+          '$_youtubeiBaseUrl/browse',
+          data: {'context': _webRemixContext, 'browseId': browseId},
+          options: Options(
+            headers: headers,
+            validateStatus: (s) => s != null && s < 500,
+          ),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final decoded = _decodeJsonMap(res.data);
+          if (decoded != null) {
+            for (final sec in extractFeaturedSectionsFromBrowse(decoded)) {
+              if (seenSectionTitles.add(sec.title.toLowerCase())) {
+                sections.add(sec);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+      if (sections.length >= 6) break;
+    }
+
+    return sections;
+  }
+
+  List<FeaturedSection> extractFeaturedSectionsFromBrowse(
+    Map<String, dynamic> data,
+  ) {
+    final sections = <FeaturedSection>[];
+
+    void walkShelves(dynamic node) {
+      if (node is List) {
+        for (final item in node) {
+          walkShelves(item);
+        }
+        return;
+      }
+      if (node is! Map) return;
+
+      final carousel = node['musicCarouselShelfRenderer'];
+      final grid = node['musicGridRenderer'];
+      final shelf = node['musicShelfRenderer'];
+      final target =
+          (carousel is Map ? carousel : null) ??
+          (grid is Map ? grid : null) ??
+          (shelf is Map ? shelf : null);
+
+      if (target != null) {
+        final headerObj = target['header'];
+        final hdr =
+            (headerObj is Map
+                ? (headerObj['musicCarouselShelfBasicHeaderRenderer'] ??
+                      headerObj['musicGridHeaderRenderer'])
+                : null) ??
+            target['title'];
+        final dynamic rawTitleRuns = (hdr is Map && hdr['title'] is Map)
+            ? hdr['title']['runs']
+            : (hdr is Map ? hdr['runs'] : null);
+        final titleRuns = rawTitleRuns is List ? rawTitleRuns : null;
+        final title = titleRuns != null && titleRuns.isNotEmpty
+            ? titleRuns.map((r) => r['text']?.toString() ?? '').join().trim()
+            : '';
+
+        if (title.isNotEmpty) {
+          final rawItems =
+              (target['contents'] ?? target['items']) as List? ?? const [];
+          final tracks = <Track>[];
+          final playlists = <Playlist>[];
+          final seenTrackIds = <String>{};
+          final seenPlIds = <String>{};
+
+          for (final item in rawItems) {
+            if (item is! Map) continue;
+            final twoRow = item['musicTwoRowItemRenderer'];
+            if (twoRow is Map) {
+              final trMap = Map<String, dynamic>.from(twoRow);
+              final track = _parseTwoRowTrack(trMap);
+              if (track != null && seenTrackIds.add(track.id)) {
+                tracks.add(track);
+                continue;
+              }
+              final pl = _parseTwoRowPlaylist(trMap);
+              if (pl != null && seenPlIds.add(pl.id)) {
+                playlists.add(pl);
+                continue;
+              }
+            }
+            final resp = item['musicResponsiveListItemRenderer'];
+            if (resp is Map) {
+              final tr = _parseResponsiveListItem(
+                Map<String, dynamic>.from(resp),
+              );
+              if (tr != null && seenTrackIds.add(tr.id)) {
+                tracks.add(tr);
+              }
+            }
+          }
+
+          if (tracks.isNotEmpty || playlists.isNotEmpty) {
+            sections.add(
+              FeaturedSection(
+                id: 'yt-sec-${sections.length}-${title.hashCode.abs()}',
+                title: title,
+                source: MusicSource.youtube,
+                tracks: tracks,
+                playlists: playlists,
+              ),
+            );
+          }
+        }
+      }
+
+      for (final val in node.values) {
+        if (val is Map || val is List) walkShelves(val);
+      }
+    }
+
+    walkShelves(data);
+    return sections;
+  }
+
+  static List<FeaturedSection> featuredSectionsFromWebViewMaps(
+    List<Map<String, dynamic>> rawSections,
+  ) {
+    return rawSections
+        .map(FeaturedSection.fromMap)
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   static List<Playlist> playlistsFromWebViewMaps(
     List<Map<String, dynamic>> rawList,
   ) {
-    return rawList.map((m) {
-      return Playlist(
-        id: m['id']?.toString() ?? '',
-        title: m['title']?.toString() ?? 'YouTube Music Playlist',
-        description: m['description']?.toString(),
-        artworkUrl: m['artworkUrl']?.toString(),
-        trackCount: (m['trackCount'] as num?)?.toInt() ?? 0,
-      );
-    }).where((p) => p.id.isNotEmpty).toList();
+    return rawList
+        .map((m) {
+          return Playlist(
+            id: m['id']?.toString() ?? '',
+            title: m['title']?.toString() ?? 'YouTube Music Playlist',
+            description: m['description']?.toString(),
+            artworkUrl: m['artworkUrl']?.toString(),
+            trackCount: (m['trackCount'] as num?)?.toInt() ?? 0,
+          );
+        })
+        .where((p) => p.id.isNotEmpty)
+        .toList();
   }
 
   static List<Track> tracksFromWebViewMaps(
     List<Map<String, dynamic>> rawList, {
     bool isFavorite = false,
   }) {
-    return rawList.map((m) {
-      final rawId = m['id']?.toString() ?? '';
-      return Track(
-        id: rawId,
-        title: m['title']?.toString() ?? 'Unknown Track',
-        artist: m['artist']?.toString() ?? 'YouTube Artist',
-        album: m['album']?.toString() ?? 'YouTube Music',
-        duration: Duration(
-          milliseconds: (m['durationMs'] as num?)?.toInt() ?? 200000,
-        ),
-        artworkUrl: m['artworkUrl']?.toString(),
-        isFavorite: isFavorite || (m['isFavorite'] == true),
-        source: MusicSource.youtube,
-        audioFormat: 'AAC 256kbps Ad-Free',
-      );
-    }).where((t) => t.id.isNotEmpty).toList();
+    return rawList
+        .map((m) {
+          final rawId = m['id']?.toString() ?? '';
+          return Track(
+            id: rawId,
+            title: m['title']?.toString() ?? 'Unknown Track',
+            artist: m['artist']?.toString() ?? 'YouTube Artist',
+            album: m['album']?.toString() ?? 'YouTube Music',
+            duration: Duration(
+              milliseconds: (m['durationMs'] as num?)?.toInt() ?? 200000,
+            ),
+            artworkUrl: m['artworkUrl']?.toString(),
+            isFavorite: isFavorite || (m['isFavorite'] == true),
+            source: MusicSource.youtube,
+            audioFormat: 'AAC 256kbps Ad-Free',
+          );
+        })
+        .where((t) => t.id.isNotEmpty)
+        .toList();
   }
 
   @override
@@ -633,8 +782,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       }
       if (node is! Map) return;
 
-      final vRenderer =
-          node['videoRenderer'] ?? node['compactVideoRenderer'];
+      final vRenderer = node['videoRenderer'] ?? node['compactVideoRenderer'];
       if (vRenderer is Map) {
         final vid = vRenderer['videoId']?.toString() ?? '';
         final title = runsText(vRenderer['title'] ?? vRenderer['headline']);
@@ -683,7 +831,9 @@ class InnerTubeMusicProvider implements MusicProvider {
     if (browseId.isEmpty) return false;
     return browseId.startsWith('VL') ||
         browseId.startsWith('PL') ||
-        browseId.startsWith('RDCLAK') ||
+        browseId.startsWith('RD') ||
+        browseId.startsWith('OLAK') ||
+        browseId.startsWith('MPRE') ||
         browseId == 'LM';
   }
 
@@ -712,9 +862,11 @@ class InnerTubeMusicProvider implements MusicProvider {
       final resp = node['musicResponsiveListItemRenderer'];
       if (resp is Map<String, dynamic>) {
         final navBrowse =
-            resp['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
-        final title = resp['flexColumns']?[0]?['musicResponsiveListItemFlexColumnRenderer']
-            ?['text']?['runs']?[0]?['text'] as String?;
+            resp['navigationEndpoint']?['browseEndpoint']?['browseId']
+                as String?;
+        final title =
+            resp['flexColumns']?[0]?['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs']?[0]?['text']
+                as String?;
         if (navBrowse != null &&
             _isPlaylistBrowseId(navBrowse) &&
             title != null &&
@@ -744,8 +896,12 @@ class InnerTubeMusicProvider implements MusicProvider {
   Playlist? _parseTwoRowPlaylist(Map<String, dynamic> twoRow) {
     try {
       final runs = twoRow['title']?['runs'] as List?;
-      final title = runs != null && runs.isNotEmpty ? runs[0]['text'] as String? : null;
-      final browseId = twoRow['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
+      final title = runs != null && runs.isNotEmpty
+          ? runs[0]['text'] as String?
+          : null;
+      final browseId =
+          twoRow['navigationEndpoint']?['browseEndpoint']?['browseId']
+              as String?;
       if (title == null || browseId == null || !_isPlaylistBrowseId(browseId)) {
         return null;
       }
@@ -755,7 +911,9 @@ class InnerTubeMusicProvider implements MusicProvider {
           ? subRuns.map((r) => r['text']?.toString() ?? '').join()
           : 'YouTube Music Playlist';
 
-      final thumb = _extractThumbnail(twoRow['thumbnailRenderer'] ?? twoRow['thumbnail']);
+      final thumb = _extractThumbnail(
+        twoRow['thumbnailRenderer'] ?? twoRow['thumbnail'],
+      );
 
       return Playlist(
         id: browseId,
@@ -813,10 +971,8 @@ class InnerTubeMusicProvider implements MusicProvider {
   Track? _parseTwoRowTrack(Map<String, dynamic> twoRow) {
     try {
       final navWatch = twoRow['navigationEndpoint']?['watchEndpoint'];
-      final overlayWatch = twoRow['thumbnailOverlay']
-          ?['musicItemThumbnailOverlayRenderer']?['content']
-          ?['musicPlayButtonRenderer']?['playNavigationEndpoint']
-          ?['watchEndpoint'];
+      final overlayWatch =
+          twoRow['thumbnailOverlay']?['musicItemThumbnailOverlayRenderer']?['content']?['musicPlayButtonRenderer']?['playNavigationEndpoint']?['watchEndpoint'];
       final videoId = (navWatch?['videoId'] ?? overlayWatch?['videoId'])
           ?.toString();
       if (videoId == null || videoId.isEmpty) return null;
@@ -833,17 +989,21 @@ class InnerTubeMusicProvider implements MusicProvider {
         final joined = subRuns
             .whereType<Map>()
             .map((r) => r['text']?.toString() ?? '')
-            .where((t) =>
-                t.trim().isNotEmpty &&
-                t.trim() != '•' &&
-                t.trim() != '·' &&
-                t.trim().toLowerCase() != 'song' &&
-                t.trim().toLowerCase() != 'video')
+            .where(
+              (t) =>
+                  t.trim().isNotEmpty &&
+                  t.trim() != '•' &&
+                  t.trim() != '·' &&
+                  t.trim().toLowerCase() != 'song' &&
+                  t.trim().toLowerCase() != 'video',
+            )
             .toList();
         if (joined.isNotEmpty) artist = joined.first.trim();
       }
 
-      final thumb = _extractThumbnail(twoRow['thumbnailRenderer'] ?? twoRow['thumbnail']);
+      final thumb = _extractThumbnail(
+        twoRow['thumbnailRenderer'] ?? twoRow['thumbnail'],
+      );
 
       return Track(
         id: videoId,
@@ -866,8 +1026,8 @@ class InnerTubeMusicProvider implements MusicProvider {
     try {
       final tabs = data['contents']?['tabbedSearchResultsRenderer']?['tabs'];
       final firstTab = (tabs is List && tabs.isNotEmpty) ? tabs.first : null;
-      final contents = firstTab?['tabRenderer']?['content']
-          ?['sectionListRenderer']?['contents'];
+      final contents =
+          firstTab?['tabRenderer']?['content']?['sectionListRenderer']?['contents'];
       if (contents is! List) return;
 
       for (final section in contents) {
@@ -877,26 +1037,31 @@ class InnerTubeMusicProvider implements MusicProvider {
         if (card is Map<String, dynamic>) {
           try {
             final cardRuns = card['title']?['runs'];
-            final firstRun =
-                (cardRuns is List && cardRuns.isNotEmpty) ? cardRuns.first : null;
-            final videoId = card['onTap']?['watchEndpoint']?['videoId'] ??
+            final firstRun = (cardRuns is List && cardRuns.isNotEmpty)
+                ? cardRuns.first
+                : null;
+            final videoId =
+                card['onTap']?['watchEndpoint']?['videoId'] ??
                 firstRun?['navigationEndpoint']?['watchEndpoint']?['videoId'];
             final title = firstRun?['text'] as String?;
             final subtitleRuns = card['subtitle']?['runs'] as List?;
             final subParts = subtitleRuns != null
                 ? subtitleRuns
-                    .whereType<Map>()
-                    .map((r) => r['text']?.toString().trim() ?? '')
-                    .where((s) =>
-                        s.isNotEmpty &&
-                        s != '•' &&
-                        s != '·' &&
-                        s.toLowerCase() != 'song' &&
-                        s.toLowerCase() != 'video')
-                    .toList()
+                      .whereType<Map>()
+                      .map((r) => r['text']?.toString().trim() ?? '')
+                      .where(
+                        (s) =>
+                            s.isNotEmpty &&
+                            s != '•' &&
+                            s != '·' &&
+                            s.toLowerCase() != 'song' &&
+                            s.toLowerCase() != 'video',
+                      )
+                      .toList()
                 : <String>[];
-            final artist =
-                subParts.isNotEmpty ? subParts.first : 'YouTube Music';
+            final artist = subParts.isNotEmpty
+                ? subParts.first
+                : 'YouTube Music';
             final thumb = _extractThumbnail(card['thumbnail']);
 
             if (videoId != null &&
@@ -958,15 +1123,15 @@ class InnerTubeMusicProvider implements MusicProvider {
       final flexColumns = renderer['flexColumns'] as List?;
       if (flexColumns == null || flexColumns.isEmpty) return null;
 
-      final col0 = flexColumns[0]?['musicResponsiveListItemFlexColumnRenderer']
-          ?['text']?['runs'] as List?;
+      final col0 =
+          flexColumns[0]?['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs']
+              as List?;
       if (col0 == null || col0.isEmpty) return null;
       final title = col0[0]?['text'] as String?;
-      final videoId = col0[0]?['navigationEndpoint']?['watchEndpoint']?['videoId'] ??
+      final videoId =
+          col0[0]?['navigationEndpoint']?['watchEndpoint']?['videoId'] ??
           renderer['playlistItemData']?['videoId'] ??
-          renderer['overlay']?['musicItemThumbnailOverlayRenderer']?['content']
-              ?['musicPlayButtonRenderer']?['playNavigationEndpoint']
-              ?['watchEndpoint']?['videoId'];
+          renderer['overlay']?['musicItemThumbnailOverlayRenderer']?['content']?['musicPlayButtonRenderer']?['playNavigationEndpoint']?['watchEndpoint']?['videoId'];
 
       if (videoId == null || title == null) return null;
 
@@ -975,21 +1140,24 @@ class InnerTubeMusicProvider implements MusicProvider {
       Duration duration = const Duration(minutes: 3, seconds: 20);
 
       if (flexColumns.length > 1) {
-        final col1 = flexColumns[1]?['musicResponsiveListItemFlexColumnRenderer']
-            ?['text']?['runs'] as List?;
+        final col1 =
+            flexColumns[1]?['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs']
+                as List?;
         if (col1 != null && col1.isNotEmpty) {
           final tokens = col1
               .whereType<Map>()
               .map((r) => (r['text']?.toString() ?? '').trim())
-              .where((t) =>
-                  t.isNotEmpty &&
-                  t != '•' &&
-                  t != '·' &&
-                  t.toLowerCase() != 'song' &&
-                  t.toLowerCase() != 'video' &&
-                  t.toLowerCase() != 'ep' &&
-                  t.toLowerCase() != 'single' &&
-                  t.toLowerCase() != 'album')
+              .where(
+                (t) =>
+                    t.isNotEmpty &&
+                    t != '•' &&
+                    t != '·' &&
+                    t.toLowerCase() != 'song' &&
+                    t.toLowerCase() != 'video' &&
+                    t.toLowerCase() != 'ep' &&
+                    t.toLowerCase() != 'single' &&
+                    t.toLowerCase() != 'album',
+              )
               .toList();
 
           if (tokens.isNotEmpty) {
@@ -1010,8 +1178,9 @@ class InnerTubeMusicProvider implements MusicProvider {
 
       final fixedCols = renderer['fixedColumns'] as List?;
       if (fixedCols != null && fixedCols.isNotEmpty) {
-        final durText = fixedCols[0]?['musicResponsiveListItemFixedColumnRenderer']
-            ?['text']?['runs']?[0]?['text'] as String?;
+        final durText =
+            fixedCols[0]?['musicResponsiveListItemFixedColumnRenderer']?['text']?['runs']?[0]?['text']
+                as String?;
         if (durText != null) {
           duration = _parseDuration(durText);
         }
@@ -1036,8 +1205,11 @@ class InnerTubeMusicProvider implements MusicProvider {
 
   String? _extractThumbnail(dynamic thumbData) {
     if (thumbData is! Map) return null;
-    final thumbs = thumbData['musicThumbnailRenderer']?['thumbnail']?['thumbnails'] as List? ??
-        thumbData['croppedSquareThumbnailRenderer']?['thumbnail']?['thumbnails'] as List? ??
+    final thumbs =
+        thumbData['musicThumbnailRenderer']?['thumbnail']?['thumbnails']
+            as List? ??
+        thumbData['croppedSquareThumbnailRenderer']?['thumbnail']?['thumbnails']
+            as List? ??
         thumbData['thumbnails'] as List?;
     if (thumbs != null && thumbs.isNotEmpty) {
       final last = thumbs.last;
@@ -1070,8 +1242,24 @@ class InnerTubeMusicProvider implements MusicProvider {
       return track.streamUrl;
     }
 
-    final videoId =
-        track.id.startsWith('yt-') ? track.id.replaceFirst('yt-', '') : track.id;
+    final videoId = track.id.startsWith('yt-')
+        ? track.id.replaceFirst('yt-', '')
+        : track.id;
+
+    final cached = _streamUrlCache[videoId];
+    if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
+      return cached.url;
+    }
+
+    String? cacheAndReturn(String? url) {
+      if (url != null && url.isNotEmpty) {
+        _streamUrlCache[videoId] = (
+          url: url,
+          expiresAt: DateTime.now().add(const Duration(minutes: 90)),
+        );
+      }
+      return url;
+    }
 
     // Strategy 1: ANDROID 20.10.38 unauthenticated progressive MP4 (itag=18)
     // Streams reliably past 1MB via bare HTTP GET without PoToken 403 errors.
@@ -1084,7 +1272,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       sendAuthHeaders: false,
       preferProgressiveFormats: true,
     );
-    if (androidUrl != null) return androidUrl;
+    if (androidUrl != null) return cacheAndReturn(androidUrl);
 
     // Strategy 2: ANDROID 20.10.38 authenticated (for age/account-gated tracks)
     final androidAuthedUrl = await _resolveWithClient(
@@ -1096,7 +1284,7 @@ class InnerTubeMusicProvider implements MusicProvider {
       sendAuthHeaders: true,
       preferProgressiveFormats: true,
     );
-    if (androidAuthedUrl != null) return androidAuthedUrl;
+    if (androidAuthedUrl != null) return cacheAndReturn(androidAuthedUrl);
 
     // Strategy 3: IOS client fallback (verified directly playable)
     final iosUrl = await _resolveWithClient(
@@ -1107,16 +1295,18 @@ class InnerTubeMusicProvider implements MusicProvider {
       sendAuthHeaders: true,
       preferProgressiveFormats: true,
     );
-    if (iosUrl != null) return iosUrl;
+    if (iosUrl != null) return cacheAndReturn(iosUrl);
 
     // Strategy 4: ANDROID_VR fallback
-    return _resolveWithClient(
-      videoId: videoId,
-      clientName: 'ANDROID_VR',
-      clientVersion: '1.56.21',
-      userAgent: _androidVrUserAgent,
-      sendAuthHeaders: false,
-      preferProgressiveFormats: true,
+    return cacheAndReturn(
+      await _resolveWithClient(
+        videoId: videoId,
+        clientName: 'ANDROID_VR',
+        clientVersion: '1.56.21',
+        userAgent: _androidVrUserAgent,
+        sendAuthHeaders: false,
+        preferProgressiveFormats: true,
+      ),
     );
   }
 
@@ -1258,10 +1448,12 @@ class InnerTubeMusicProvider implements MusicProvider {
             // Windows Media Foundation handles audio/mp4 (AAC M4A) most reliably natively
             audioStreams.sort((a, b) {
               if (Platform.isWindows) {
-                final aMp4 =
-                    ((a['mimeType'] as String?) ?? '').contains('audio/mp4');
-                final bMp4 =
-                    ((b['mimeType'] as String?) ?? '').contains('audio/mp4');
+                final aMp4 = ((a['mimeType'] as String?) ?? '').contains(
+                  'audio/mp4',
+                );
+                final bMp4 = ((b['mimeType'] as String?) ?? '').contains(
+                  'audio/mp4',
+                );
                 if (aMp4 != bMp4) return aMp4 ? -1 : 1;
               }
               final brA = (a['bitrate'] as num?)?.toInt() ?? 0;
@@ -1299,10 +1491,7 @@ class InnerTubeMusicProvider implements MusicProvider {
         final headers = await _buildHeaders(authenticated: false);
         final res = await _dio.post(
           '$_youtubeiBaseUrl/browse',
-          data: {
-            'context': _webRemixContext,
-            'browseId': browseId,
-          },
+          data: {'context': _webRemixContext, 'browseId': browseId},
           options: Options(
             headers: headers,
             validateStatus: (s) => s != null && s < 500,

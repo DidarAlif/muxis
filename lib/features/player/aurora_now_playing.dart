@@ -96,10 +96,12 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
     final textSecondary = isDark
         ? MuxisColors.textSecondaryDark
         : MuxisColors.textSecondaryLight;
-    final textMuted =
-        isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight;
-    final bandGains =
-        eq.isEnabled ? eq.bands.map((b) => b.gainDb).toList() : null;
+    final textMuted = isDark
+        ? MuxisColors.textMutedDark
+        : MuxisColors.textMutedLight;
+    final bandGains = eq.isEnabled
+        ? eq.bands.map((b) => b.gainDb).toList()
+        : null;
     final effectiveVolume = playback.isMuted ? 0.0 : playback.volume;
 
     return Scaffold(
@@ -166,7 +168,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                 showLyricsPane: showLyricsPane,
                                 bandGains: bandGains,
                                 effectiveVolume: effectiveVolume,
-                                eqPreset: eq.isEnabled ? eq.activePreset : 'Flat',
+                                eqPreset: eq.isEnabled
+                                    ? eq.activePreset
+                                    : 'Flat',
                               )
                             : _buildWideCenterStage(
                                 track: track,
@@ -195,8 +199,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                               ),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? MuxisColors.elevatedSurface
-                                        .withValues(alpha: 0.56)
+                                    ? MuxisColors.elevatedSurface.withValues(
+                                        alpha: 0.56,
+                                      )
                                     : Colors.white.withValues(alpha: 0.72),
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
@@ -246,14 +251,14 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                               ].join(' • '),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
-                                              style: MuxisTypography
-                                                  .sectionHeading(
-                                                isDark: isDark,
-                                              ).copyWith(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                                color: textSecondary,
-                                              ),
+                                              style:
+                                                  MuxisTypography.sectionHeading(
+                                                    isDark: isDark,
+                                                  ).copyWith(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: textSecondary,
+                                                  ),
                                             ),
                                           ],
                                         ),
@@ -266,8 +271,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                           size: 26,
                                           color: (track?.isFavorite ?? false)
                                               ? (isDark
-                                                  ? MuxisColors.coralPulse
-                                                  : MuxisColors.coralPulseLight)
+                                                    ? MuxisColors.coralPulse
+                                                    : MuxisColors
+                                                          .coralPulseLight)
                                               : textSecondary,
                                         ),
                                         onPressed: () => audioService
@@ -282,9 +288,12 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                     value: playback.progressFraction,
                                     bufferedValue: playback.bufferedFraction,
                                     onChanged: (frac) {
-                                      final targetMs = (frac *
-                                              playback.duration.inMilliseconds)
-                                          .toInt();
+                                      final targetMs =
+                                          (frac *
+                                                  playback
+                                                      .duration
+                                                      .inMilliseconds)
+                                              .toInt();
                                       audioService.seek(
                                         Duration(milliseconds: targetMs),
                                       );
@@ -346,9 +355,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                           decoration: BoxDecoration(
                                             gradient: isDark
                                                 ? MuxisGradients
-                                                    .prismaticPrimary
+                                                      .prismaticPrimary
                                                 : MuxisGradients
-                                                    .prismaticLightPrimary,
+                                                      .prismaticLightPrimary,
                                             shape: BoxShape.circle,
                                             boxShadow:
                                                 MuxisShadows.prismaticGlow,
@@ -382,7 +391,8 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                                           playback.repeatMode == RepeatMode.one
                                               ? Icons.repeat_one_rounded
                                               : Icons.repeat_rounded,
-                                          color: playback.repeatMode !=
+                                          color:
+                                              playback.repeatMode !=
                                                   RepeatMode.off
                                               ? accent
                                               : textMuted,
@@ -471,9 +481,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
         if (hasLyrics)
           IconButton(
             icon: Icon(
-              _showLyrics
-                  ? Icons.lyrics_rounded
-                  : Icons.graphic_eq_rounded,
+              _showLyrics ? Icons.lyrics_rounded : Icons.graphic_eq_rounded,
               size: 24,
               color: _showLyrics ? accent : textSecondary,
             ),
@@ -495,7 +503,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
             child: Text(
               _loadingLyrics
                   ? 'SYNCING...'
-                  : (eq.isEnabled ? 'DSP ${eq.activePreset.toUpperCase()}' : 'DSP BYPASS'),
+                  : (eq.isEnabled
+                        ? 'DSP ${eq.activePreset.toUpperCase()}'
+                        : 'DSP BYPASS'),
               style: TextStyle(
                 fontFamily: 'JetBrains Mono',
                 fontSize: 10,
@@ -529,7 +539,12 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildArtworkCard(track, size: 300, isDark: isDark, accent: accent),
+                  _buildArtworkCard(
+                    track,
+                    size: 300,
+                    isDark: isDark,
+                    accent: accent,
+                  ),
                   const SizedBox(height: 22),
                   SizedBox(
                     width: 300,
@@ -605,9 +620,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
         children: [
           _buildArtworkCard(track, size: 170, isDark: isDark, accent: accent),
           const SizedBox(height: 14),
-          Expanded(
-            child: _buildLyricsView(playback.position, isDark, accent),
-          ),
+          Expanded(child: _buildLyricsView(playback.position, isDark, accent)),
         ],
       );
     }
@@ -649,10 +662,11 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
         gradient: MuxisGradients.auroraSpectrum,
         boxShadow: [
           BoxShadow(
-            color: (isDark
-                    ? MuxisColors.auroraViolet
-                    : MuxisColors.auroraVioletLight)
-                .withValues(alpha: isDark ? 0.38 : 0.25),
+            color:
+                (isDark
+                        ? MuxisColors.auroraViolet
+                        : MuxisColors.auroraVioletLight)
+                    .withValues(alpha: isDark ? 0.38 : 0.25),
             blurRadius: 40,
             spreadRadius: 2,
             offset: const Offset(0, 14),
@@ -699,8 +713,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
     final textSecondary = isDark
         ? MuxisColors.textSecondaryDark
         : MuxisColors.textSecondaryLight;
-    final textMuted =
-        isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight;
+    final textMuted = isDark
+        ? MuxisColors.textMutedDark
+        : MuxisColors.textMutedLight;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -768,9 +783,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                     ],
                   ),
                   Text(
-                    eq.isEnabled
-                        ? 'EQ: ${eq.activePreset}'
-                        : 'EQ: Bypassed',
+                    eq.isEnabled ? 'EQ: ${eq.activePreset}' : 'EQ: Bypassed',
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 11,
@@ -815,11 +828,7 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
     );
   }
 
-  Widget _buildLyricsView(
-    Duration currentPosition,
-    bool isDark,
-    Color accent,
-  ) {
+  Widget _buildLyricsView(Duration currentPosition, bool isDark, Color accent) {
     final textPrimary = isDark
         ? MuxisColors.textPrimaryDark
         : MuxisColors.textPrimaryLight;
@@ -853,7 +862,9 @@ class _AuroraNowPlayingState extends ConsumerState<AuroraNowPlaying> {
                   shadows: isActive
                       ? [
                           Shadow(
-                            color: accent.withValues(alpha: isDark ? 0.85 : 0.35),
+                            color: accent.withValues(
+                              alpha: isDark ? 0.85 : 0.35,
+                            ),
                             blurRadius: 16,
                           ),
                         ]

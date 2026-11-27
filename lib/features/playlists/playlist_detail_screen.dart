@@ -22,7 +22,12 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playback = ref.watch(playbackServiceProvider);
+    final playingTrackId = ref.watch(
+      playbackServiceProvider.select((s) => s.currentTrack?.id),
+    );
+    final isPlaying = ref.watch(
+      playbackServiceProvider.select((s) => s.isPlaying),
+    );
     final audioService = ref.read(playbackServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -179,8 +184,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
             return MuxisTrackRow(
               track: track,
               index: i,
-              isPlaying:
-                  playback.currentTrack?.id == track.id && playback.isPlaying,
+              isPlaying: playingTrackId == track.id && isPlaying,
               onTap: () =>
                   audioService.playTrack(track, newQueue: playlist.tracks),
               onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),

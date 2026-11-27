@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../database/database_service.dart';
@@ -14,28 +16,29 @@ import 'playback_state.dart';
 
 final playbackServiceProvider =
     StateNotifierProvider<AudioPlaybackService, PlaybackState>((ref) {
-  final db = ref.watch(databaseServiceProvider);
-  final service = AudioPlaybackService(databaseService: db);
+      final db = ref.watch(databaseServiceProvider);
+      final service = AudioPlaybackService(databaseService: db);
 
-  // Dynamically wire equalizer and studio listeners to the audio engine
-  ref.listen<EqualizerState>(equalizerProvider, (previous, next) {
-    service.updateEqualizer(next);
-  });
-  ref.listen<AudioStudioState>(audioStudioProvider, (previous, next) {
-    service.updateAudioStudio(next);
-  });
+      // Dynamically wire equalizer and studio listeners to the audio engine
+      ref.listen<EqualizerState>(equalizerProvider, (previous, next) {
+        service.updateEqualizer(next);
+      });
+      ref.listen<AudioStudioState>(audioStudioProvider, (previous, next) {
+        service.updateAudioStudio(next);
+      });
 
-  // Apply initial DSP states
-  service.updateEqualizer(ref.read(equalizerProvider));
-  service.updateAudioStudio(ref.read(audioStudioProvider));
+      // Apply initial DSP states
+      service.updateEqualizer(ref.read(equalizerProvider));
+      service.updateAudioStudio(ref.read(audioStudioProvider));
 
-  return service;
-});
+      return service;
+    });
 
 class AudioPlaybackService extends StateNotifier<PlaybackState> {
   final AudioPlayer _player;
   final InnerTubeMusicProvider _innerTubeProvider;
   final SpotifyMusicProvider _spotifyProvider;
+  final SoundCloudMusicProvider _soundCloudProvider;
   final DatabaseService? _databaseService;
 
   StreamSubscription<PlayerState>? _playerStateSub;
@@ -47,6 +50,9 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   bool _isDisposed = false;
   int _playRequestId = 0;
   bool _hasLoadedSource = false;
+  DateTime _lastPositionEmit = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastBufferEmit = DateTime.fromMillisecondsSinceEpoch(0);
+  String? _lastPrefetchedTrackId;
 
   EqualizerState _currentEq = EqualizerState.initial();
   AudioStudioState _currentStudio = const AudioStudioState();
@@ -55,12 +61,14 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     AudioPlayer? player,
     InnerTubeMusicProvider? innerTubeProvider,
     SpotifyMusicProvider? spotifyProvider,
+    SoundCloudMusicProvider? soundCloudProvider,
     DatabaseService? databaseService,
-  })  : _player = player ?? AudioPlayer(),
-        _innerTubeProvider = innerTubeProvider ?? InnerTubeMusicProvider(),
-        _spotifyProvider = spotifyProvider ?? SpotifyMusicProvider(),
-        _databaseService = databaseService,
-        super(const PlaybackState()) {
+  }) : _player = player ?? AudioPlayer(),
+       _innerTubeProvider = innerTubeProvider ?? InnerTubeMusicProvider(),
+       _spotifyProvider = spotifyProvider ?? SpotifyMusicProvider(),
+       _soundCloudProvider = soundCloudProvider ?? SoundCloudMusicProvider(),
+       _databaseService = databaseService,
+       super(const PlaybackState()) {
     _initAudioListeners();
     if (_databaseService != null) {
       final saved = _databaseService!.getAllTracks();
@@ -79,7 +87,10 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     _currentStudio = studio;
     try {
       _player.setSpeed(studio.playbackSpeed);
-      final pitchFactor = pow(2.0, studio.pitchShiftSemitones / 12.0).toDouble();
+      final pitchFactor = pow(
+        2.0,
+        studio.pitchShiftSemitones / 12.0,
+      ).toDouble();
       _player.setPitch(pitchFactor);
     } catch (_) {}
   }
@@ -94,42 +105,51 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   }
 
   void _initAudioListeners() {
-    _playerStateSub = _player.playerStateStream.listen((playerState) {
-      if (_isDisposed) return;
+    _playerStateSub = _player.playerStateStream.listen(
+      (playerState) {
+        if (_isDisposed) return;
 
-      final isPlaying = playerState.playing;
-      final procState = playerState.processingState;
+        final isPlaying = playerState.playing;
+        final procState = playerState.processingState;
 
-      PlaybackStatus status;
-      switch (procState) {
-        case ProcessingState.idle:
-          status = PlaybackStatus.idle;
-          break;
-        case ProcessingState.loading:
-        case ProcessingState.buffering:
-          status = PlaybackStatus.loading;
-          break;
-        case ProcessingState.ready:
-          status = isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused;
-          break;
-        case ProcessingState.completed:
-          status = PlaybackStatus.completed;
-          _handleTrackCompleted();
-          return;
-      }
+        PlaybackStatus status;
+        switch (procState) {
+          case ProcessingState.idle:
+            status = PlaybackStatus.idle;
+            break;
+          case ProcessingState.loading:
+          case ProcessingState.buffering:
+            status = PlaybackStatus.loading;
+            break;
+          case ProcessingState.ready:
+            status = isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused;
+            break;
+          case ProcessingState.completed:
+            status = PlaybackStatus.completed;
+            _handleTrackCompleted();
+            return;
+        }
 
-      state = state.copyWith(status: status);
-    }, onError: (Object err) {
-      if (!_isDisposed) {
-        state = state.copyWith(
-          status: PlaybackStatus.error,
-          errorMessage: 'Audio Engine Error: $err',
-        );
-      }
-    });
+        state = state.copyWith(status: status);
+      },
+      onError: (Object err) {
+        if (!_isDisposed) {
+          state = state.copyWith(
+            status: PlaybackStatus.error,
+            errorMessage: 'Audio Engine Error: $err',
+          );
+        }
+      },
+    );
 
     _positionSub = _player.positionStream.listen((pos) {
-      if (!_isDisposed) {
+      if (_isDisposed) return;
+      final now = DateTime.now();
+      final jumped = (pos - state.position).abs() > const Duration(seconds: 2);
+      if (jumped ||
+          pos == Duration.zero ||
+          now.difference(_lastPositionEmit).inMilliseconds >= 220) {
+        _lastPositionEmit = now;
         state = state.copyWith(position: pos);
       }
     });
@@ -141,7 +161,10 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
     });
 
     _bufferedPositionSub = _player.bufferedPositionStream.listen((buf) {
-      if (!_isDisposed) {
+      if (_isDisposed) return;
+      final now = DateTime.now();
+      if (now.difference(_lastBufferEmit).inMilliseconds >= 350) {
+        _lastBufferEmit = now;
         state = state.copyWith(bufferedPosition: buf);
       }
     });
@@ -170,7 +193,8 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
 
   Future<void> playTrack(Track track, {List<Track>? newQueue}) async {
     final requestId = ++_playRequestId;
-    final queue = newQueue ??
+    final queue =
+        newQueue ??
         (state.queue.contains(track) ? state.queue : [...state.queue, track]);
     final index = queue.indexOf(track);
 
@@ -206,14 +230,23 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         playUri = await _innerTubeProvider.resolveAudioStreamUrl(track);
       } else if (track.source == MusicSource.spotify) {
         playUri = await _spotifyProvider.resolveAudioStreamUrl(track);
+      } else if (track.source == MusicSource.soundcloud) {
+        playUri = await _soundCloudProvider.resolveAudioStreamUrl(track);
+      } else if (track.source == MusicSource.radio) {
+        playUri = track.streamUrl;
       } else {
         playUri = await _innerTubeProvider.resolveAudioStreamUrl(track);
+      }
+
+      if (playUri != null && playUri.isNotEmpty) {
+        _prefetchNextInQueue();
       }
 
       if (_isDisposed || requestId != _playRequestId) return;
 
       if ((playUri == null || playUri.isEmpty) &&
-          track.source != MusicSource.spotify) {
+          track.source != MusicSource.spotify &&
+          track.source != MusicSource.radio) {
         // Clean noisy parenthetical tags and retry with scored InnerTube songs search
         final cleanedTitle = track.title
             .replaceAll(
@@ -224,10 +257,14 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
               '',
             )
             .trim();
-        final effectiveTitle = cleanedTitle.isNotEmpty ? cleanedTitle : track.title;
+        final effectiveTitle = cleanedTitle.isNotEmpty
+            ? cleanedTitle
+            : track.title;
         final cleanQuery = '${track.artist} $effectiveTitle'.trim();
-        var fallbackTracks =
-            await _innerTubeProvider.search(cleanQuery, songsOnly: true);
+        var fallbackTracks = await _innerTubeProvider.search(
+          cleanQuery,
+          songsOnly: true,
+        );
         if (fallbackTracks.isEmpty) {
           fallbackTracks = await _innerTubeProvider.search(cleanQuery);
         }
@@ -236,10 +273,17 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         final ranked = List<Track>.from(fallbackTracks)
           ..sort(
             (a, b) =>
-                SpotifyMusicProvider.scoreMatch(b, effectiveTitle, track.artist)
-                    .compareTo(
-              SpotifyMusicProvider.scoreMatch(a, effectiveTitle, track.artist),
-            ),
+                SpotifyMusicProvider.scoreMatch(
+                  b,
+                  effectiveTitle,
+                  track.artist,
+                ).compareTo(
+                  SpotifyMusicProvider.scoreMatch(
+                    a,
+                    effectiveTitle,
+                    track.artist,
+                  ),
+                ),
           );
         for (final candidate in ranked.take(2)) {
           if (SpotifyMusicProvider.scoreMatch(
@@ -455,8 +499,9 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
         state = state.copyWith(queue: [], currentTrack: null, currentIndex: -1);
         return;
       }
-      newCurrentIndex =
-          newCurrentIndex >= newQueue.length ? 0 : newCurrentIndex;
+      newCurrentIndex = newCurrentIndex >= newQueue.length
+          ? 0
+          : newCurrentIndex;
       playTrack(newQueue[newCurrentIndex], newQueue: newQueue);
       return;
     }
@@ -467,6 +512,33 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
   void clearQueue() {
     stop();
     state = state.copyWith(queue: [], currentTrack: null, currentIndex: -1);
+  }
+
+  void _prefetchNextInQueue() {
+    final queue = state.queue;
+    if (queue.isEmpty) return;
+    final nextIdx = state.currentIndex + 1;
+    if (nextIdx < 0 || nextIdx >= queue.length) return;
+    final nextTrack = queue[nextIdx];
+    if (nextTrack.id == _lastPrefetchedTrackId ||
+        (nextTrack.streamUrl != null && nextTrack.streamUrl!.isNotEmpty) ||
+        nextTrack.source == MusicSource.local ||
+        nextTrack.source == MusicSource.radio) {
+      return;
+    }
+    _lastPrefetchedTrackId = nextTrack.id;
+    Future<void>.delayed(const Duration(milliseconds: 900), () async {
+      if (_isDisposed) return;
+      try {
+        if (nextTrack.source == MusicSource.youtube) {
+          await _innerTubeProvider.resolveAudioStreamUrl(nextTrack);
+        } else if (nextTrack.source == MusicSource.spotify) {
+          await _spotifyProvider.resolveAudioStreamUrl(nextTrack);
+        } else if (nextTrack.source == MusicSource.soundcloud) {
+          await _soundCloudProvider.resolveAudioStreamUrl(nextTrack);
+        }
+      } catch (_) {}
+    });
   }
 
   void toggleFavoriteCurrentTrack() {

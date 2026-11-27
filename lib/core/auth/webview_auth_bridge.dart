@@ -21,6 +21,7 @@ class WebViewAuthSession {
   final List<Map<String, dynamic>> ytPlaylists;
   final List<Map<String, dynamic>> ytLikedTracks;
   final List<Map<String, dynamic>> ytRecommendedTracks;
+  final List<Map<String, dynamic>> ytFeaturedSections;
   final Map<String, List<Map<String, dynamic>>> ytPlaylistTracks;
   final String? spotifyAccessToken;
   final String? spotifyClientToken;
@@ -31,7 +32,11 @@ class WebViewAuthSession {
   final String? spotifyProduct;
   final List<Map<String, dynamic>> spotifyPlaylists;
   final List<Map<String, dynamic>> spotifyLikedTracks;
+  final List<Map<String, dynamic>> spotifyFeaturedSections;
   final Map<String, List<Map<String, dynamic>>> spotifyPlaylistTracks;
+  final String? scOAuthToken;
+  final String? scDisplayName;
+  final String? scAvatarUrl;
   final String? errorMessage;
 
   const WebViewAuthSession({
@@ -46,6 +51,7 @@ class WebViewAuthSession {
     this.ytPlaylists = const [],
     this.ytLikedTracks = const [],
     this.ytRecommendedTracks = const [],
+    this.ytFeaturedSections = const [],
     this.ytPlaylistTracks = const {},
     this.spotifyAccessToken,
     this.spotifyClientToken,
@@ -56,7 +62,11 @@ class WebViewAuthSession {
     this.spotifyProduct,
     this.spotifyPlaylists = const [],
     this.spotifyLikedTracks = const [],
+    this.spotifyFeaturedSections = const [],
     this.spotifyPlaylistTracks = const {},
+    this.scOAuthToken,
+    this.scDisplayName,
+    this.scAvatarUrl,
     this.errorMessage,
   });
 }
@@ -115,7 +125,7 @@ class WebViewAuthBridge {
   /// Merges `document.cookie` and `.youtube.com` HttpOnly jar cookies into a single
   /// deduplicated ASCII `Cookie:` header string without NUL bytes or conflicting duplicates.
   static ({String cookieHeader, String? sapisid, bool hasLoginCookie})
-      _buildCleanYouTubeCookieBundle(
+  _buildCleanYouTubeCookieBundle(
     String docCookieStr,
     List<dynamic> jarCookies,
   ) {
@@ -144,7 +154,8 @@ class WebViewAuthBridge {
       } catch (_) {}
     }
 
-    final sapisid = cookieMap['SAPISID'] ??
+    final sapisid =
+        cookieMap['SAPISID'] ??
         cookieMap['__Secure-3PAPISID'] ??
         cookieMap['__Secure-1PAPISID'];
 
@@ -165,14 +176,16 @@ class WebViewAuthBridge {
       }
     }
 
-    final header =
-        cookieMap.entries.map((e) => '${e.key}=${e.value}').join('; ');
+    final header = cookieMap.entries
+        .map((e) => '${e.key}=${e.value}')
+        .join('; ');
     return (
       cookieHeader: header,
       sapisid: sapisid,
       hasLoginCookie: hasLoginCookie,
     );
   }
+
   static bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
@@ -288,6 +301,7 @@ class WebViewAuthBridge {
       profile: null,
       playlists: [],
       likedTracks: [],
+      featuredSections: [],
       playlistTracks: {}
     };
 
@@ -467,7 +481,55 @@ class WebViewAuthBridge {
           }
         }
 
-        // 6. Fallback capture if Web Player called /v1/me/playlists or /v1/me/tracks directly
+        // 6. Pathfinder Home Shelves (Made For You, Jump back in, Daily Mix, etc.)
+        if (data.data && data.data.home && data.data.home.sectionContainer && data.data.home.sectionContainer.sections && Array.isArray(data.data.home.sectionContainer.sections.items)) {
+          const homeSecs = [];
+          const rawSecs = data.data.home.sectionContainer.sections.items;
+          for (let i = 0; i < rawSecs.length; i++) {
+            const rs = rawSecs[i];
+            const secTitle = (rs.data && rs.data.title && (rs.data.title.transformedLabel || rs.data.title.text)) || '';
+            const secItems = (rs.sectionItems && rs.sectionItems.items) || [];
+            if (!secTitle || !Array.isArray(secItems) || secItems.length === 0) continue;
+            const pls = [];
+            const trs = [];
+            for (let j = 0; j < secItems.length; j++) {
+              const row = secItems[j];
+              const content = (row && row.content && row.content.data) || (row && row.content) || row;
+              if (!content) continue;
+              const uri = (row && row.uri) || content.uri || '';
+              const tn = content.__typename || '';
+              if (uri.indexOf(':playlist:') !== -1 || tn.indexOf('Playlist') !== -1) {
+                const pid = extractIdFromUri(uri);
+                const imgItems = content.images && content.images.items;
+                const art = Array.isArray(imgItems) && imgItems.length > 0 ? pickLargestImg(imgItems[0].sources || []) : null;
+                if (pid && content.name) {
+                  pls.push({
+                    id: String(pid),
+                    title: String(content.name),
+                    description: content.description || '',
+                    artworkUrl: art,
+                    trackCount: (content.content && content.content.totalCount) || 0
+                  });
+                }
+              } else if (uri.indexOf(':track:') !== -1 || tn.indexOf('Track') !== -1) {
+                const tr = normalizeTrackNode(content, false);
+                if (tr) trs.push(tr);
+              }
+            }
+            if (pls.length > 0 || trs.length > 0) {
+              homeSecs.push({
+                id: 'sp-wv-' + i,
+                title: String(secTitle),
+                source: 'spotify',
+                playlists: pls,
+                tracks: trs
+              });
+            }
+          }
+          if (homeSecs.length > 0) st.featuredSections = homeSecs;
+        }
+
+        // 7. Fallback capture if Web Player called /v1/me/playlists or /v1/me/tracks directly
         if (url.indexOf('/v1/me/playlists') !== -1 && Array.isArray(data.items)) {
           const pls = data.items.map(function(pl) {
             return {
@@ -555,6 +617,49 @@ class WebViewAuthBridge {
             }
           }
         }
+        // Also scan rendered Spotify Home DOM shelves when GraphQL interception missed cached SSR
+        let featuredSections = Array.isArray(st.featuredSections) ? st.featuredSections.slice() : [];
+        if (featuredSections.length === 0 && (window.location.pathname === '/' || window.location.pathname === '')) {
+          try {
+            const shelves = document.querySelectorAll('section[aria-label], section[data-testid="component-shelf"]');
+            for (let i = 0; i < shelves.length && featuredSections.length < 8; i++) {
+              const sEl = shelves[i];
+              const hEl = sEl.querySelector('h2, a[href*="/section/"]');
+              const sTitle = (hEl && hEl.textContent) || sEl.getAttribute('aria-label') || '';
+              if (!sTitle) continue;
+              const links = sEl.querySelectorAll('a[href*="/playlist/"]');
+              const pls = [];
+              const seenP = {};
+              for (let j = 0; j < links.length; j++) {
+                const href = links[j].getAttribute('href') || '';
+                const m = href.match(/\/playlist\/([A-Za-z0-9]+)/);
+                if (!m || seenP[m[1]]) continue;
+                seenP[m[1]] = true;
+                const card = links[j].closest('[data-testid="card"], .Card, div') || links[j].parentElement;
+                const img = card ? card.querySelector('img') : null;
+                const tTxt = (links[j].textContent || links[j].getAttribute('title') || '').trim();
+                if (tTxt) {
+                  pls.push({
+                    id: m[1],
+                    title: tTxt,
+                    artworkUrl: img ? img.src : null,
+                    trackCount: 0
+                  });
+                }
+              }
+              if (pls.length > 0) {
+                featuredSections.push({
+                  id: 'sp-dom-' + i,
+                  title: sTitle.trim(),
+                  source: 'spotify',
+                  playlists: pls,
+                  tracks: []
+                });
+              }
+            }
+          } catch (_) {}
+        }
+
         return JSON.stringify({
           url: window.location.href || '',
           host: window.location.hostname || '',
@@ -564,6 +669,7 @@ class WebViewAuthBridge {
           profile: st.profile,
           playlists: st.playlists,
           likedTracks: st.likedTracks,
+          featuredSections: featuredSections,
           playlistTracks: st.playlistTracks,
           cookies: document.cookie || ''
         });
@@ -590,7 +696,8 @@ class WebViewAuthBridge {
 
     return const WebViewAuthSession(
       isSuccess: false,
-      errorMessage: 'Integrated browser sign-in is unsupported on this platform.',
+      errorMessage:
+          'Integrated browser sign-in is unsupported on this platform.',
     );
   }
 
@@ -608,7 +715,8 @@ class WebViewAuthBridge {
 
     return const WebViewAuthSession(
       isSuccess: false,
-      errorMessage: 'Integrated browser sign-in is unsupported on this platform.',
+      errorMessage:
+          'Integrated browser sign-in is unsupported on this platform.',
     );
   }
 
@@ -636,14 +744,17 @@ class WebViewAuthBridge {
             titleBarHeight: 0,
             title: 'MUXIS Background Sync',
             openHidden: true,
-            userDataFolderWindows: _resolvePersistentSessionDir('muxis_sp_session'),
+            userDataFolderWindows: _resolvePersistentSessionDir(
+              'muxis_sp_session',
+            ),
           ),
         );
 
         webview.addScriptToExecuteOnDocumentCreated(_spotifyHookScript);
-        final targetUrl = targetPlaylistId != null && targetPlaylistId.isNotEmpty
+        final targetUrl =
+            targetPlaylistId != null && targetPlaylistId.isNotEmpty
             ? 'https://open.spotify.com/playlist/$targetPlaylistId'
-            : 'https://open.spotify.com/collection/tracks';
+            : 'https://open.spotify.com/';
         webview.launch(targetUrl);
 
         final maxTicks = quickTokenOnly ? 6 : 12;
@@ -723,18 +834,23 @@ class WebViewAuthBridge {
             titleBarHeight: 0,
             title: 'MUXIS YouTube Background Sync',
             openHidden: true,
-            userDataFolderWindows: _resolvePersistentSessionDir('muxis_yt_session'),
+            userDataFolderWindows: _resolvePersistentSessionDir(
+              'muxis_yt_session',
+            ),
           ),
         );
 
-        final targetPl =
-            (targetPlaylistId ?? '').replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+        final targetPl = (targetPlaylistId ?? '').replaceAll(
+          RegExp(r'[^A-Za-z0-9_-]'),
+          '',
+        );
         final startUrl = targetPl.isNotEmpty
             ? 'https://music.youtube.com/playlist?list=${targetPl.startsWith('VL') ? targetPl.substring(2) : targetPl}'
             : 'https://music.youtube.com/';
         webview.launch(startUrl);
 
-        final ytSyncBootstrap = '''
+        final ytSyncBootstrap =
+            '''
 (function() {
   try {
     if (window.__muxisYtSyncStarted) return JSON.stringify(window.__muxisYtSyncResult || { done: false });
@@ -1076,7 +1192,9 @@ class WebViewAuthBridge {
               ytPlaylists: _castMapList(decoded['playlists']),
               ytLikedTracks: _castMapList(decoded['likedTracks']),
               ytRecommendedTracks: _castMapList(decoded['recommendedTracks']),
-              ytPlaylistTracks: _castPlaylistTracksMap(decoded['playlistTracks']),
+              ytPlaylistTracks: _castPlaylistTracksMap(
+                decoded['playlistTracks'],
+              ),
             );
             break;
           }
@@ -1093,7 +1211,9 @@ class WebViewAuthBridge {
   /// Clears stored WebView cookies/session cleanly for a single platform.
   Future<void> clearPlatformSession(String platform) async {
     if (!_isDesktop || !Platform.isWindows) return;
-    final folder = platform == 'spotify' ? 'muxis_sp_session' : 'muxis_yt_session';
+    final folder = platform == 'spotify'
+        ? 'muxis_sp_session'
+        : 'muxis_yt_session';
     for (final dir in <String>[_resolvePersistentSessionDir(folder), folder]) {
       try {
         await WebviewWindow.clearAll(userDataFolderWindows: dir);
@@ -1101,15 +1221,16 @@ class WebViewAuthBridge {
     }
   }
 
-  Future<WebViewAuthSession> _authenticateYouTubeDesktop(String loginUrl) async {
+  Future<WebViewAuthSession> _authenticateYouTubeDesktop(
+    String loginUrl,
+  ) async {
     return _withProfileLock<WebViewAuthSession>(false, () async {
       try {
         final available = await WebviewWindow.isWebviewAvailable();
         if (!available) {
           return const WebViewAuthSession(
             isSuccess: false,
-            errorMessage:
-                'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
+            errorMessage: 'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
           );
         }
 
@@ -1119,7 +1240,9 @@ class WebViewAuthBridge {
             windowHeight: 760,
             titleBarHeight: 0,
             title: 'MUXIS — Sign In to YouTube Music',
-            userDataFolderWindows: _resolvePersistentSessionDir('muxis_yt_session'),
+            userDataFolderWindows: _resolvePersistentSessionDir(
+              'muxis_yt_session',
+            ),
           ),
         );
 
@@ -1151,8 +1274,7 @@ class WebViewAuthBridge {
                 const WebViewAuthSession(
                   isSuccess: false,
                   isBlockedByGoogleWebView: true,
-                  errorMessage:
-                      'Google blocked embedded sign-in on this account ("This browser or app may not be secure"). Open Connect YouTube Music -> Internal / Advanced Options to connect via OAuth Keys or Session Cookie.',
+                  errorMessage: 'Google blocked embedded sign-in on this account ("This browser or app may not be secure"). Open Connect YouTube Music -> Internal / Advanced Options to connect via OAuth Keys or Session Cookie.',
                 ),
               );
               return;
@@ -1223,7 +1345,9 @@ class WebViewAuthBridge {
             final stateMap = _decodeEvalMap(rawJson);
             final href = (stateMap?['url'] as String?) ?? '';
             final host =
-                (stateMap?['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
+                (stateMap?['host'] as String?) ??
+                Uri.tryParse(href)?.host ??
+                '';
             final ytLoggedIn = stateMap?['loggedIn'] == true;
             final authUser = (stateMap?['authUser'] as String?) ?? '0';
             final docCookieStr = (stateMap?['cookies'] as String?) ?? '';
@@ -1278,7 +1402,8 @@ class WebViewAuthBridge {
               const WebViewAuthSession(
                 isSuccess: false,
                 isCancelled: true,
-                errorMessage: 'YouTube Music sign-in timed out. Please try again.',
+                errorMessage:
+                    'YouTube Music sign-in timed out. Please try again.',
               ),
             );
           }
@@ -1294,15 +1419,16 @@ class WebViewAuthBridge {
     });
   }
 
-  Future<WebViewAuthSession> _authenticateSpotifyDesktop(String loginUrl) async {
+  Future<WebViewAuthSession> _authenticateSpotifyDesktop(
+    String loginUrl,
+  ) async {
     return _withProfileLock<WebViewAuthSession>(true, () async {
       try {
         final available = await WebviewWindow.isWebviewAvailable();
         if (!available) {
           return const WebViewAuthSession(
             isSuccess: false,
-            errorMessage:
-                'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
+            errorMessage: 'Microsoft Edge WebView2 runtime is not installed. Please use Internal / Advanced Options.',
           );
         }
 
@@ -1312,7 +1438,9 @@ class WebViewAuthBridge {
             windowHeight: 760,
             titleBarHeight: 0,
             title: 'MUXIS — Sign In to Spotify',
-            userDataFolderWindows: _resolvePersistentSessionDir('muxis_sp_session'),
+            userDataFolderWindows: _resolvePersistentSessionDir(
+              'muxis_sp_session',
+            ),
           ),
         );
 
@@ -1364,7 +1492,9 @@ class WebViewAuthBridge {
 
             final href = (sessionMap['url'] as String?) ?? '';
             final host =
-                (sessionMap['host'] as String?) ?? Uri.tryParse(href)?.host ?? '';
+                (sessionMap['host'] as String?) ??
+                Uri.tryParse(href)?.host ??
+                '';
             final bearer = sessionMap['token'] as String?;
 
             if (host.contains('open.spotify.com') &&
@@ -1379,8 +1509,9 @@ class WebViewAuthBridge {
               );
               lastCapturedSession = captured;
 
-              final elapsedMs =
-                  DateTime.now().difference(authDetectedAt!).inMilliseconds;
+              final elapsedMs = DateTime.now()
+                  .difference(authDetectedAt!)
+                  .inMilliseconds;
 
               if (captured.spotifyPlaylists.isNotEmpty &&
                   captured.spotifyLikedTracks.isEmpty &&
@@ -1391,7 +1522,8 @@ class WebViewAuthBridge {
                 return;
               }
 
-              final readyFull = captured.spotifyPlaylists.isNotEmpty &&
+              final readyFull =
+                  captured.spotifyPlaylists.isNotEmpty &&
                   captured.spotifyLikedTracks.isNotEmpty;
               if (readyFull || elapsedMs >= 3200) {
                 webview.close();
@@ -1462,16 +1594,201 @@ class WebViewAuthBridge {
       spotifyProduct: profile?['product'] as String?,
       spotifyPlaylists: _castMapList(decoded['playlists']),
       spotifyLikedTracks: _castMapList(decoded['likedTracks']),
+      spotifyFeaturedSections: _castMapList(decoded['featuredSections']),
       spotifyPlaylistTracks: _castPlaylistTracksMap(decoded['playlistTracks']),
     );
   }
 
+  /// Opens genuine SoundCloud login portal (`https://soundcloud.com/signin`) and
+  /// extracts authenticated `oauth_token` cookie cleanly across Desktop WebView2 & Mobile WebView.
+  Future<WebViewAuthSession> authenticateSoundCloud(
+    BuildContext context,
+  ) async {
+    const loginUrl = 'https://soundcloud.com/signin';
+    if (_isDesktop) {
+      return _authenticateSoundCloudDesktop(loginUrl);
+    } else if (_isMobile) {
+      return _authenticateSoundCloudMobile(context, loginUrl);
+    }
+    return const WebViewAuthSession(
+      isSuccess: false,
+      errorMessage:
+          'Integrated browser sign-in is unsupported on this platform.',
+    );
+  }
+
+  Future<WebViewAuthSession> _authenticateSoundCloudDesktop(
+    String loginUrl,
+  ) async {
+    try {
+      final available = await WebviewWindow.isWebviewAvailable();
+      if (!available) {
+        return const WebViewAuthSession(
+          isSuccess: false,
+          errorMessage: 'Microsoft Edge WebView2 runtime is not installed.',
+        );
+      }
+
+      final webview = await WebviewWindow.create(
+        configuration: CreateConfiguration(
+          windowWidth: 1020,
+          windowHeight: 760,
+          titleBarHeight: 0,
+          title: 'MUXIS — Sign In to SoundCloud',
+          userDataFolderWindows: _resolvePersistentSessionDir(
+            'muxis_sc_session',
+          ),
+        ),
+      );
+
+      final completer = Completer<WebViewAuthSession>();
+      bool finished = false;
+      WebViewAuthSession? lastCaptured;
+      Timer? poller;
+      Timer? safetyTimer;
+
+      void completeOnce(WebViewAuthSession res) {
+        if (finished) return;
+        finished = true;
+        poller?.cancel();
+        safetyTimer?.cancel();
+        if (!completer.isCompleted) completer.complete(res);
+      }
+
+      unawaited(
+        webview.onClose.then((_) {
+          if (lastCaptured != null) {
+            completeOnce(lastCaptured!);
+            return;
+          }
+          completeOnce(
+            const WebViewAuthSession(
+              isSuccess: false,
+              isCancelled: true,
+              errorMessage: 'SoundCloud sign-in was cancelled.',
+            ),
+          );
+        }),
+      );
+
+      webview.launch(loginUrl);
+
+      poller = Timer.periodic(const Duration(milliseconds: 550), (_) async {
+        if (finished) return;
+        try {
+          final rawJson = await webview.evaluateJavaScript('''
+(function(){
+  try {
+    var href = window.location.href || '';
+    var btn = document.querySelector('.header__userNavUsernameButton, a[href="/you/library"]');
+    var avatar = document.querySelector('.header__userNavItem img, span.sc-artwork[style*="url("]');
+    var uname = btn ? (btn.textContent || '').trim() : '';
+    return JSON.stringify({
+      url: href,
+      loggedIn: Boolean(btn) && href.indexOf('/signin') === -1 && href.indexOf('/login') === -1,
+      displayName: uname,
+      cookies: document.cookie || ''
+    });
+  } catch (e) { return JSON.stringify({ url: '', loggedIn: false, cookies: '' }); }
+})()
+''');
+          final map = _decodeEvalMap(rawJson);
+          if (map == null) return;
+          final href = (map['url'] as String?) ?? '';
+          final uri = Uri.tryParse(href);
+          final onScHome =
+              uri != null &&
+              uri.host.contains('soundcloud.com') &&
+              !uri.path.contains('signin') &&
+              !uri.path.contains('login');
+          if (!onScHome) return;
+
+          String? oauthToken;
+          final docCookies = (map['cookies'] as String?) ?? '';
+          final docMatch = RegExp(r'(?:^|;\s*)oauth_token=([^;\s]+)')
+              .firstMatch(docCookies);
+          if (docMatch != null) {
+            oauthToken = _sanitizeAscii(docMatch.group(1) ?? '');
+          }
+          if (oauthToken == null || oauthToken.isEmpty) {
+            try {
+              final jarCookies = await webview.getAllCookies();
+              for (final c in jarCookies) {
+                if (_sanitizeAscii(c.name) == 'oauth_token') {
+                  final v = _sanitizeAscii(c.value);
+                  if (v.isNotEmpty) {
+                    oauthToken = v;
+                    break;
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
+          if ((oauthToken != null && oauthToken.isNotEmpty) ||
+              map['loggedIn'] == true) {
+            final name = (map['displayName'] as String?)?.trim();
+            final captured = WebViewAuthSession(
+              isSuccess: true,
+              scOAuthToken: oauthToken,
+              scDisplayName: (name != null && name.isNotEmpty)
+                  ? name
+                  : 'SoundCloud User',
+            );
+            lastCaptured = captured;
+            webview.close();
+            await Future.delayed(const Duration(milliseconds: 300));
+            completeOnce(captured);
+          }
+        } catch (_) {}
+      });
+
+      safetyTimer = Timer(const Duration(minutes: 5), () {
+        if (!finished) {
+          webview.close();
+          completeOnce(
+            const WebViewAuthSession(
+              isSuccess: false,
+              isCancelled: true,
+              errorMessage: 'SoundCloud sign-in timed out.',
+            ),
+          );
+        }
+      });
+
+      return await completer.future;
+    } catch (e) {
+      return WebViewAuthSession(
+        isSuccess: false,
+        errorMessage: 'SoundCloud browser window failed: $e',
+      );
+    }
+  }
+
+  Future<WebViewAuthSession> _authenticateSoundCloudMobile(
+    BuildContext context,
+    String loginUrl,
+  ) async {
+    return await Navigator.of(context).push<WebViewAuthSession>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => _MobileWebViewAuthPage(
+              title: 'Sign In to SoundCloud',
+              initialUrl: loginUrl,
+              platform: 'soundcloud',
+            ),
+          ),
+        ) ??
+        const WebViewAuthSession(
+          isSuccess: false,
+          isCancelled: true,
+          errorMessage: 'SoundCloud sign-in was cancelled.',
+        );
+  }
+
   List<Map<String, dynamic>> _castMapList(dynamic raw) {
     if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
+    return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
   }
 
   Map<String, List<Map<String, dynamic>>> _castPlaylistTracksMap(dynamic raw) {
@@ -1662,6 +1979,34 @@ class _MobileWebViewAuthPageState extends State<_MobileWebViewAuthPage> {
                 ),
               );
             }
+          }
+        }
+      } else if (widget.platform == 'soundcloud' &&
+          host.contains('soundcloud.com') &&
+          !url.contains('/signin') &&
+          !url.contains('/login')) {
+        final rawCookies = await _controller.runJavaScriptReturningResult(
+          'document.cookie',
+        );
+        final cookieStr = rawCookies.toString().replaceAll('"', '');
+        final tokMatch = RegExp(r'(?:^|;\s*)oauth_token=([^;\s]+)')
+            .firstMatch(cookieStr);
+        final oauthToken = tokMatch?.group(1)?.trim();
+        final loggedRaw = await _controller.runJavaScriptReturningResult(
+          "Boolean(document.querySelector('.header__userNavUsernameButton, a[href=\"/you/library\"], a[href*=\"/you\"]'))",
+        );
+        final domLoggedIn = loggedRaw.toString().contains('true');
+        if ((oauthToken != null && oauthToken.isNotEmpty) || domLoggedIn) {
+          _completed = true;
+          _poller?.cancel();
+          if (mounted) {
+            Navigator.of(context).pop(
+              WebViewAuthSession(
+                isSuccess: true,
+                scOAuthToken: oauthToken,
+                scDisplayName: 'SoundCloud Listener',
+              ),
+            );
           }
         }
       }

@@ -6,6 +6,7 @@ import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_card.dart';
@@ -22,9 +23,11 @@ class ExploreScreen extends ConsumerStatefulWidget {
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   final InnerTubeMusicProvider _ytProvider = InnerTubeMusicProvider();
   final SpotifyMusicProvider _spotifyProvider = SpotifyMusicProvider();
+  final SoundCloudMusicProvider _soundCloudProvider = SoundCloudMusicProvider();
 
   List<Track> _featuredYt = [];
   List<Track> _featuredSpotify = [];
+  List<Track> _featuredSoundCloud = [];
   bool _loading = true;
 
   @override
@@ -37,11 +40,15 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     try {
       final ytFuture = _ytProvider.fetchHomeRecommendations();
       final spFuture = _spotifyProvider.getFeaturedTracks();
-      final res = await Future.wait([ytFuture, spFuture]);
+      final scFuture = _soundCloudProvider.fetchFeaturedSections();
+      final res = await Future.wait([ytFuture, spFuture, scFuture]);
+      final scSections = res[2] as List;
+      final scTracks = <Track>[for (final s in scSections) ...s.tracks];
       if (mounted) {
         setState(() {
-          _featuredYt = res[0];
-          _featuredSpotify = res[1];
+          _featuredYt = res[0] as List<Track>;
+          _featuredSpotify = res[1] as List<Track>;
+          _featuredSoundCloud = scTracks;
           _loading = false;
         });
       }
@@ -60,6 +67,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         : (accounts.spotify.recommendedTracks.isNotEmpty
               ? accounts.spotify.recommendedTracks
               : accounts.spotify.likedTracks);
+    final soundCloudSpotlight = _featuredSoundCloud.isNotEmpty
+        ? _featuredSoundCloud
+        : (accounts.soundcloud.recommendedTracks.isNotEmpty
+              ? accounts.soundcloud.recommendedTracks
+              : accounts.soundcloud.likedTracks);
 
     final moods = [
       {
@@ -133,7 +145,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       borderRadius: 16,
                       padding: const EdgeInsets.all(18),
                       accentColor: color,
-                      blurSigma: 18,
+                      blurSigma: 0,
                       gradientOverride: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -316,6 +328,57 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           audioService.playTrack(t, newQueue: spotifySpotlight),
                       onPlayTap: () =>
                           audioService.playTrack(t, newQueue: spotifySpotlight),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+
+          if (!_loading && soundCloudSpotlight.isNotEmpty) ...[
+            const SizedBox(height: 36),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'SoundCloud Trending & Featured Picks',
+                  style: MuxisTypography.sectionHeading(isDark: isDark),
+                ),
+                const Text(
+                  'SoundCloud Direct Stream',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 11,
+                    color: MuxisColors.soundcloudOrange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
+                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: soundCloudSpotlight.take(12).map((t) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: t.title,
+                      subtitle: t.artist,
+                      artworkUrl: t.artworkUrl,
+                      onTap: () => audioService.playTrack(
+                        t,
+                        newQueue: soundCloudSpotlight,
+                      ),
+                      onPlayTap: () => audioService.playTrack(
+                        t,
+                        newQueue: soundCloudSpotlight,
+                      ),
                     );
                   }).toList(),
                 );

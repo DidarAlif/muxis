@@ -56,10 +56,15 @@ void main() {
 
   group('Portable URI Formatting Logic', () {
     String generatePortableUri(String id, String title, String artist) {
-      if (id.startsWith('isrc:') || id.startsWith('yt:') || id.startsWith('cc:') || id.startsWith('public:')) {
+      if (id.startsWith('isrc:') ||
+          id.startsWith('yt:') ||
+          id.startsWith('cc:') ||
+          id.startsWith('public:')) {
         return id;
       }
-      final clean = '${artist.toLowerCase().trim()}_${title.toLowerCase().trim()}'.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+      final clean =
+          '${artist.toLowerCase().trim()}_${title.toLowerCase().trim()}'
+              .replaceAll(RegExp(r'[^a-z0-9_]'), '');
       return 'meta:$clean';
     }
 
@@ -75,9 +80,22 @@ void main() {
     });
 
     test('Preserves pre-existing public and ISRC stream identifiers', () {
-      expect(generatePortableUri('isrc:USUM71204928', 'Song', 'Artist'), equals('isrc:USUM71204928'));
-      expect(generatePortableUri('public:cc-license-01', 'Bach', 'Performer'), equals('public:cc-license-01'));
-      expect(generatePortableUri('yt:dQw4w9WgXcQ', 'Never Gonna Give You Up', 'Rick Astley'), equals('yt:dQw4w9WgXcQ'));
+      expect(
+        generatePortableUri('isrc:USUM71204928', 'Song', 'Artist'),
+        equals('isrc:USUM71204928'),
+      );
+      expect(
+        generatePortableUri('public:cc-license-01', 'Bach', 'Performer'),
+        equals('public:cc-license-01'),
+      );
+      expect(
+        generatePortableUri(
+          'yt:dQw4w9WgXcQ',
+          'Never Gonna Give You Up',
+          'Rick Astley',
+        ),
+        equals('yt:dQw4w9WgXcQ'),
+      );
     });
   });
 }

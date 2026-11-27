@@ -9,7 +9,9 @@ class MuxisColors {
   static const Color neonMint = Color(0xFF10FFA0);
   static const Color emeraldAccent = Color(0xFF00E676);
   static const Color cyberLime = Color(0xFF76FF03);
-  static const Color neonGreenLight = Color(0xFF00A859); // High-contrast emerald for light mode
+  static const Color neonGreenLight = Color(
+    0xFF00A859,
+  ); // High-contrast emerald for light mode
 
   // --- Complementary Prismatic Spectrum Accents (Aligned Across Themes) ---
   static const Color cyberTeal = Color(0xFF00E5FF);
@@ -22,6 +24,7 @@ class MuxisColors {
   // Platform Brand Accents
   static const Color spotifyGreen = Color(0xFF1DB954);
   static const Color youtubeRed = Color(0xFFFF2D55);
+  static const Color soundcloudOrange = Color(0xFFFF5500);
 
   // Backwards-compatible aliases mapped cleanly across the app
   static const Color neonAccent = neonGreen;
@@ -87,7 +90,6 @@ class MuxisColors {
       isDark ? textMutedDark : textMutedLight;
   static Color accent(bool isDark) => isDark ? neonGreen : neonGreenLight;
   static Color teal(bool isDark) => isDark ? cyberTeal : cyberTealLight;
-  static Color violet(bool isDark) =>
-      isDark ? auroraViolet : auroraVioletLight;
+  static Color violet(bool isDark) => isDark ? auroraViolet : auroraVioletLight;
   static Color coral(bool isDark) => isDark ? coralPulse : coralPulseLight;
 }

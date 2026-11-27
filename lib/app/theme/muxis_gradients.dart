@@ -8,7 +8,11 @@ class MuxisGradients {
 
   /// Primary action & playback active indicator gradient
   static const LinearGradient prismaticPrimary = LinearGradient(
-    colors: [MuxisColors.neonGreen, MuxisColors.neonMint, MuxisColors.cyberTeal],
+    colors: [
+      MuxisColors.neonGreen,
+      MuxisColors.neonMint,
+      MuxisColors.cyberTeal,
+    ],
     stops: [0.0, 0.55, 1.0],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -62,24 +66,23 @@ class MuxisGradients {
     end: Alignment.bottomRight,
   );
 
+  /// SoundCloud platform card gradient
+  static const LinearGradient soundcloudPlatformGradient = LinearGradient(
+    colors: [Color(0xFFFF5500), Color(0xFFFF8800), Color(0xFFFF2D55)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   /// Subtle glass card gradient for dark theme
   static const LinearGradient glassSurfaceDark = LinearGradient(
-    colors: [
-      Color(0x2200FF88),
-      Color(0x1400E5FF),
-      Color(0x169D6BFF),
-    ],
+    colors: [Color(0x2200FF88), Color(0x1400E5FF), Color(0x169D6BFF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   /// Subtle glass card gradient for light theme (Apple Liquid Glass)
   static const LinearGradient glassSurfaceLight = LinearGradient(
-    colors: [
-      Color(0xE0FFFFFF),
-      Color(0xC2F0FDFA),
-      Color(0xB8EEF2FF),
-    ],
+    colors: [Color(0xE0FFFFFF), Color(0xC2F0FDFA), Color(0xB8EEF2FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

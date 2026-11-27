@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../core/auth/webview_auth_bridge.dart';
 import '../core/storage/preferences_service.dart';
 import '../shared/models/album.dart';
+import '../shared/models/featured_section.dart';
 import '../shared/models/playlist.dart';
 import '../shared/models/track.dart';
 import 'innertube_music_provider.dart';
@@ -33,9 +34,9 @@ class SpotifyMusicProvider implements MusicProvider {
     Dio? dio,
     PreferencesService? prefs,
     InnerTubeMusicProvider? innerTubeBridge,
-  })  : _dio = dio ?? Dio(),
-        _prefs = prefs ?? PreferencesService(),
-        _innerTubeBridge = innerTubeBridge ?? InnerTubeMusicProvider();
+  }) : _dio = dio ?? Dio(),
+       _prefs = prefs ?? PreferencesService(),
+       _innerTubeBridge = innerTubeBridge ?? InnerTubeMusicProvider();
 
   @override
   String get name => 'Spotify';
@@ -183,16 +184,16 @@ class SpotifyMusicProvider implements MusicProvider {
     final clientToken = await _getClientToken();
 
     Map<String, String> buildHeaders(String bearer) => {
-          'Authorization': 'Bearer $bearer',
-          'Accept': 'application/json',
-          'User-Agent': _browserUserAgent,
-          if (clientToken != null && clientToken.isNotEmpty) ...{
-            'client-token': clientToken,
-            'app-platform': 'WebPlayer',
-            'Origin': 'https://open.spotify.com',
-            'Referer': 'https://open.spotify.com/',
-          },
-        };
+      'Authorization': 'Bearer $bearer',
+      'Accept': 'application/json',
+      'User-Agent': _browserUserAgent,
+      if (clientToken != null && clientToken.isNotEmpty) ...{
+        'client-token': clientToken,
+        'app-platform': 'WebPlayer',
+        'Origin': 'https://open.spotify.com',
+        'Referer': 'https://open.spotify.com/',
+      },
+    };
 
     try {
       var res = await _dio.get(
@@ -220,9 +221,13 @@ class SpotifyMusicProvider implements MusicProvider {
       }
 
       if (res.statusCode == 429) {
-        final retryHeader = int.tryParse(res.headers.value('retry-after') ?? '');
+        final retryHeader = int.tryParse(
+          res.headers.value('retry-after') ?? '',
+        );
         final cooldownSec = (retryHeader ?? 60).clamp(30, 120);
-        _webApiCooldownUntil = DateTime.now().add(Duration(seconds: cooldownSec));
+        _webApiCooldownUntil = DateTime.now().add(
+          Duration(seconds: cooldownSec),
+        );
         lastRequestWasRateLimited = true;
         return null;
       }
@@ -244,7 +249,10 @@ class SpotifyMusicProvider implements MusicProvider {
 
     var token = await _getAccessToken();
     var clientToken = await _getClientToken();
-    if (token == null || token.isEmpty || clientToken == null || clientToken.isEmpty) {
+    if (token == null ||
+        token.isEmpty ||
+        clientToken == null ||
+        clientToken.isEmpty) {
       return null;
     }
 
@@ -255,10 +263,7 @@ class SpotifyMusicProvider implements MusicProvider {
           'operationName': operationName,
           'variables': variables,
           'extensions': {
-            'persistedQuery': {
-              'version': 1,
-              'sha256Hash': sha256Hash,
-            },
+            'persistedQuery': {'version': 1, 'sha256Hash': sha256Hash},
           },
         },
         options: Options(
@@ -301,7 +306,8 @@ class SpotifyMusicProvider implements MusicProvider {
     // 1. Pathfinder profileAttributes (if captured)
     final pf = await _pathfinderPost('profileAttributes', const {});
     final pfName = pf?['data']?['me']?['profile']?['name'] as String?;
-    final pfSources = pf?['data']?['me']?['profile']?['avatar']?['sources'] as List?;
+    final pfSources =
+        pf?['data']?['me']?['profile']?['avatar']?['sources'] as List?;
     final pfAvatar = (pfSources != null && pfSources.isNotEmpty)
         ? pfSources.last['url'] as String?
         : null;
@@ -320,8 +326,9 @@ class SpotifyMusicProvider implements MusicProvider {
       final displayName = profile['display_name'] as String?;
       final rawProduct = profile['product'] as String?;
       final images = profile['images'] as List?;
-      final avatarUrl =
-          images != null && images.isNotEmpty ? images[0]['url'] as String? : null;
+      final avatarUrl = images != null && images.isNotEmpty
+          ? images[0]['url'] as String?
+          : null;
       return {
         if (displayName != null) 'displayName': displayName,
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
@@ -334,7 +341,9 @@ class SpotifyMusicProvider implements MusicProvider {
   }
 
   /// Fetches authenticated user's Spotify playlists via Pathfinder, Web API, or hidden WebView2 fallback.
-  Future<List<Playlist>> fetchUserPlaylists({bool allowWebViewFallback = true}) async {
+  Future<List<Playlist>> fetchUserPlaylists({
+    bool allowWebViewFallback = true,
+  }) async {
     // 1. Pathfinder libraryV3
     final pf = await _pathfinderPost('libraryV3', {
       'filters': ['Playlists'],
@@ -359,21 +368,27 @@ class SpotifyMusicProvider implements MusicProvider {
     if (res?.statusCode == 200 && res?.data != null) {
       final items = res!.data['items'] as List?;
       if (items != null) {
-        return items.whereType<Map<String, dynamic>>().map((pl) {
-          final id = pl['id'] as String? ?? '';
-          final name = pl['name'] as String? ?? 'Spotify Playlist';
-          final desc = pl['description'] as String?;
-          final imgs = pl['images'] as List?;
-          final art = imgs != null && imgs.isNotEmpty ? imgs[0]['url'] as String? : null;
-          final count = (pl['tracks']?['total'] as num?)?.toInt() ?? 0;
-          return Playlist(
-            id: id,
-            title: name,
-            description: desc,
-            artworkUrl: art,
-            trackCount: count,
-          );
-        }).where((p) => p.id.isNotEmpty).toList();
+        return items
+            .whereType<Map<String, dynamic>>()
+            .map((pl) {
+              final id = pl['id'] as String? ?? '';
+              final name = pl['name'] as String? ?? 'Spotify Playlist';
+              final desc = pl['description'] as String?;
+              final imgs = pl['images'] as List?;
+              final art = imgs != null && imgs.isNotEmpty
+                  ? imgs[0]['url'] as String?
+                  : null;
+              final count = (pl['tracks']?['total'] as num?)?.toInt() ?? 0;
+              return Playlist(
+                id: id,
+                title: name,
+                description: desc,
+                artworkUrl: art,
+                trackCount: count,
+              );
+            })
+            .where((p) => p.id.isNotEmpty)
+            .toList();
       }
     }
 
@@ -443,7 +458,9 @@ class SpotifyMusicProvider implements MusicProvider {
   }
 
   /// Fetches authenticated user's Spotify Liked Songs via Pathfinder or /v1/me/tracks.
-  Future<List<Track>> fetchLikedTracks({bool allowWebViewFallback = false}) async {
+  Future<List<Track>> fetchLikedTracks({
+    bool allowWebViewFallback = false,
+  }) async {
     // 1. Pathfinder fetchLibraryTracks
     final pf = await _pathfinderPost('fetchLibraryTracks', {
       'offset': 0,
@@ -476,7 +493,10 @@ class SpotifyMusicProvider implements MusicProvider {
       if (session != null && session.isSuccess) {
         await _persistSessionMetadata(session);
         if (session.spotifyLikedTracks.isNotEmpty) {
-          return tracksFromWebViewMaps(session.spotifyLikedTracks, isFavorite: true);
+          return tracksFromWebViewMaps(
+            session.spotifyLikedTracks,
+            isFavorite: true,
+          );
         }
       }
     }
@@ -547,7 +567,9 @@ class SpotifyMusicProvider implements MusicProvider {
     }
     if (session.spotifyPathfinderHashesJson != null &&
         session.spotifyPathfinderHashesJson!.isNotEmpty) {
-      await _prefs.saveSpotifyPathfinderHashes(session.spotifyPathfinderHashesJson!);
+      await _prefs.saveSpotifyPathfinderHashes(
+        session.spotifyPathfinderHashesJson!,
+      );
     }
     if (session.spotifyDisplayName != null &&
         session.spotifyDisplayName!.isNotEmpty) {
@@ -562,38 +584,44 @@ class SpotifyMusicProvider implements MusicProvider {
   static List<Playlist> playlistsFromWebViewMaps(
     List<Map<String, dynamic>> rawList,
   ) {
-    return rawList.map((m) {
-      return Playlist(
-        id: m['id']?.toString() ?? '',
-        title: m['title']?.toString() ?? 'Spotify Playlist',
-        description: m['description']?.toString(),
-        artworkUrl: m['artworkUrl']?.toString(),
-        trackCount: (m['trackCount'] as num?)?.toInt() ?? 0,
-      );
-    }).where((p) => p.id.isNotEmpty).toList();
+    return rawList
+        .map((m) {
+          return Playlist(
+            id: m['id']?.toString() ?? '',
+            title: m['title']?.toString() ?? 'Spotify Playlist',
+            description: m['description']?.toString(),
+            artworkUrl: m['artworkUrl']?.toString(),
+            trackCount: (m['trackCount'] as num?)?.toInt() ?? 0,
+          );
+        })
+        .where((p) => p.id.isNotEmpty)
+        .toList();
   }
 
   static List<Track> tracksFromWebViewMaps(
     List<Map<String, dynamic>> rawList, {
     bool isFavorite = false,
   }) {
-    return rawList.map((m) {
-      final rawId = m['id']?.toString() ?? '';
-      final normalizedId = rawId.startsWith('sp-') ? rawId : 'sp-$rawId';
-      return Track(
-        id: normalizedId,
-        title: m['title']?.toString() ?? 'Unknown Track',
-        artist: m['artist']?.toString() ?? 'Unknown Artist',
-        album: m['album']?.toString() ?? 'Single',
-        duration: Duration(
-          milliseconds: (m['durationMs'] as num?)?.toInt() ?? 200000,
-        ),
-        artworkUrl: m['artworkUrl']?.toString(),
-        isFavorite: isFavorite || (m['isFavorite'] == true),
-        source: MusicSource.spotify,
-        audioFormat: 'Spotify Hi-Fi Bridge (320kbps)',
-      );
-    }).where((t) => t.id != 'sp-').toList();
+    return rawList
+        .map((m) {
+          final rawId = m['id']?.toString() ?? '';
+          final normalizedId = rawId.startsWith('sp-') ? rawId : 'sp-$rawId';
+          return Track(
+            id: normalizedId,
+            title: m['title']?.toString() ?? 'Unknown Track',
+            artist: m['artist']?.toString() ?? 'Unknown Artist',
+            album: m['album']?.toString() ?? 'Single',
+            duration: Duration(
+              milliseconds: (m['durationMs'] as num?)?.toInt() ?? 200000,
+            ),
+            artworkUrl: m['artworkUrl']?.toString(),
+            isFavorite: isFavorite || (m['isFavorite'] == true),
+            source: MusicSource.spotify,
+            audioFormat: 'Spotify Hi-Fi Bridge (320kbps)',
+          );
+        })
+        .where((t) => t.id != 'sp-')
+        .toList();
   }
 
   List<Playlist> _parsePathfinderPlaylists(Map<String, dynamic>? data) {
@@ -646,7 +674,8 @@ class SpotifyMusicProvider implements MusicProvider {
   }
 
   List<Track> _parsePathfinderLikedTracks(Map<String, dynamic>? data) {
-    final items = data?['data']?['me']?['library']?['tracks']?['items'] as List?;
+    final items =
+        data?['data']?['me']?['library']?['tracks']?['items'] as List?;
     if (items == null) return [];
     final out = <Track>[];
     for (final row in items) {
@@ -662,11 +691,10 @@ class SpotifyMusicProvider implements MusicProvider {
     if (rawNode is! Map) return null;
     final dynamic tr =
         (rawNode['data'] is Map && rawNode['data']?['name'] != null)
-            ? rawNode['data']
-            : ((rawNode['trackV2'] is Map &&
-                    rawNode['trackV2']?['data'] is Map)
-                ? rawNode['trackV2']['data']
-                : rawNode);
+        ? rawNode['data']
+        : ((rawNode['trackV2'] is Map && rawNode['trackV2']?['data'] is Map)
+              ? rawNode['trackV2']['data']
+              : rawNode);
     if (tr is! Map) return null;
     final name = tr['name']?.toString();
     final uri = (tr['uri'] ?? rawNode['_uri'] ?? '').toString();
@@ -674,7 +702,8 @@ class SpotifyMusicProvider implements MusicProvider {
     final id = uri.split(':').last;
 
     String artist = 'Unknown Artist';
-    final artItems = (tr['artists']?['items'] ?? tr['firstArtist']?['items']) as List?;
+    final artItems =
+        (tr['artists']?['items'] ?? tr['firstArtist']?['items']) as List?;
     if (artItems != null && artItems.isNotEmpty) {
       final names = artItems
           .whereType<Map>()
@@ -691,7 +720,8 @@ class SpotifyMusicProvider implements MusicProvider {
     final artUrl = artSources != null && artSources.isNotEmpty
         ? artSources.last['url']?.toString()
         : null;
-    final durMs = (tr['duration']?['totalMilliseconds'] as num? ??
+    final durMs =
+        (tr['duration']?['totalMilliseconds'] as num? ??
                 tr['trackDuration']?['totalMilliseconds'] as num?)
             ?.toInt() ??
         200000;
@@ -709,7 +739,10 @@ class SpotifyMusicProvider implements MusicProvider {
     );
   }
 
-  Track parseSpotifyTrack(Map<String, dynamic> item, {bool isFavorite = false}) {
+  Track parseSpotifyTrack(
+    Map<String, dynamic> item, {
+    bool isFavorite = false,
+  }) {
     final id = item['id'] as String? ?? '';
     final title = item['name'] as String? ?? 'Unknown Title';
     final artistsList = item['artists'] as List?;
@@ -745,11 +778,7 @@ class SpotifyMusicProvider implements MusicProvider {
     // 1. Spotify REST Search (auto-refreshes token if expired; respects 429 cooldown)
     final res = await _authorizedGet(
       'https://api.spotify.com/v1/search',
-      queryParameters: {
-        'q': cleanQuery,
-        'type': 'track',
-        'limit': '20',
-      },
+      queryParameters: {'q': cleanQuery, 'type': 'track', 'limit': '20'},
     );
 
     if (res?.statusCode == 200 && res?.data != null) {
@@ -780,7 +809,10 @@ class SpotifyMusicProvider implements MusicProvider {
 
     // 3. Clean InnerTube Music catalog bridge fallback (real YT Music catalog, zero fake tracks)
     try {
-      var ytResults = await _innerTubeBridge.search(cleanQuery, songsOnly: true);
+      var ytResults = await _innerTubeBridge.search(
+        cleanQuery,
+        songsOnly: true,
+      );
       if (ytResults.isEmpty) {
         ytResults = await _innerTubeBridge.search(cleanQuery);
       }
@@ -809,7 +841,11 @@ class SpotifyMusicProvider implements MusicProvider {
     return out;
   }
 
-  static int scoreMatch(Track candidate, String targetTitle, String targetArtist) {
+  static int scoreMatch(
+    Track candidate,
+    String targetTitle,
+    String targetArtist,
+  ) {
     int score = 0;
     final cTitle = candidate.title.toLowerCase().trim();
     final cArtist = candidate.artist.toLowerCase().trim();
@@ -817,17 +853,20 @@ class SpotifyMusicProvider implements MusicProvider {
     final aLower = targetArtist.toLowerCase().trim();
 
     if (cTitle == tLower) score += 60;
-    if (tLower.isNotEmpty && (cTitle.contains(tLower) || tLower.contains(cTitle))) {
+    if (tLower.isNotEmpty &&
+        (cTitle.contains(tLower) || tLower.contains(cTitle))) {
       score += 30;
     }
-    for (final w in tLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
+    for (final w
+        in tLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
       if (cTitle.contains(w)) score += 10;
     }
     if (aLower.isNotEmpty &&
         aLower != 'unknown artist' &&
         aLower != 'various artists') {
       if (cArtist == aLower || cArtist.contains(aLower)) score += 35;
-      for (final w in aLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
+      for (final w
+          in aLower.split(RegExp(r'[\s,]+')).where((e) => e.length >= 2)) {
         if (cArtist.contains(w) || cTitle.contains(w)) score += 12;
       }
     }
@@ -843,15 +882,17 @@ class SpotifyMusicProvider implements MusicProvider {
 
   @override
   Future<String?> resolveAudioStreamUrl(Track track) async {
-    final cleanId =
-        track.id.startsWith('sp-') ? track.id.replaceFirst('sp-', '') : track.id;
+    final cleanId = track.id.startsWith('sp-')
+        ? track.id.replaceFirst('sp-', '')
+        : track.id;
 
     if (!cleanId.startsWith('sp-') &&
         cleanId.length == 11 &&
         !cleanId.contains(' ') &&
         RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(cleanId)) {
-      final direct =
-          await _innerTubeBridge.resolveAudioStreamUrl(track.copyWith(id: cleanId));
+      final direct = await _innerTubeBridge.resolveAudioStreamUrl(
+        track.copyWith(id: cleanId),
+      );
       if (direct != null && direct.isNotEmpty) return direct;
     }
 
@@ -865,17 +906,25 @@ class SpotifyMusicProvider implements MusicProvider {
             '',
           )
           .replaceAll(
-            RegExp(r'\s*[-–]\s*(remaster|live|deluxe|single|radio).*', caseSensitive: false),
+            RegExp(
+              r'\s*[-–]\s*(remaster|live|deluxe|single|radio).*',
+              caseSensitive: false,
+            ),
             '',
           )
           .trim();
       final effectiveTitle = cleanTitle.isNotEmpty ? cleanTitle : track.title;
       final cleanArtist = track.artist
-          .replaceAll(RegExp(r'\s*\b(feat\.|ft\.)\b.*', caseSensitive: false), '')
+          .replaceAll(
+            RegExp(r'\s*\b(feat\.|ft\.)\b.*', caseSensitive: false),
+            '',
+          )
           .split(',')
           .first
           .trim();
-      final effectiveArtist = cleanArtist.isNotEmpty ? cleanArtist : track.artist;
+      final effectiveArtist = cleanArtist.isNotEmpty
+          ? cleanArtist
+          : track.artist;
 
       final searchQuery = '$effectiveArtist $effectiveTitle'.trim();
       final matches = <Track>[];
@@ -892,23 +941,30 @@ class SpotifyMusicProvider implements MusicProvider {
       addMatches(await _innerTubeBridge.search(searchQuery, songsOnly: true));
       final bestSongsScore = matches.isNotEmpty
           ? matches
-              .map((m) => scoreMatch(m, effectiveTitle, effectiveArtist))
-              .reduce((a, b) => a > b ? a : b)
+                .map((m) => scoreMatch(m, effectiveTitle, effectiveArtist))
+                .reduce((a, b) => a > b ? a : b)
           : -999;
 
       // Also search unfiltered YT Music if Songs filter yielded nothing or low-confidence hits
       if (matches.isEmpty || bestSongsScore < 45) {
-        addMatches(await _innerTubeBridge.search(searchQuery, songsOnly: false));
+        addMatches(
+          await _innerTubeBridge.search(searchQuery, songsOnly: false),
+        );
       }
       if (matches.isEmpty) {
-        addMatches(await _innerTubeBridge.search('$effectiveTitle $effectiveArtist'));
+        addMatches(
+          await _innerTubeBridge.search('$effectiveTitle $effectiveArtist'),
+        );
       }
 
       if (matches.isNotEmpty) {
         final ranked = List<Track>.from(matches)
           ..sort(
-            (a, b) => scoreMatch(b, effectiveTitle, effectiveArtist)
-                .compareTo(scoreMatch(a, effectiveTitle, effectiveArtist)),
+            (a, b) => scoreMatch(
+              b,
+              effectiveTitle,
+              effectiveArtist,
+            ).compareTo(scoreMatch(a, effectiveTitle, effectiveArtist)),
           );
         for (final match in ranked.take(4)) {
           final resolved = await _innerTubeBridge.resolveAudioStreamUrl(match);
@@ -925,6 +981,199 @@ class SpotifyMusicProvider implements MusicProvider {
   @override
   Future<List<Track>> getFeaturedTracks() async {
     return fetchTopTracks();
+  }
+
+  /// Fetches personalized user home shelves ("Made For You", "Your Top Tracks",
+  /// "Recently Played", "Featured Playlists", "New Releases") cleanly across
+  /// Pathfinder Home & REST Web APIs without fake items.
+  Future<List<FeaturedSection>> fetchFeaturedSections() async {
+    final sections = <FeaturedSection>[];
+    final seenTitles = <String>{};
+
+    void addSection(FeaturedSection sec) {
+      if (sec.isEmpty) return;
+      if (seenTitles.add(sec.title.toLowerCase())) {
+        sections.add(sec);
+      }
+    }
+
+    // 1. Pathfinder `home` GraphQL (when persisted hash was captured during session)
+    final pfHome = await _pathfinderPost('home', const {
+      'timeZone': 'UTC',
+      'sp_t': '',
+      'facet': '',
+      'sectionItemsLimit': 10,
+    });
+    for (final sec in _parsePathfinderHomeSections(pfHome)) {
+      addSection(sec);
+    }
+
+    // 2. REST User Top Tracks
+    final topRes = await _authorizedGet(
+      'https://api.spotify.com/v1/me/top/tracks',
+      queryParameters: {'limit': '18', 'time_range': 'short_term'},
+    );
+    if (topRes?.statusCode == 200 && topRes?.data is Map) {
+      final items = (topRes!.data['items'] as List?) ?? const [];
+      final tracks = items
+          .whereType<Map<String, dynamic>>()
+          .map((t) => parseSpotifyTrack(t))
+          .toList();
+      if (tracks.isNotEmpty) {
+        addSection(
+          FeaturedSection(
+            id: 'sp-top-tracks',
+            title: 'Your Top Tracks',
+            subtitle: 'Heavy rotation in your main Spotify account',
+            source: MusicSource.spotify,
+            tracks: tracks,
+          ),
+        );
+      }
+    }
+
+    // 3. REST Recently Played
+    final recRes = await _authorizedGet(
+      'https://api.spotify.com/v1/me/player/recently-played',
+      queryParameters: {'limit': '18'},
+    );
+    if (recRes?.statusCode == 200 && recRes?.data is Map) {
+      final items = (recRes!.data['items'] as List?) ?? const [];
+      final seenIds = <String>{};
+      final tracks = <Track>[];
+      for (final row in items) {
+        final trackMap = row is Map ? row['track'] : null;
+        if (trackMap is Map<String, dynamic>) {
+          final parsed = parseSpotifyTrack(trackMap);
+          if (seenIds.add(parsed.id)) tracks.add(parsed);
+        }
+      }
+      if (tracks.isNotEmpty) {
+        addSection(
+          FeaturedSection(
+            id: 'sp-recent',
+            title: 'Jump Back In',
+            subtitle: 'Recently played across your Spotify devices',
+            source: MusicSource.spotify,
+            tracks: tracks,
+          ),
+        );
+      }
+    }
+
+    // 4. REST Browse Featured Playlists & New Releases
+    final featRes = await _authorizedGet(
+      'https://api.spotify.com/v1/browse/featured-playlists',
+      queryParameters: {'limit': '12'},
+    );
+    if (featRes?.statusCode == 200 && featRes?.data is Map) {
+      final msg = featRes!.data['message']?.toString().trim();
+      final items = (featRes.data['playlists']?['items'] as List?) ?? const [];
+      final pls = items
+          .whereType<Map<String, dynamic>>()
+          .map((pl) {
+            final imgs = pl['images'] as List?;
+            final art = imgs != null && imgs.isNotEmpty
+                ? imgs[0]['url'] as String?
+                : null;
+            return Playlist(
+              id: pl['id']?.toString() ?? '',
+              title: pl['name']?.toString() ?? 'Featured Playlist',
+              description: pl['description']?.toString(),
+              artworkUrl: art,
+              trackCount: (pl['tracks']?['total'] as num?)?.toInt() ?? 0,
+            );
+          })
+          .where((p) => p.id.isNotEmpty)
+          .toList();
+      if (pls.isNotEmpty) {
+        addSection(
+          FeaturedSection(
+            id: 'sp-featured-playlists',
+            title: (msg != null && msg.isNotEmpty) ? msg : 'Featured For You',
+            source: MusicSource.spotify,
+            playlists: pls,
+          ),
+        );
+      }
+    }
+
+    return sections;
+  }
+
+  List<FeaturedSection> _parsePathfinderHomeSections(
+    Map<String, dynamic>? data,
+  ) {
+    final items =
+        data?['data']?['home']?['sectionContainer']?['sections']?['items']
+            as List?;
+    if (items == null) return [];
+    final out = <FeaturedSection>[];
+    for (final rawSec in items) {
+      if (rawSec is! Map) continue;
+      final title =
+          rawSec['data']?['title']?['transformedLabel']?.toString() ??
+          rawSec['data']?['title']?['text']?.toString() ??
+          '';
+      if (title.isEmpty) continue;
+      final secItems = (rawSec['sectionItems']?['items'] as List?) ?? const [];
+      final playlists = <Playlist>[];
+      final tracks = <Track>[];
+      for (final row in secItems) {
+        if (row is! Map) continue;
+        final content = row['content']?['data'] ?? row['content'];
+        if (content is! Map) continue;
+        final uri = (row['uri'] ?? content['uri'] ?? '').toString();
+        final typename = content['__typename']?.toString() ?? '';
+        if (uri.contains(':playlist:') || typename.contains('Playlist')) {
+          final id = uri.split(':').last;
+          final name = content['name']?.toString() ?? '';
+          final imgItems = content['images']?['items'] as List?;
+          final sources = imgItems != null && imgItems.isNotEmpty
+              ? imgItems[0]['sources'] as List?
+              : null;
+          final art = sources != null && sources.isNotEmpty
+              ? sources.last['url']?.toString()
+              : null;
+          if (id.isNotEmpty && name.isNotEmpty) {
+            playlists.add(
+              Playlist(
+                id: id,
+                title: name,
+                description: content['description']?.toString(),
+                artworkUrl: art,
+                trackCount:
+                    (content['content']?['totalCount'] as num?)?.toInt() ?? 0,
+              ),
+            );
+          }
+        } else if (uri.contains(':track:') || typename.contains('Track')) {
+          final tr = _parsePathfinderTrackNode(content);
+          if (tr != null) tracks.add(tr);
+        }
+      }
+      if (playlists.isNotEmpty || tracks.isNotEmpty) {
+        out.add(
+          FeaturedSection(
+            id: 'sp-pf-${out.length}-${title.hashCode.abs()}',
+            title: title,
+            source: MusicSource.spotify,
+            playlists: playlists,
+            tracks: tracks,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  static List<FeaturedSection> featuredSectionsFromWebViewMaps(
+    List<Map<String, dynamic>> rawSections,
+  ) {
+    return rawSections
+        .map(FeaturedSection.fromMap)
+        .where((s) => s.isNotEmpty)
+        .toList();
   }
 
   @override

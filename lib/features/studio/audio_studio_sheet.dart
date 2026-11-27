@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -97,7 +98,8 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                           boxShadow: [
                             if (eq.isEnabled)
                               BoxShadow(
-                                color: MuxisColors.accent(isDark).withOpacity(0.2),
+                                color: MuxisColors.accent(isDark)
+                                    .withOpacity(0.2),
                                 blurRadius: 12,
                                 spreadRadius: 1,
                               ),
@@ -129,12 +131,14 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                                 ),
                                 decoration: BoxDecoration(
                                   color: eq.isEnabled
-                                      ? MuxisColors.accent(isDark).withOpacity(0.15)
+                                      ? MuxisColors.accent(isDark)
+                                            .withOpacity(0.15)
                                       : Colors.grey.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: eq.isEnabled
-                                        ? MuxisColors.accent(isDark).withOpacity(0.4)
+                                        ? MuxisColors.accent(isDark)
+                                              .withOpacity(0.4)
                                         : Colors.grey.withOpacity(0.3),
                                   ),
                                 ),
@@ -180,251 +184,47 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                    // --- SECTION 1: INTERACTIVE FREQUENCY RESPONSE VISUALIZER ---
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        height: 130,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? MuxisColors.deepSpace
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
+                      // --- SECTION 1: INTERACTIVE FREQUENCY RESPONSE VISUALIZER ---
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          height: 130,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
                             color: isDark
-                                ? MuxisColors.subtleBorderDark
-                                : MuxisColors.subtleBorderLight,
-                          ),
-                        ),
-                        child: AnimatedBuilder(
-                          animation: _animController,
-                          builder: (context, _) {
-                            return CustomPaint(
-                              painter: _FrequencyCurvePainter(
-                                bands: eq.bands,
-                                isEnabled: eq.isEnabled,
-                                isDark: isDark,
-                                animPhase: _animController.value,
-                                isPlaying: isPlaying,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // --- SECTION 2: STUDIO PRESET CHIPS ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'STUDIO PRESETS',
-                          style: TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                            color: MuxisColors.accent(isDark),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Text(
-                              'Master Bypass',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark
-                                    ? MuxisColors.textSecondaryDark
-                                    : MuxisColors.textSecondaryLight,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Switch(
-                              value: eq.isEnabled,
-                              activeColor: MuxisColors.accent(isDark),
-                              onChanged: (_) => eqNotifier.toggleEnabled(),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: presets.map((p) {
-                        final isSelected = eq.activePreset == p;
-                        return ChoiceChip(
-                          label: Text(
-                            p,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isSelected
-                                  ? (isDark ? Colors.black : Colors.white)
-                                  : (isDark
-                                      ? MuxisColors.textPrimaryDark
-                                      : MuxisColors.textPrimaryLight),
+                                ? MuxisColors.deepSpace
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark
+                                  ? MuxisColors.subtleBorderDark
+                                  : MuxisColors.subtleBorderLight,
                             ),
                           ),
-                          selected: isSelected,
-                          selectedColor: MuxisColors.accent(isDark),
-                          backgroundColor: isDark
-                              ? MuxisColors.elevatedSurface
-                              : MuxisColors.secondarySurface,
-                          side: BorderSide(
-                            color: isSelected
-                                ? MuxisColors.accent(isDark)
-                                : (isDark
-                                    ? MuxisColors.subtleBorderDark
-                                    : MuxisColors.subtleBorderLight),
+                          child: AnimatedBuilder(
+                            animation: _animController,
+                            builder: (context, _) {
+                              return CustomPaint(
+                                painter: _FrequencyCurvePainter(
+                                  bands: eq.bands,
+                                  isEnabled: eq.isEnabled,
+                                  isDark: isDark,
+                                  animPhase: _animController.value,
+                                  isPlaying: isPlaying,
+                                ),
+                              );
+                            },
                           ),
-                          onSelected: (_) => eqNotifier.applyPreset(p),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // --- SECTION 3: 10-BAND SLIDERS RACK ---
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 18,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? MuxisColors.elevatedSurface
-                            : MuxisColors.whiteSurface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isDark
-                              ? MuxisColors.subtleBorderDark
-                              : MuxisColors.subtleBorderLight,
                         ),
-                        boxShadow: isDark ? null : const [
-                          BoxShadow(
-                            color: Color(0x080F172A),
-                            blurRadius: 16,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: Row(
+                      const SizedBox(height: 14),
+
+                      // --- SECTION 2: STUDIO PRESET CHIPS ---
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(eq.bands.length, (i) {
-                          final band = eq.bands[i];
-                          final isBoost = band.gainDb > 0.05;
-                          final isCut = band.gainDb < -0.05;
-
-                          return Column(
-                            children: [
-                              // Gain dB readout
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isBoost
-                                      ? MuxisColors.accent(isDark).withOpacity(0.15)
-                                      : (isCut
-                                          ? Colors.red.withOpacity(0.12)
-                                          : Colors.transparent),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${band.gainDb >= 0 ? '+' : ''}${band.gainDb.toStringAsFixed(1)}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontFamily: 'JetBrains Mono',
-                                    fontWeight: isBoost || isCut
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                    color: isBoost
-                                        ? MuxisColors.accent(isDark)
-                                        : (isCut
-                                            ? Colors.redAccent
-                                            : (isDark
-                                                ? MuxisColors.textMutedDark
-                                                : MuxisColors.textMutedLight)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-
-                              // Vertical Slider
-                              SizedBox(
-                                height: 130,
-                                child: RotatedBox(
-                                  quarterTurns: 3,
-                                  child: SliderTheme(
-                                    data: SliderTheme.of(context).copyWith(
-                                      trackHeight: 3.5,
-                                      thumbShape: const RoundSliderThumbShape(
-                                        enabledThumbRadius: 6,
-                                      ),
-                                    ),
-                                    child: Slider(
-                                      value: band.gainDb,
-                                      min: -12.0,
-                                      max: 12.0,
-                                      activeColor: MuxisColors.accent(isDark),
-                                      inactiveColor: isDark
-                                          ? MuxisColors.subtleBorderDark
-                                          : MuxisColors.subtleBorderLight,
-                                      onChanged: eq.isEnabled
-                                          ? (val) =>
-                                              eqNotifier.setBandGain(i, val)
-                                          : null,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-
-                              // Frequency Label
-                              Text(
-                                _formatFreq(band.frequencyHz),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'JetBrains Mono',
-                                  color: isDark
-                                      ? MuxisColors.textPrimaryDark
-                                      : MuxisColors.textPrimaryLight,
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // --- SECTION 4: ACOUSTIC MASTER DRIVES ---
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? MuxisColors.deepSpace
-                            : MuxisColors.secondarySurface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isDark
-                              ? MuxisColors.subtleBorderDark
-                              : MuxisColors.subtleBorderLight,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ACOUSTIC ENHANCEMENT DRIVES',
+                            'STUDIO PRESETS',
                             style: TextStyle(
                               fontFamily: 'JetBrains Mono',
                               fontSize: 11,
@@ -433,182 +233,401 @@ class _AudioStudioSheetState extends ConsumerState<AudioStudioSheet>
                               color: MuxisColors.accent(isDark),
                             ),
                           ),
-                          const SizedBox(height: 12),
                           Row(
                             children: [
-                              // Sub-Bass Drive
-                              Expanded(
-                                child: _buildDriveSlider(
-                                  label: 'SUB-BASS DRIVE',
-                                  value: eq.bassBoost,
-                                  display: '${(eq.bassBoost * 100).toInt()}%',
-                                  icon: Icons.speaker_group_rounded,
-                                  isDark: isDark,
-                                  onChanged: (v) => eqNotifier.setBassBoost(v),
+                              Text(
+                                'Master Bypass',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? MuxisColors.textSecondaryDark
+                                      : MuxisColors.textSecondaryLight,
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              // Treble Air
-                              Expanded(
-                                child: _buildDriveSlider(
-                                  label: 'TREBLE AIR',
-                                  value: eq.trebleBoost,
-                                  display: '${(eq.trebleBoost * 100).toInt()}%',
-                                  icon: Icons.blur_linear_rounded,
-                                  isDark: isDark,
-                                  onChanged: (v) => eqNotifier.setTrebleBoost(v),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Pre-Amp Gain
-                              Expanded(
-                                child: _buildDriveSlider(
-                                  label: 'PRE-AMP GAIN',
-                                  value: (eq.preampGainDb + 6.0) / 12.0,
-                                  display: '${eq.preampGainDb >= 0 ? '+' : ''}${eq.preampGainDb.toStringAsFixed(1)} dB',
-                                  icon: Icons.speed_rounded,
-                                  isDark: isDark,
-                                  onChanged: (v) =>
-                                      eqNotifier.setPreampGain((v * 12.0) - 6.0),
-                                ),
+                              const SizedBox(width: 6),
+                              Switch(
+                                value: eq.isEnabled,
+                                activeColor: MuxisColors.accent(isDark),
+                                onChanged: (_) => eqNotifier.toggleEnabled(),
                               ),
                             ],
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 8),
 
-                    // --- SECTION 5: PITCH & TEMPO STRETCHING (REAL-TIME ENGINE) ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'PITCH & TEMPO (REAL-TIME MODULATION)',
-                          style: TextStyle(
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                            color: MuxisColors.accent(isDark),
-                          ),
-                        ),
-                        if (studio.playbackSpeed != 1.0 ||
-                            studio.pitchShiftSemitones != 0.0)
-                          TextButton(
-                            onPressed: () => studioNotifier.resetAll(),
-                            child: const Text('Reset Pitch/Speed'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    Row(
-                      children: [
-                        // Playback Speed Slider
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Speed:',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${studio.playbackSpeed.toStringAsFixed(2)}x',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: MuxisColors.accent(isDark),
-                                    ),
-                                  ),
-                                ],
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: presets.map((p) {
+                          final isSelected = eq.activePreset == p;
+                          return ChoiceChip(
+                            label: Text(
+                              p,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? (isDark ? Colors.black : Colors.white)
+                                    : (isDark
+                                          ? MuxisColors.textPrimaryDark
+                                          : MuxisColors.textPrimaryLight),
                               ),
-                              Slider(
-                                value: studio.playbackSpeed,
-                                min: 0.5,
-                                max: 2.0,
-                                divisions: 30,
-                                activeColor: MuxisColors.accent(isDark),
-                                onChanged: (v) => studioNotifier.setPlaybackSpeed(v),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
+                            ),
+                            selected: isSelected,
+                            selectedColor: MuxisColors.accent(isDark),
+                            backgroundColor: isDark
+                                ? MuxisColors.elevatedSurface
+                                : MuxisColors.secondarySurface,
+                            side: BorderSide(
+                              color: isSelected
+                                  ? MuxisColors.accent(isDark)
+                                  : (isDark
+                                        ? MuxisColors.subtleBorderDark
+                                        : MuxisColors.subtleBorderLight),
+                            ),
+                            onSelected: (_) => eqNotifier.applyPreset(p),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 18),
 
-                        // Pitch Shift Slider
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Pitch:',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${studio.pitchShiftSemitones >= 0 ? '+' : ''}${studio.pitchShiftSemitones.toStringAsFixed(1)} semitones',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrains Mono',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: MuxisColors.accent(isDark),
-                                    ),
+                      // --- SECTION 3: 10-BAND SLIDERS RACK ---
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? MuxisColors.elevatedSurface
+                              : MuxisColors.whiteSurface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? MuxisColors.subtleBorderDark
+                                : MuxisColors.subtleBorderLight,
+                          ),
+                          boxShadow: isDark
+                              ? null
+                              : const [
+                                  BoxShadow(
+                                    color: Color(0x080F172A),
+                                    blurRadius: 16,
+                                    offset: Offset(0, 4),
                                   ),
                                 ],
-                              ),
-                              Slider(
-                                value: studio.pitchShiftSemitones,
-                                min: -12.0,
-                                max: 12.0,
-                                divisions: 48,
-                                activeColor: MuxisColors.accent(isDark),
-                                onChanged: (v) => studioNotifier.setPitchShift(v),
-                              ),
-                            ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(eq.bands.length, (i) {
+                            final band = eq.bands[i];
+                            final isBoost = band.gainDb > 0.05;
+                            final isCut = band.gainDb < -0.05;
+
+                            return Column(
+                              children: [
+                                // Gain dB readout
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isBoost
+                                        ? MuxisColors.accent(isDark)
+                                              .withOpacity(0.15)
+                                        : (isCut
+                                              ? Colors.red.withOpacity(0.12)
+                                              : Colors.transparent),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '${band.gainDb >= 0 ? '+' : ''}${band.gainDb.toStringAsFixed(1)}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontFamily: 'JetBrains Mono',
+                                      fontWeight: isBoost || isCut
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: isBoost
+                                          ? MuxisColors.accent(isDark)
+                                          : (isCut
+                                                ? Colors.redAccent
+                                                : (isDark
+                                                      ? MuxisColors
+                                                            .textMutedDark
+                                                      : MuxisColors
+                                                            .textMutedLight)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+
+                                // Vertical Slider
+                                SizedBox(
+                                  height: 130,
+                                  child: RotatedBox(
+                                    quarterTurns: 3,
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        trackHeight: 3.5,
+                                        thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 6,
+                                        ),
+                                      ),
+                                      child: Slider(
+                                        value: band.gainDb,
+                                        min: -12.0,
+                                        max: 12.0,
+                                        activeColor: MuxisColors.accent(isDark),
+                                        inactiveColor: isDark
+                                            ? MuxisColors.subtleBorderDark
+                                            : MuxisColors.subtleBorderLight,
+                                        onChanged: eq.isEnabled
+                                            ? (val) =>
+                                                  eqNotifier.setBandGain(i, val)
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+
+                                // Frequency Label
+                                Text(
+                                  _formatFreq(band.frequencyHz),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'JetBrains Mono',
+                                    color: isDark
+                                        ? MuxisColors.textPrimaryDark
+                                        : MuxisColors.textPrimaryLight,
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // --- SECTION 4: ACOUSTIC MASTER DRIVES ---
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? MuxisColors.deepSpace
+                              : MuxisColors.secondarySurface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? MuxisColors.subtleBorderDark
+                                : MuxisColors.subtleBorderLight,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ACOUSTIC ENHANCEMENT DRIVES',
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: MuxisColors.accent(isDark),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                // Sub-Bass Drive
+                                Expanded(
+                                  child: _buildDriveSlider(
+                                    label: 'SUB-BASS DRIVE',
+                                    value: eq.bassBoost,
+                                    display: '${(eq.bassBoost * 100).toInt()}%',
+                                    icon: Icons.speaker_group_rounded,
+                                    isDark: isDark,
+                                    onChanged: (v) =>
+                                        eqNotifier.setBassBoost(v),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Treble Air
+                                Expanded(
+                                  child: _buildDriveSlider(
+                                    label: 'TREBLE AIR',
+                                    value: eq.trebleBoost,
+                                    display:
+                                        '${(eq.trebleBoost * 100).toInt()}%',
+                                    icon: Icons.blur_linear_rounded,
+                                    isDark: isDark,
+                                    onChanged: (v) =>
+                                        eqNotifier.setTrebleBoost(v),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Pre-Amp Gain
+                                Expanded(
+                                  child: _buildDriveSlider(
+                                    label: 'PRE-AMP GAIN',
+                                    value: (eq.preampGainDb + 6.0) / 12.0,
+                                    display:
+                                        '${eq.preampGainDb >= 0 ? '+' : ''}${eq.preampGainDb.toStringAsFixed(1)} dB',
+                                    icon: Icons.speed_rounded,
+                                    isDark: isDark,
+                                    onChanged: (v) => eqNotifier.setPreampGain(
+                                      (v * 12.0) - 6.0,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
 
-                    // Quick Action Presets (Slowed + Reverb, Vocal Remover)
-                    Row(
-                      children: [
-                        MuxisButton(
-                          label: 'Slowed + Reverb Preset',
-                          icon: const Icon(Icons.waves_rounded, size: 16),
-                          variant: studio.isSlowedAndReverb
-                              ? MuxisButtonVariant.primary
-                              : MuxisButtonVariant.secondary,
-                          height: 38,
-                          onPressed: () => studioNotifier.toggleSlowedAndReverb(),
-                        ),
-                        const SizedBox(width: 12),
-                        MuxisButton(
-                          label: 'Reset All DSP to Default',
-                          variant: MuxisButtonVariant.ghost,
-                          height: 38,
-                          onPressed: () {
-                            eqNotifier.resetToFlat();
-                            studioNotifier.resetAll();
-                          },
-                        ),
-                      ],
-                    ),
+                      // --- SECTION 5: PITCH & TEMPO STRETCHING (REAL-TIME ENGINE) ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'PITCH & TEMPO (REAL-TIME MODULATION)',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                              color: MuxisColors.accent(isDark),
+                            ),
+                          ),
+                          if (studio.playbackSpeed != 1.0 ||
+                              studio.pitchShiftSemitones != 0.0)
+                            TextButton(
+                              onPressed: () => studioNotifier.resetAll(),
+                              child: const Text('Reset Pitch/Speed'),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      Row(
+                        children: [
+                          // Playback Speed Slider
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Speed:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${studio.playbackSpeed.toStringAsFixed(2)}x',
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrains Mono',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: MuxisColors.accent(isDark),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: studio.playbackSpeed,
+                                  min: 0.5,
+                                  max: 2.0,
+                                  divisions: 30,
+                                  activeColor: MuxisColors.accent(isDark),
+                                  onChanged: (v) =>
+                                      studioNotifier.setPlaybackSpeed(v),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+
+                          // Pitch Shift Slider
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Pitch:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${studio.pitchShiftSemitones >= 0 ? '+' : ''}${studio.pitchShiftSemitones.toStringAsFixed(1)} semitones',
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrains Mono',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: MuxisColors.accent(isDark),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: studio.pitchShiftSemitones,
+                                  min: -12.0,
+                                  max: 12.0,
+                                  divisions: 48,
+                                  activeColor: MuxisColors.accent(isDark),
+                                  onChanged: (v) =>
+                                      studioNotifier.setPitchShift(v),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Quick Action Presets (Slowed + Reverb, Vocal Remover)
+                      Row(
+                        children: [
+                          MuxisButton(
+                            label: 'Slowed + Reverb Preset',
+                            icon: const Icon(Icons.waves_rounded, size: 16),
+                            variant: studio.isSlowedAndReverb
+                                ? MuxisButtonVariant.primary
+                                : MuxisButtonVariant.secondary,
+                            height: 38,
+                            onPressed: () =>
+                                studioNotifier.toggleSlowedAndReverb(),
+                          ),
+                          const SizedBox(width: 12),
+                          MuxisButton(
+                            label: 'Reset All DSP to Default',
+                            variant: MuxisButtonVariant.ghost,
+                            height: 38,
+                            onPressed: () {
+                              eqNotifier.resetToFlat();
+                              studioNotifier.resetAll();
+                            },
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -714,9 +733,17 @@ class _FrequencyCurvePainter extends CustomPainter {
       ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
       ..strokeWidth = 1.0;
 
-    canvas.drawLine(Offset(0, height * 0.15), Offset(width, height * 0.15), gridPaint);
+    canvas.drawLine(
+      Offset(0, height * 0.15),
+      Offset(width, height * 0.15),
+      gridPaint,
+    );
     canvas.drawLine(Offset(0, zeroY), Offset(width, zeroY), gridPaint);
-    canvas.drawLine(Offset(0, height * 0.85), Offset(width, height * 0.85), gridPaint);
+    canvas.drawLine(
+      Offset(0, height * 0.85),
+      Offset(width, height * 0.85),
+      gridPaint,
+    );
 
     // 2. Animated Spectrum Bars (Pulsing background bars)
     if (isPlaying && isEnabled) {
@@ -829,11 +856,7 @@ class _FrequencyCurvePainter extends CustomPainter {
         3.5,
         Paint()..color = isDark ? Colors.black : Colors.white,
       );
-      canvas.drawCircle(
-        p,
-        2.5,
-        Paint()..color = strokeColor,
-      );
+      canvas.drawCircle(p, 2.5, Paint()..color = strokeColor);
     }
   }
 

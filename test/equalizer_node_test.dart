@@ -4,29 +4,35 @@ import 'package:muxis/core/lyrics/lyrics_service.dart';
 
 void main() {
   group('EqualizerNotifier 10-Band DSP Tests', () {
-    test('Initializes with 10 studio frequency bands and Prismatic Neon preset', () {
-      final notifier = EqualizerNotifier();
-      final eq = notifier.state;
+    test(
+      'Initializes with 10 studio frequency bands and Prismatic Neon preset',
+      () {
+        final notifier = EqualizerNotifier();
+        final eq = notifier.state;
 
-      expect(eq.isEnabled, isTrue);
-      expect(eq.bands.length, equals(10));
-      expect(
-        eq.bands.map((b) => b.frequencyHz).toList(),
-        equals(EqualizerState.defaultFrequencies),
-      );
-      expect(eq.activePreset, equals('Prismatic Neon'));
-    });
+        expect(eq.isEnabled, isTrue);
+        expect(eq.bands.length, equals(10));
+        expect(
+          eq.bands.map((b) => b.frequencyHz).toList(),
+          equals(EqualizerState.defaultFrequencies),
+        );
+        expect(eq.activePreset, equals('Prismatic Neon'));
+      },
+    );
 
-    test('Clamps band gains between -12 dB and +12 dB and marks preset Custom', () {
-      final notifier = EqualizerNotifier();
+    test(
+      'Clamps band gains between -12 dB and +12 dB and marks preset Custom',
+      () {
+        final notifier = EqualizerNotifier();
 
-      notifier.setBandGain(0, 24.0);
-      expect(notifier.state.bands[0].gainDb, equals(12.0));
-      expect(notifier.state.activePreset, equals('Custom'));
+        notifier.setBandGain(0, 24.0);
+        expect(notifier.state.bands[0].gainDb, equals(12.0));
+        expect(notifier.state.activePreset, equals('Custom'));
 
-      notifier.setBandGain(9, -30.0);
-      expect(notifier.state.bands[9].gainDb, equals(-12.0));
-    });
+        notifier.setBandGain(9, -30.0);
+        expect(notifier.state.bands[9].gainDb, equals(-12.0));
+      },
+    );
 
     test('Applies Sub-Bass Thump preset and resets cleanly to Flat', () {
       final notifier = EqualizerNotifier();

@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class EqualizerBand {
@@ -156,10 +157,8 @@ class EqualizerState {
 
     final newBands = List<EqualizerBand>.generate(
       defaultFrequencies.length,
-      (i) => EqualizerBand(
-        frequencyHz: defaultFrequencies[i],
-        gainDb: gains[i],
-      ),
+      (i) =>
+          EqualizerBand(frequencyHz: defaultFrequencies[i], gainDb: gains[i]),
     );
 
     return copyWith(
@@ -173,8 +172,8 @@ class EqualizerState {
 
 final equalizerProvider =
     StateNotifierProvider<EqualizerNotifier, EqualizerState>((ref) {
-  return EqualizerNotifier();
-});
+      return EqualizerNotifier();
+    });
 
 class EqualizerNotifier extends StateNotifier<EqualizerState> {
   EqualizerNotifier() : super(EqualizerState.initial());

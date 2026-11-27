@@ -7,6 +7,7 @@ import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
 import '../../providers/innertube_music_provider.dart';
+import '../../shared/models/featured_section.dart';
 import '../../shared/models/playlist.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
@@ -53,7 +54,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final notifier = ref.read(streamingAccountsProvider.notifier);
     final res = platform == 'spotify'
         ? await notifier.connectSpotifyWithBrowser(context)
-        : await notifier.connectYouTubeWithBrowser(context);
+        : (platform == 'soundcloud'
+              ? await notifier.connectSoundCloudWithBrowser(context)
+              : await notifier.connectYouTubeWithBrowser(context));
 
     if (!mounted) return;
     if (res.isSuccess) {
@@ -79,7 +82,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final playback = ref.watch(playbackServiceProvider);
+    final queue = ref.watch(playbackServiceProvider.select((s) => s.queue));
+    final playingTrackId = ref.watch(
+      playbackServiceProvider.select((s) => s.currentTrack?.id),
+    );
+    final isPlaying = ref.watch(
+      playbackServiceProvider.select((s) => s.isPlaying),
+    );
     final audioService = ref.read(playbackServiceProvider.notifier);
     final accounts = ref.watch(streamingAccountsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -150,13 +159,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               children: [
                                 _heroBadge(
                                   accounts.hasAnyConnected
-                                      ? '${accounts.connectedCount} STREAM PLATFORM${accounts.connectedCount == 2 ? 'S' : ''} LINKED'
+                                      ? '${accounts.connectedCount} STREAM PLATFORM${accounts.connectedCount > 1 ? 'S' : ''} LINKED'
                                       : 'MULTI-PLATFORM AD-FREE AUDIO',
                                 ),
                                 if (accounts.youtube.isConnected)
                                   _heroBadge('YT MUSIC LIVE'),
                                 if (accounts.spotify.isConnected)
                                   _heroBadge('SPOTIFY BRIDGE LIVE'),
+                                if (accounts.soundcloud.isConnected)
+                                  _heroBadge('SOUNDCLOUD LIVE'),
                               ],
                             ),
                           ),
@@ -176,7 +187,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Text(
                         accounts.hasAnyConnected
                             ? 'Your connected streaming libraries are synced below and ready for instant ad-free playback.'
-                            : 'Sign in through the web browser to link YouTube Music, Spotify, or both and stream seamlessly without ads.',
+                            : 'Sign in through the web browser to link YouTube Music, Spotify, and SoundCloud and stream seamlessly without ads.',
                         maxLines: isMobile ? 3 : 2,
                         style: TextStyle(
                           fontSize: isMobile ? 12 : 13,
@@ -200,8 +211,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             variant: MuxisButtonVariant.secondary,
                             height: isMobile ? 34 : 38,
                             onPressed: () {
-                              if (playback.queue.isNotEmpty) {
-                                audioService.playTrack(playback.queue[0]);
+                              if (queue.isNotEmpty) {
+                                audioService.playTrack(queue[0]);
                               } else if (accounts
                                   .youtube
                                   .recommendedTracks
@@ -209,6 +220,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 audioService.playTrack(
                                   accounts.youtube.recommendedTracks[0],
                                   newQueue: accounts.youtube.recommendedTracks,
+                                );
+                              } else if (accounts
+                                  .spotify
+                                  .recommendedTracks
+                                  .isNotEmpty) {
+                                audioService.playTrack(
+                                  accounts.spotify.recommendedTracks[0],
+                                  newQueue: accounts.spotify.recommendedTracks,
+                                );
+                              } else if (accounts
+                                  .soundcloud
+                                  .recommendedTracks
+                                  .isNotEmpty) {
+                                audioService.playTrack(
+                                  accounts.soundcloud.recommendedTracks[0],
+                                  newQueue:
+                                      accounts.soundcloud.recommendedTracks,
                                 );
                               } else if (_trendingTracks.isNotEmpty) {
                                 audioService.playTrack(
@@ -258,8 +286,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           const SizedBox(height: 28),
 
-          // --- 2. QUICK CONNECT PLATFORM BANNER (Shown when < 2 platforms linked) ---
-          if (!accounts.youtube.isConnected || !accounts.spotify.isConnected)
+          // --- 2. QUICK CONNECT PLATFORM BANNER (Shown when < 3 platforms linked) ---
+          if (!accounts.youtube.isConnected ||
+              !accounts.spotify.isConnected ||
+              !accounts.soundcloud.isConnected)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -272,13 +302,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 12),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final both =
-                        !accounts.youtube.isConnected &&
-                        !accounts.spotify.isConnected;
-                    final twoCols = both && constraints.maxWidth >= 680;
-                    final cardWidth = twoCols
-                        ? (constraints.maxWidth - 16) / 2
-                        : constraints.maxWidth;
+                    final unlinkedCount =
+                        (!accounts.youtube.isConnected ? 1 : 0) +
+                        (!accounts.spotify.isConnected ? 1 : 0) +
+                        (!accounts.soundcloud.isConnected ? 1 : 0);
+                    final cols =
+                        unlinkedCount == 3 && constraints.maxWidth >= 900
+                        ? 3
+                        : (unlinkedCount >= 2 && constraints.maxWidth >= 640
+                              ? 2
+                              : 1);
+                    final cardWidth = cols == 1
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 16 * (cols - 1)) / cols;
                     return Wrap(
                       spacing: 16,
                       runSpacing: 14,
@@ -309,6 +345,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               onConnect: () => _connectPlatform('spotify'),
                             ),
                           ),
+                        if (!accounts.soundcloud.isConnected)
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildConnectPlatformCard(
+                              title: 'SoundCloud',
+                              subtitle: 'Browser sign-in • Stream mixes, likes, charts & curated picks',
+                              icon: Icons.cloud_queue_rounded,
+                              gradient:
+                                  MuxisGradients.soundcloudPlatformGradient,
+                              isLoading: accounts.soundcloud.isSyncing,
+                              isDark: isDark,
+                              onConnect: () => _connectPlatform('soundcloud'),
+                            ),
+                          ),
                       ],
                     );
                   },
@@ -317,7 +367,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
 
-          // --- 3. DYNAMIC LINKED STREAMING SECTION(S) (1 section if 1 linked, 2 sections if 2 linked) ---
+          // --- 3. DYNAMIC LINKED STREAMING SECTION(S) ---
           if (accounts.youtube.isConnected) ...[
             _buildLinkedPlatformSection(
               title: 'YouTube Music — Your Stream Hub',
@@ -328,6 +378,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? accounts.youtube.recommendedTracks
                   : accounts.youtube.likedTracks,
               playlists: accounts.youtube.playlists,
+              featuredSections: accounts.youtube.featuredSections,
               navDestination: 11,
               isDark: isDark,
               audioService: audioService,
@@ -345,7 +396,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? accounts.spotify.recommendedTracks
                   : accounts.spotify.likedTracks,
               playlists: accounts.spotify.playlists,
+              featuredSections: accounts.spotify.featuredSections,
               navDestination: 12,
+              isDark: isDark,
+              audioService: audioService,
+            ),
+            const SizedBox(height: 32),
+          ],
+
+          if (accounts.soundcloud.isConnected) ...[
+            _buildLinkedPlatformSection(
+              title: 'SoundCloud — Your Stream Hub',
+              subtitle:
+                  '${accounts.soundcloud.displayName ?? 'Connected'} • ${accounts.soundcloud.playlists.length} Sets',
+              brandColor: MuxisColors.soundcloudOrange,
+              tracks: accounts.soundcloud.recommendedTracks.isNotEmpty
+                  ? accounts.soundcloud.recommendedTracks
+                  : accounts.soundcloud.likedTracks,
+              playlists: accounts.soundcloud.playlists,
+              featuredSections: accounts.soundcloud.featuredSections,
+              navDestination: 13,
               isDark: isDark,
               audioService: audioService,
             ),
@@ -447,7 +517,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 12),
 
-          if (playback.queue.isEmpty)
+          if (queue.isEmpty)
             MuxisGlassCard(
               padding: EdgeInsets.all(isMobile ? 16 : 22),
               borderRadius: 16,
@@ -504,13 +574,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             )
           else
-            ...List.generate(playback.queue.take(10).length, (i) {
-              final track = playback.queue[i];
+            ...List.generate(queue.take(10).length, (i) {
+              final track = queue[i];
               return MuxisTrackRow(
                 track: track,
                 index: i,
-                isPlaying:
-                    playback.currentTrack?.id == track.id && playback.isPlaying,
+                isPlaying: playingTrackId == track.id && isPlaying,
                 onTap: () => audioService.playTrack(track),
                 onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
               );
@@ -683,12 +752,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required Color brandColor,
     required List<Track> tracks,
     required List<Playlist> playlists,
+    required List<FeaturedSection> featuredSections,
     required int navDestination,
     required bool isDark,
     required AudioPlaybackService audioService,
   }) {
     final hasPlaylists = playlists.isNotEmpty;
     final hasTracks = tracks.isNotEmpty;
+    final hasFeatured = featuredSections.isNotEmpty;
 
     return MuxisGlassCard(
       padding: const EdgeInsets.all(18),
@@ -750,7 +821,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (!hasPlaylists && !hasTracks)
+          if (!hasPlaylists && !hasTracks && !hasFeatured)
             Text(
               'Account linked! Open Hub or tap Sync Library to fetch your playlists and songs.',
               style: TextStyle(
@@ -758,47 +829,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: MuxisColors.textSecondary(isDark),
               ),
             )
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final spacing = constraints.maxWidth < 520 ? 12.0 : 14.0;
-                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: [
-                    ...playlists.take(6).map((pl) {
-                      return MuxisCard(
-                        width: cardWidth,
-                        title: pl.title,
-                        subtitle:
-                            'Playlist • ${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks',
-                        artworkUrl: pl.artworkUrl,
-                        onTap: () => widget.onNavigate(navDestination),
-                        onPlayTap: pl.tracks.isNotEmpty
-                            ? () => audioService.playTrack(
-                                pl.tracks.first,
-                                newQueue: pl.tracks,
-                              )
-                            : () => widget.onNavigate(navDestination),
-                      );
-                    }),
-                    ...tracks.take(8).map((t) {
-                      return MuxisCard(
-                        width: cardWidth,
-                        title: t.title,
-                        subtitle: t.artist,
-                        artworkUrl: t.artworkUrl,
-                        onTap: () =>
-                            audioService.playTrack(t, newQueue: tracks),
-                        onPlayTap: () =>
-                            audioService.playTrack(t, newQueue: tracks),
-                      );
-                    }),
-                  ],
-                );
-              },
-            ),
+          else ...[
+            for (final sec in featuredSections.take(2)) ...[
+              Text(
+                sec.title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: MuxisColors.textPrimary(isDark),
+                ),
+              ),
+              const SizedBox(height: 10),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final spacing = constraints.maxWidth < 520 ? 12.0 : 14.0;
+                  final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      ...sec.playlists.take(4).map((pl) {
+                        return MuxisCard(
+                          width: cardWidth,
+                          title: pl.title,
+                          subtitle: pl.description ?? 'Featured Playlist',
+                          artworkUrl: pl.artworkUrl,
+                          onTap: () => widget.onNavigate(navDestination),
+                          onPlayTap: pl.tracks.isNotEmpty
+                              ? () => audioService.playTrack(
+                                  pl.tracks.first,
+                                  newQueue: pl.tracks,
+                                )
+                              : () => widget.onNavigate(navDestination),
+                        );
+                      }),
+                      ...sec.tracks.take(6).map((t) {
+                        return MuxisCard(
+                          width: cardWidth,
+                          title: t.title,
+                          subtitle: t.artist,
+                          artworkUrl: t.artworkUrl,
+                          onTap: () =>
+                              audioService.playTrack(t, newQueue: sec.tracks),
+                          onPlayTap: () =>
+                              audioService.playTrack(t, newQueue: sec.tracks),
+                        );
+                      }),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+            ],
+            if (!hasFeatured || hasPlaylists)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final spacing = constraints.maxWidth < 520 ? 12.0 : 14.0;
+                  final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      ...playlists.take(6).map((pl) {
+                        return MuxisCard(
+                          width: cardWidth,
+                          title: pl.title,
+                          subtitle:
+                              'Playlist • ${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks',
+                          artworkUrl: pl.artworkUrl,
+                          onTap: () => widget.onNavigate(navDestination),
+                          onPlayTap: pl.tracks.isNotEmpty
+                              ? () => audioService.playTrack(
+                                  pl.tracks.first,
+                                  newQueue: pl.tracks,
+                                )
+                              : () => widget.onNavigate(navDestination),
+                        );
+                      }),
+                      if (!hasFeatured)
+                        ...tracks.take(8).map((t) {
+                          return MuxisCard(
+                            width: cardWidth,
+                            title: t.title,
+                            subtitle: t.artist,
+                            artworkUrl: t.artworkUrl,
+                            onTap: () =>
+                                audioService.playTrack(t, newQueue: tracks),
+                            onPlayTap: () =>
+                                audioService.playTrack(t, newQueue: tracks),
+                          );
+                        }),
+                    ],
+                  );
+                },
+              ),
+          ],
         ],
       ),
     );

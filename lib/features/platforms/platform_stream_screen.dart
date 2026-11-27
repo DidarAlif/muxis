@@ -9,7 +9,9 @@ import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../../core/auth/streaming_accounts_controller.dart';
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
+import '../../shared/models/featured_section.dart';
 import '../../shared/models/playlist.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_button.dart';
@@ -36,8 +38,9 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   final InnerTubeMusicProvider _ytProvider = InnerTubeMusicProvider();
   final SpotifyMusicProvider _spotifyProvider = SpotifyMusicProvider();
+  final SoundCloudMusicProvider _soundCloudProvider = SoundCloudMusicProvider();
 
-  int _subTab = 0; // 0: Stream Picks, 1: Playlists, 2: Liked Songs
+  int _subTab = 0; // 0: Featured & Picks, 1: Playlists, 2: Liked Songs
   Playlist? _openPlaylist;
   bool _isHydratingPlaylist = false;
   List<Track> _searchResults = [];
@@ -45,6 +48,26 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
   Timer? _debounce;
 
   bool get _isSpotify => widget.platform == MusicSource.spotify;
+  bool get _isSoundCloud => widget.platform == MusicSource.soundcloud;
+
+  String get _platformName =>
+      _isSpotify ? 'Spotify' : (_isSoundCloud ? 'SoundCloud' : 'YouTube Music');
+
+  Color get _brandColor => _isSpotify
+      ? MuxisColors.spotifyGreen
+      : (_isSoundCloud ? MuxisColors.soundcloudOrange : MuxisColors.youtubeRed);
+
+  Gradient get _brandGradient => _isSpotify
+      ? MuxisGradients.spotifyPlatformGradient
+      : (_isSoundCloud
+            ? MuxisGradients.soundcloudPlatformGradient
+            : MuxisGradients.youtubePlatformGradient);
+
+  IconData get _platformIcon => _isSpotify
+      ? Icons.graphic_eq_rounded
+      : (_isSoundCloud
+            ? Icons.cloud_queue_rounded
+            : Icons.smart_display_rounded);
 
   @override
   void didUpdateWidget(covariant PlatformStreamScreen oldWidget) {
@@ -82,7 +105,9 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
       try {
         final tracks = _isSpotify
             ? await _spotifyProvider.search(q)
-            : await _ytProvider.search(q);
+            : (_isSoundCloud
+                  ? await _soundCloudProvider.search(q)
+                  : await _ytProvider.search(q));
         if (mounted && _searchCtrl.text.trim() == q) {
           setState(() {
             _searchResults = tracks;
@@ -106,17 +131,20 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accounts = ref.watch(streamingAccountsProvider);
     final accountsNotifier = ref.read(streamingAccountsProvider.notifier);
-    final playback = ref.watch(playbackServiceProvider);
+    final playingTrackId = ref.watch(
+      playbackServiceProvider.select((s) => s.currentTrack?.id),
+    );
+    final isPlaying = ref.watch(
+      playbackServiceProvider.select((s) => s.isPlaying),
+    );
     final audioService = ref.read(playbackServiceProvider.notifier);
 
-    final data = _isSpotify ? accounts.spotify : accounts.youtube;
-    final brandColor = _isSpotify
-        ? MuxisColors.spotifyGreen
-        : MuxisColors.youtubeRed;
-    final brandGradient = _isSpotify
-        ? MuxisGradients.spotifyPlatformGradient
-        : MuxisGradients.youtubePlatformGradient;
-    final platformName = _isSpotify ? 'Spotify' : 'YouTube Music';
+    final data = _isSpotify
+        ? accounts.spotify
+        : (_isSoundCloud ? accounts.soundcloud : accounts.youtube);
+    final brandColor = _brandColor;
+    final brandGradient = _brandGradient;
+    final platformName = _platformName;
 
     final isMobile = MediaQuery.sizeOf(context).width < 600;
 
@@ -139,9 +167,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                       gradient: brandGradient,
                     ),
                     child: Icon(
-                      _isSpotify
-                          ? Icons.graphic_eq_rounded
-                          : Icons.smart_display_rounded,
+                      _platformIcon,
                       size: isMobile ? 30 : 36,
                       color: Colors.white,
                     ),
@@ -174,9 +200,11 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                           ? await accountsNotifier.connectSpotifyWithBrowser(
                               context,
                             )
-                          : await accountsNotifier.connectYouTubeWithBrowser(
-                              context,
-                            );
+                          : (_isSoundCloud
+                                ? await accountsNotifier
+                                      .connectSoundCloudWithBrowser(context)
+                                : await accountsNotifier
+                                      .connectYouTubeWithBrowser(context));
                       if (mounted &&
                           !res.isSuccess &&
                           res.errorMessage != null) {
@@ -350,9 +378,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                 return MuxisTrackRow(
                   track: track,
                   index: i,
-                  isPlaying:
-                      playback.currentTrack?.id == track.id &&
-                      playback.isPlaying,
+                  isPlaying: playingTrackId == track.id && isPlaying,
                   onTap: () =>
                       audioService.playTrack(track, newQueue: pl.tracks),
                   onFavoriteTap: () =>
@@ -404,20 +430,12 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                           data.avatarUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Icon(
-                            _isSpotify
-                                ? Icons.graphic_eq_rounded
-                                : Icons.smart_display_rounded,
+                            _platformIcon,
                             color: Colors.white,
                             size: 32,
                           ),
                         )
-                      : Icon(
-                          _isSpotify
-                              ? Icons.graphic_eq_rounded
-                              : Icons.smart_display_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
+                      : Icon(_platformIcon, color: Colors.white, size: 32),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -476,7 +494,11 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                           onPressed: () async {
                             final msg = _isSpotify
                                 ? await accountsNotifier.syncSpotifyLive()
-                                : await accountsNotifier.syncYouTubeLive();
+                                : (_isSoundCloud
+                                      ? await accountsNotifier
+                                            .syncSoundCloudLive()
+                                      : await accountsNotifier
+                                            .syncYouTubeLive());
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -505,7 +527,9 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                     onPressed: () async {
                       final msg = _isSpotify
                           ? await accountsNotifier.syncSpotifyLive()
-                          : await accountsNotifier.syncYouTubeLive();
+                          : (_isSoundCloud
+                                ? await accountsNotifier.syncSoundCloudLive()
+                                : await accountsNotifier.syncYouTubeLive());
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -590,9 +614,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
                 return MuxisTrackRow(
                   track: track,
                   index: i,
-                  isPlaying:
-                      playback.currentTrack?.id == track.id &&
-                      playback.isPlaying,
+                  isPlaying: playingTrackId == track.id && isPlaying,
                   onTap: () =>
                       audioService.playTrack(track, newQueue: _searchResults),
                   onFavoriteTap: () =>
@@ -610,7 +632,9 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
               children: [
                 _buildFilterChip(
                   0,
-                  'Stream Picks (${data.recommendedTracks.length})',
+                  data.featuredSections.isNotEmpty
+                      ? 'Featured & Picks (${data.featuredSections.length} shelves)'
+                      : 'Stream Picks (${data.recommendedTracks.length})',
                   Icons.local_fire_department_rounded,
                   brandColor,
                   isDark,
@@ -636,7 +660,9 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
             if (_subTab == 0)
               _buildRecommendedGrid(
                 data.recommendedTracks,
-                playback,
+                data.featuredSections,
+                playingTrackId,
+                isPlaying,
                 audioService,
                 isDark,
                 platformName,
@@ -651,7 +677,8 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
             else
               _buildLikedTracksView(
                 data.likedTracks,
-                playback,
+                playingTrackId,
+                isPlaying,
                 audioService,
                 isDark,
                 platformName,
@@ -710,12 +737,14 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
 
   Widget _buildRecommendedGrid(
     List<Track> tracks,
-    dynamic playback,
+    List<FeaturedSection> featuredSections,
+    String? playingTrackId,
+    bool isPlaying,
     AudioPlaybackService audioService,
     bool isDark,
     String platformName,
   ) {
-    if (tracks.isEmpty) {
+    if (featuredSections.isEmpty && tracks.isEmpty) {
       return MuxisEmptyState(
         icon: Icons.headphones_rounded,
         title: 'Loading $platformName Stream Picks',
@@ -727,45 +756,138 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
-            final cardWidth = _responsiveCardWidth(constraints.maxWidth);
-            return Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children: tracks.take(8).map((t) {
-                return MuxisCard(
-                  width: cardWidth,
-                  title: t.title,
-                  subtitle: t.artist,
-                  artworkUrl: t.artworkUrl,
-                  onTap: () => audioService.playTrack(t, newQueue: tracks),
-                  onPlayTap: () => audioService.playTrack(t, newQueue: tracks),
+        for (final section in featuredSections) ...[
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    section.title,
+                    style: MuxisTypography.sectionHeading(isDark: isDark),
+                  ),
+                  if (section.subtitle != null && section.subtitle!.isNotEmpty)
+                    Text(
+                      section.subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: MuxisColors.textSecondary(isDark),
+                      ),
+                    ),
+                ],
+              ),
+              if (section.tracks.isNotEmpty)
+                MuxisButton(
+                  label: 'Play Mix',
+                  icon: Icon(
+                    Icons.play_arrow_rounded,
+                    size: 16,
+                    color: isDark ? Colors.black : Colors.white,
+                  ),
+                  variant: MuxisButtonVariant.primary,
+                  height: 30,
+                  onPressed: () => audioService.playTrack(
+                    section.tracks.first,
+                    newQueue: section.tracks,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
+              final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  ...section.playlists.take(8).map((pl) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: pl.title,
+                      subtitle:
+                          pl.description ??
+                          '${pl.tracks.isNotEmpty ? pl.tracks.length : pl.trackCount} tracks',
+                      artworkUrl: pl.artworkUrl,
+                      onTap: () => _openAndHydratePlaylist(pl),
+                      onPlayTap: () {
+                        if (pl.tracks.isNotEmpty) {
+                          audioService.playTrack(
+                            pl.tracks.first,
+                            newQueue: pl.tracks,
+                          );
+                        } else {
+                          _openAndHydratePlaylist(pl);
+                        }
+                      },
+                    );
+                  }),
+                  ...section.tracks.take(10).map((t) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: t.title,
+                      subtitle: t.artist,
+                      artworkUrl: t.artworkUrl,
+                      onTap: () =>
+                          audioService.playTrack(t, newQueue: section.tracks),
+                      onPlayTap: () =>
+                          audioService.playTrack(t, newQueue: section.tracks),
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 26),
+        ],
+        if (tracks.isNotEmpty) ...[
+          if (featuredSections.isEmpty)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
+                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: tracks.take(8).map((t) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: t.title,
+                      subtitle: t.artist,
+                      artworkUrl: t.artworkUrl,
+                      onTap: () => audioService.playTrack(t, newQueue: tracks),
+                      onPlayTap: () =>
+                          audioService.playTrack(t, newQueue: tracks),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
+            ),
+          if (featuredSections.isEmpty) const SizedBox(height: 28),
+          Text(
+            'All Ready-to-Stream Tracks',
+            style: MuxisTypography.sectionHeading(isDark: isDark),
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(tracks.length, (i) {
+            final track = tracks[i];
+            return MuxisTrackRow(
+              track: track,
+              index: i,
+              isPlaying: playingTrackId == track.id && isPlaying,
+              onTap: () => audioService.playTrack(track, newQueue: tracks),
+              onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
+              onPlayNextTap: () =>
+                  audioService.addToQueue(track, playNext: true),
+              onAddToQueueTap: () => audioService.addToQueue(track),
             );
-          },
-        ),
-        const SizedBox(height: 28),
-        Text(
-          'All Ready-to-Stream Tracks',
-          style: MuxisTypography.sectionHeading(isDark: isDark),
-        ),
-        const SizedBox(height: 12),
-        ...List.generate(tracks.length, (i) {
-          final track = tracks[i];
-          return MuxisTrackRow(
-            track: track,
-            index: i,
-            isPlaying:
-                playback.currentTrack?.id == track.id && playback.isPlaying,
-            onTap: () => audioService.playTrack(track, newQueue: tracks),
-            onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
-            onPlayNextTap: () => audioService.addToQueue(track, playNext: true),
-            onAddToQueueTap: () => audioService.addToQueue(track),
-          );
-        }),
+          }),
+        ],
       ],
     );
   }
@@ -869,7 +991,8 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
 
   Widget _buildLikedTracksView(
     List<Track> liked,
-    dynamic playback,
+    String? playingTrackId,
+    bool isPlaying,
     AudioPlaybackService audioService,
     bool isDark,
     String platformName,
@@ -914,8 +1037,7 @@ class _PlatformStreamScreenState extends ConsumerState<PlatformStreamScreen> {
           return MuxisTrackRow(
             track: track,
             index: i,
-            isPlaying:
-                playback.currentTrack?.id == track.id && playback.isPlaying,
+            isPlaying: playingTrackId == track.id && isPlaying,
             onTap: () => audioService.playTrack(track, newQueue: liked),
             onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
             onPlayNextTap: () => audioService.addToQueue(track, playNext: true),

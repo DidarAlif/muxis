@@ -20,8 +20,8 @@ class Playlist {
     this.tracks = const [],
     this.createdAt,
     int? trackCount,
-  })  : coverUrl = coverUrl ?? artworkUrl,
-        _explicitTrackCount = trackCount;
+  }) : coverUrl = coverUrl ?? artworkUrl,
+       _explicitTrackCount = trackCount;
 
   String? get artworkUrl => coverUrl;
   int get trackCount => _explicitTrackCount ?? tracks.length;

@@ -10,6 +10,7 @@ class MuxisGlassCard extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? accentColor;
   final double blurSigma;
+  final bool enableBackdropBlur;
 
   const MuxisGlassCard({
     super.key,
@@ -19,6 +20,7 @@ class MuxisGlassCard extends StatelessWidget {
     this.onTap,
     this.accentColor,
     this.blurSigma = 22,
+    this.enableBackdropBlur = false,
   });
 
   @override
@@ -29,6 +31,7 @@ class MuxisGlassCard extends StatelessWidget {
       onTap: onTap,
       accentColor: accentColor,
       blurSigma: blurSigma,
+      enableBackdropBlur: enableBackdropBlur,
       child: child,
     );
   }
@@ -111,10 +114,7 @@ class MuxisEmptyState extends StatelessWidget {
                 ),
               ),
             ),
-            if (action != null) ...[
-              const SizedBox(height: 20),
-              action!,
-            ],
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),

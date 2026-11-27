@@ -6,6 +6,11 @@ import 'dart:io';
 import 'dart:math';
 
 import '../lib/core/updates/app_update_models.dart';
+import '../lib/shared/models/featured_section.dart';
+import '../lib/shared/models/playlist.dart';
+import '../lib/shared/models/radio_station.dart';
+import '../lib/shared/models/track.dart';
+import '../lib/shared/utils/library_filter.dart';
 
 void main() {
   print('======================================================');
@@ -46,31 +51,58 @@ void main() {
   print('\n[Suite 1: Portable URI Resolution]');
 
   String generatePortableUri(String id, String title, String artist) {
-    if (id.startsWith('isrc:') || id.startsWith('yt:') || id.startsWith('cc:') || id.startsWith('public:')) {
+    if (id.startsWith('isrc:') ||
+        id.startsWith('yt:') ||
+        id.startsWith('cc:') ||
+        id.startsWith('public:')) {
       return id;
     }
-    final clean = '${artist.toLowerCase().trim()}_${title.toLowerCase().trim()}'.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    final clean = '${artist.toLowerCase().trim()}_${title.toLowerCase().trim()}'
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '');
     return 'meta:$clean';
   }
 
   test('Local Windows filesystem paths are converted to portable meta URI', () {
-    final uri = generatePortableUri(r'C:\Users\didar\Music\Starlight.flac', 'Starlight', 'Muse');
+    final uri = generatePortableUri(
+      r'C:\Users\didar\Music\Starlight.flac',
+      'Starlight',
+      'Muse',
+    );
     expect(uri, 'meta:muse_starlight');
     expectFalse(uri.contains(r'C:'));
     expectFalse(uri.contains(r'\'));
   });
 
-  test('Local Android/Linux filesystem paths are converted to portable meta URI', () {
-    final uri = generatePortableUri('/storage/emulated/0/Music/track.mp3', 'Midnight City', 'M83');
-    expect(uri, 'meta:m83_midnightcity');
-    expectFalse(uri.contains('/storage'));
-  });
+  test(
+    'Local Android/Linux filesystem paths are converted to portable meta URI',
+    () {
+      final uri = generatePortableUri(
+        '/storage/emulated/0/Music/track.mp3',
+        'Midnight City',
+        'M83',
+      );
+      expect(uri, 'meta:m83_midnightcity');
+      expectFalse(uri.contains('/storage'));
+    },
+  );
 
-  test('Pre-existing public and streaming identifiers are preserved unchanged', () {
-    expect(generatePortableUri('isrc:USUM71204928', 'Song', 'Artist'), 'isrc:USUM71204928');
-    expect(generatePortableUri('public:cc-01', 'Bach Suite', 'Orchestra'), 'public:cc-01');
-    expect(generatePortableUri('yt:dQw4w9WgXcQ', 'Track', 'Artist'), 'yt:dQw4w9WgXcQ');
-  });
+  test(
+    'Pre-existing public and streaming identifiers are preserved unchanged',
+    () {
+      expect(
+        generatePortableUri('isrc:USUM71204928', 'Song', 'Artist'),
+        'isrc:USUM71204928',
+      );
+      expect(
+        generatePortableUri('public:cc-01', 'Bach Suite', 'Orchestra'),
+        'public:cc-01',
+      );
+      expect(
+        generatePortableUri('yt:dQw4w9WgXcQ', 'Track', 'Artist'),
+        'yt:dQw4w9WgXcQ',
+      );
+    },
+  );
 
   // --- SUITE 2: EQUALIZER DSP CLAMPING ---
   print('\n[Suite 2: Equalizer DSP Clamping]');
@@ -120,27 +152,50 @@ void main() {
   print('\n[Suite 4: Security Invariants]');
 
   test('MIME type filter strictly rejects audio formats for R2 upload', () {
-    final allowedVisualTypes = {'image/jpeg', 'image/jpg', 'image/png', 'image/webp'};
-    final prohibitedAudioTypes = {'audio/mpeg', 'audio/flac', 'audio/wav', 'audio/mp4', 'audio/ogg'};
+    final allowedVisualTypes = {
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+    };
+    final prohibitedAudioTypes = {
+      'audio/mpeg',
+      'audio/flac',
+      'audio/wav',
+      'audio/mp4',
+      'audio/ogg',
+    };
 
     for (final audioType in prohibitedAudioTypes) {
-      expectFalse(allowedVisualTypes.contains(audioType), 'Audio MIME type $audioType must never be allowed for cloud storage');
+      expectFalse(
+        allowedVisualTypes.contains(audioType),
+        'Audio MIME type $audioType must never be allowed for cloud storage',
+      );
     }
   });
 
   // --- SUITE 5: LIBRARY PERSISTENCE & STREAMING CONFIGURATION ---
   print('\n[Suite 5: Library & Streaming Configuration]');
 
-  test('Supported audio extensions include all lossless and compressed standards', () {
-    const supportedAudioExtensions = {
-      '.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.opus',
-    };
-    expectTrue(supportedAudioExtensions.contains('.flac'));
-    expectTrue(supportedAudioExtensions.contains('.mp3'));
-    expectTrue(supportedAudioExtensions.contains('.wav'));
-    expectTrue(supportedAudioExtensions.contains('.opus'));
-    expectFalse(supportedAudioExtensions.contains('.exe'));
-  });
+  test(
+    'Supported audio extensions include all lossless and compressed standards',
+    () {
+      const supportedAudioExtensions = {
+        '.mp3',
+        '.flac',
+        '.wav',
+        '.m4a',
+        '.aac',
+        '.ogg',
+        '.opus',
+      };
+      expectTrue(supportedAudioExtensions.contains('.flac'));
+      expectTrue(supportedAudioExtensions.contains('.mp3'));
+      expectTrue(supportedAudioExtensions.contains('.wav'));
+      expectTrue(supportedAudioExtensions.contains('.opus'));
+      expectFalse(supportedAudioExtensions.contains('.exe'));
+    },
+  );
 
   test('Playlist track management adds and removes track URIs correctly', () {
     final playlists = <String, List<String>>{};
@@ -160,9 +215,10 @@ void main() {
   });
 
   test('Active streaming source validation', () {
-    const validSources = ['youtube', 'spotify', 'local'];
+    const validSources = ['youtube', 'spotify', 'soundcloud', 'local'];
     expectTrue(validSources.contains('youtube'));
     expectTrue(validSources.contains('spotify'));
+    expectTrue(validSources.contains('soundcloud'));
     expectTrue(validSources.contains('local'));
     expectFalse(validSources.contains('unknown'));
   });
@@ -235,30 +291,42 @@ void main() {
   print('\n[Suite 8: In-App Self-Update Engine]');
 
   test('Semantic version comparison accurately detects newer releases', () {
-    expectTrue(MuxisVersionComparator.isNewerVersion(
-      remoteVersion: 'v1.1.8',
-      currentVersion: '1.1.7',
-    ));
-    expectTrue(MuxisVersionComparator.isNewerVersion(
-      remoteVersion: 'v1.2.0',
-      currentVersion: '1.1.9',
-    ));
-    expectTrue(MuxisVersionComparator.isNewerVersion(
-      remoteVersion: 'v2.0.0',
-      currentVersion: '1.9.9',
-    ));
-    expectFalse(MuxisVersionComparator.isNewerVersion(
-      remoteVersion: 'v1.1.8',
-      currentVersion: '1.1.8+18',
-    ));
-    expectFalse(MuxisVersionComparator.isNewerVersion(
-      remoteVersion: 'v1.1.7',
-      currentVersion: '1.1.8',
-    ));
-    expectTrue(MuxisVersionComparator.isNewerVersion(
-      remoteVersion: '1.2.0',
-      currentVersion: '1.2.0-beta.1',
-    ));
+    expectTrue(
+      MuxisVersionComparator.isNewerVersion(
+        remoteVersion: 'v1.1.8',
+        currentVersion: '1.1.7',
+      ),
+    );
+    expectTrue(
+      MuxisVersionComparator.isNewerVersion(
+        remoteVersion: 'v1.2.0',
+        currentVersion: '1.1.9',
+      ),
+    );
+    expectTrue(
+      MuxisVersionComparator.isNewerVersion(
+        remoteVersion: 'v2.0.0',
+        currentVersion: '1.9.9',
+      ),
+    );
+    expectFalse(
+      MuxisVersionComparator.isNewerVersion(
+        remoteVersion: 'v1.1.8',
+        currentVersion: '1.1.8+18',
+      ),
+    );
+    expectFalse(
+      MuxisVersionComparator.isNewerVersion(
+        remoteVersion: 'v1.1.7',
+        currentVersion: '1.1.8',
+      ),
+    );
+    expectTrue(
+      MuxisVersionComparator.isNewerVersion(
+        remoteVersion: '1.2.0',
+        currentVersion: '1.2.0-beta.1',
+      ),
+    );
   });
 
   test('Platform asset selector prefers native installers cleanly', () {
@@ -291,11 +359,17 @@ void main() {
     ];
 
     expect(
-      MuxisUpdateSelector.selectAssetForOperatingSystem(assets, 'windows')?.name,
+      MuxisUpdateSelector.selectAssetForOperatingSystem(
+        assets,
+        'windows',
+      )?.name,
       'Muxis-Windows-x64-Setup.exe',
     );
     expect(
-      MuxisUpdateSelector.selectAssetForOperatingSystem(assets, 'android')?.name,
+      MuxisUpdateSelector.selectAssetForOperatingSystem(
+        assets,
+        'android',
+      )?.name,
       'Muxis-Android.apk',
     );
     expect(
@@ -314,7 +388,10 @@ void main() {
 fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-x64-Setup.exe
 ''';
     expect(
-      MuxisUpdateSelector.parseSha256ForAsset(body, 'Muxis-Windows-x64-Setup.exe'),
+      MuxisUpdateSelector.parseSha256ForAsset(
+        body,
+        'Muxis-Windows-x64-Setup.exe',
+      ),
       'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
     );
     expect(
@@ -324,6 +401,163 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
     expect(MuxisUpdateSelector.parseSha256ForAsset(body, 'missing.zip'), null);
     expect(MuxisUpdateSelector.formatBytes(12749738), '12.2 MB');
   });
+
+  // --- SUITE 9: SOUNDCLOUD, FEATURED SHELVES, RADIO TUNER & LIBRARY FILTERING ---
+  print('\n[Suite 9: SoundCloud, Featured Shelves, Radio & Library Sort]');
+
+  test(
+    'FeaturedSection map serialization round-trips playlists and tracks',
+    () {
+      const track = Track(
+        id: 'sc-99',
+        title: 'Neon Drift',
+        artist: 'Aurora Producer',
+        album: 'Night Drive',
+        duration: Duration(seconds: 215),
+        source: MusicSource.soundcloud,
+        audioFormat: 'SoundCloud Stream',
+      );
+      const pl = Playlist(
+        id: 'sc-pl-1',
+        title: 'SoundCloud Weekly',
+        description: 'Curated electronic waves',
+        tracks: [track],
+        trackCount: 1,
+      );
+      const section = FeaturedSection(
+        id: 'sec-1',
+        title: 'Featured On SoundCloud',
+        subtitle: 'Picked for you',
+        source: MusicSource.soundcloud,
+        tracks: [track],
+        playlists: [pl],
+      );
+
+      final decoded = FeaturedSection.fromMap(section.toMap());
+      expect(decoded.id, 'sec-1');
+      expect(decoded.title, 'Featured On SoundCloud');
+      expect(decoded.source, MusicSource.soundcloud);
+      expect(decoded.tracks.length, 1);
+      expect(decoded.tracks.first.id, 'sc-99');
+      expect(decoded.playlists.length, 1);
+      expect(decoded.playlists.first.tracks.first.artist, 'Aurora Producer');
+    },
+  );
+
+  test(
+    'RadioStation frequency resolution parses explicit and hashed FM slots',
+    () {
+      final explicitFreq = RadioStation.resolveFrequency(
+        name: 'ABC Radio FM 89.2 Dhaka',
+        tags: 'pop,news',
+        seedId: 'station-explicit-1',
+      );
+      expect(explicitFreq.mhz, 89.2);
+      expect(explicitFreq.label, '89.2 FM');
+
+      final fallbackFreq = RadioStation.resolveFrequency(
+        name: 'SomaFM Groove Salad',
+        tags: 'ambient,chillout',
+        seedId: 'somafm-gs-001',
+      );
+      expectTrue(fallbackFreq.mhz >= 87.5 && fallbackFreq.mhz <= 108.0);
+      expectTrue(fallbackFreq.label.endsWith('FM'));
+
+      const station = RadioStation(
+        id: 'st-1',
+        name: 'Radio Foorti 88.0',
+        streamUrl: 'https://stream.example.com/live.mp3',
+        country: 'Bangladesh',
+        countryCode: 'BD',
+        city: 'Dhaka',
+        frequencyMhz: 88.0,
+        frequencyLabel: '88.0 FM',
+        codec: 'MP3',
+        bitrateKbps: 128,
+        tags: 'pop,hits',
+      );
+      final track = station.toTrack();
+      expect(track.source, MusicSource.radio);
+      expect(track.streamUrl, 'https://stream.example.com/live.mp3');
+      expect(track.duration, Duration.zero);
+    },
+  );
+
+  test(
+    'Library sort and keyword preset filtering handles all modes accurately',
+    () {
+      const tracks = [
+        Track(
+          id: 't1',
+          title: 'Starlight (Live Remix)',
+          artist: 'Zebra Act',
+          album: 'Black Holes',
+          duration: Duration(minutes: 6),
+          source: MusicSource.local,
+          audioFormat: 'FLAC 24-bit Lossless',
+          isFavorite: true,
+        ),
+        Track(
+          id: 't2',
+          title: 'Ambient Rain',
+          artist: 'Alpha Artist',
+          album: 'Raindrops EP',
+          duration: Duration(seconds: 110),
+          source: MusicSource.soundcloud,
+          audioFormat: 'MP3 128kbps',
+        ),
+        Track(
+          id: 't3',
+          title: 'Midnight Drive',
+          artist: 'Midnight Band',
+          album: 'Night Owl',
+          duration: Duration(minutes: 3, seconds: 45),
+          source: MusicSource.spotify,
+          audioFormat: 'Spotify Bridge',
+        ),
+      ];
+
+      final sortedAsc = applyLibrarySortAndFilter(
+        tracks: tracks,
+        sortOption: LibrarySortOption.titleAsc,
+      );
+      expect(sortedAsc.map((t) => t.id).join(','), 't2,t3,t1');
+
+      final sortedLongest = applyLibrarySortAndFilter(
+        tracks: tracks,
+        sortOption: LibrarySortOption.durationDesc,
+      );
+      expect(sortedLongest.first.id, 't1');
+
+      final losslessOnly = applyLibrarySortAndFilter(
+        tracks: tracks,
+        preset: LibraryKeywordPreset.lossless,
+      );
+      expect(losslessOnly.length, 1);
+      expect(losslessOnly.first.id, 't1');
+
+      final scOnly = applyLibrarySortAndFilter(
+        tracks: tracks,
+        preset: LibraryKeywordPreset.soundcloud,
+      );
+      expect(scOnly.length, 1);
+      expect(scOnly.first.id, 't2');
+
+      final chillShort = applyLibrarySortAndFilter(
+        tracks: tracks,
+        preset: LibraryKeywordPreset.shortTracks,
+      );
+      expect(chillShort.length, 1);
+      expect(chillShort.first.id, 't2');
+
+      final remix = applyLibrarySortAndFilter(
+        tracks: tracks,
+        preset: LibraryKeywordPreset.remixLive,
+      );
+      expect(remix.length, 1);
+      expect(remix.first.id, 't1');
+    },
+  );
 
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');

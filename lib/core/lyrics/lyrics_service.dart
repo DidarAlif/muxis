@@ -98,8 +98,9 @@ class LyricsService {
           'q': title,
       };
       final searchUri = Uri.https('lrclib.net', '/api/search', searchParams);
-      final searchRes =
-          await http.get(searchUri).timeout(const Duration(seconds: 5));
+      final searchRes = await http
+          .get(searchUri)
+          .timeout(const Duration(seconds: 5));
       if (searchRes.statusCode == 200) {
         final results = jsonDecode(searchRes.body);
         if (results is List && results.isNotEmpty) {
@@ -139,7 +140,8 @@ class LyricsService {
       final synced = item['syncedLyrics'] as String?;
       final plain = item['plainLyrics'] as String?;
       final itemDuration = (item['duration'] as num?)?.round() ?? 0;
-      final durationClose = durationSec <= 0 ||
+      final durationClose =
+          durationSec <= 0 ||
           itemDuration <= 0 ||
           (itemDuration - durationSec).abs() <= 15;
 

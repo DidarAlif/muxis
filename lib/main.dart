@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +14,20 @@ import 'core/database/database_service.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    try {
+      await windowManager.ensureInitialized();
+      const windowOptions = WindowOptions(
+        minimumSize: Size(420, 600),
+        center: true,
+        title: 'MUXIS',
+      );
+      await windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    } catch (_) {}
+  }
 
   // Handle sub-window title-bar process if invoked by desktop_webview_window
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
@@ -46,9 +61,7 @@ void main(List<String> args) async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        databaseServiceProvider.overrideWithValue(databaseService),
-      ],
+      overrides: [databaseServiceProvider.overrideWithValue(databaseService)],
       child: const MuxisApp(),
     ),
   );

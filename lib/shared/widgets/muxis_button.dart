@@ -44,7 +44,8 @@ class _MuxisButtonState extends State<MuxisButton> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEnabled = widget.onPressed != null && !widget.isLoading;
 
-    final isGlassVariant = widget.variant == MuxisButtonVariant.liquidGlass ||
+    final isGlassVariant =
+        widget.variant == MuxisButtonVariant.liquidGlass ||
         widget.variant == MuxisButtonVariant.secondary;
     final dec = _buildDecoration(isDark, isEnabled);
 
@@ -107,7 +108,9 @@ class _MuxisButtonState extends State<MuxisButton> {
 
     // Spring micro-interaction
     Widget animatedButton = AnimatedScale(
-      scale: _isPressed && isEnabled ? 0.95 : (_isHovered && isEnabled ? 1.02 : 1.0),
+      scale: _isPressed && isEnabled
+          ? 0.95
+          : (_isHovered && isEnabled ? 1.02 : 1.0),
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOutBack,
       child: buttonSurface,
@@ -179,12 +182,18 @@ class _MuxisButtonState extends State<MuxisButton> {
             end: Alignment.bottomRight,
             colors: isDark
                 ? [
-                    _isHovered ? Colors.white.withOpacity(0.20) : Colors.white.withOpacity(0.11),
-                    _isHovered ? MuxisColors.neonGreen.withOpacity(0.14) : Colors.white.withOpacity(0.05),
+                    _isHovered
+                        ? Colors.white.withOpacity(0.20)
+                        : Colors.white.withOpacity(0.11),
+                    _isHovered
+                        ? MuxisColors.neonGreen.withOpacity(0.14)
+                        : Colors.white.withOpacity(0.05),
                     Colors.black.withOpacity(0.25),
                   ]
                 : [
-                    _isHovered ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.80),
+                    _isHovered
+                        ? Colors.white.withOpacity(0.95)
+                        : Colors.white.withOpacity(0.80),
                     const Color(0xCCE6FAF5),
                     const Color(0xBBECE9FF),
                   ],
@@ -192,7 +201,9 @@ class _MuxisButtonState extends State<MuxisButton> {
           border: Border.all(
             color: _isHovered
                 ? MuxisColors.accent(isDark).withOpacity(0.85)
-                : (isDark ? Colors.white.withOpacity(0.24) : Colors.white.withOpacity(0.95)),
+                : (isDark
+                      ? Colors.white.withOpacity(0.24)
+                      : Colors.white.withOpacity(0.95)),
             width: 1.2,
           ),
           boxShadow: [
@@ -214,7 +225,9 @@ class _MuxisButtonState extends State<MuxisButton> {
             end: Alignment.bottomRight,
             colors: isDark
                 ? [
-                    _isHovered ? MuxisColors.hoverSurface.withOpacity(0.9) : MuxisColors.elevatedSurface.withOpacity(0.8),
+                    _isHovered
+                        ? MuxisColors.hoverSurface.withOpacity(0.9)
+                        : MuxisColors.elevatedSurface.withOpacity(0.8),
                     MuxisColors.deepSpace.withOpacity(0.7),
                   ]
                 : [

@@ -80,8 +80,9 @@ class _AudioVisualizerState extends State<AudioVisualizer>
     final t = _frameTick * 0.045;
     final posSec = widget.position.inMilliseconds / 1000.0;
     final phase = widget.isPlaying ? (t + posSec * 0.65) : (t * 0.35);
-    final volFactor =
-        widget.isPlaying ? (0.42 + 0.58 * widget.volume.clamp(0.0, 1.0)) : 0.18;
+    final volFactor = widget.isPlaying
+        ? (0.42 + 0.58 * widget.volume.clamp(0.0, 1.0))
+        : 0.18;
 
     // Beat envelopes when playing: kick (low end), snare/vocal (mid), shimmer (high)
     final kickPulse = widget.isPlaying
@@ -113,7 +114,8 @@ class _AudioVisualizerState extends State<AudioVisualizer>
         final h2 = 0.5 + 0.5 * cos(phase * (4.1 - u * 2.3) + i * 0.77);
         final h3 = 0.5 + 0.5 * sin(phase * (6.7 + u * 6.2) - i * 0.29);
 
-        final rawEnergy = (subWeight * kickPulse * (0.45 + 0.55 * h1) * 1.08) +
+        final rawEnergy =
+            (subWeight * kickPulse * (0.45 + 0.55 * h1) * 1.08) +
             (midWeight * midGroove * (0.35 + 0.65 * h2) * 0.96) +
             (highWeight * airPulse * (0.30 + 0.70 * h3) * 0.78) +
             0.14 * h1 * h2;
@@ -254,32 +256,36 @@ class _SpectrumPainter extends CustomPainter {
     final phase = phaseProvider();
     final mirrorFraction = (expandedStudio && showMirror) ? 0.22 : 0.0;
     final topPadding = expandedStudio ? 10.0 : 2.0;
-    final mainHeight =
-        max(8.0, (size.height - topPadding) * (1.0 - mirrorFraction));
+    final mainHeight = max(
+      8.0,
+      (size.height - topPadding) * (1.0 - mirrorFraction),
+    );
     final baseY = topPadding + mainHeight;
 
     // 1. Expanded studio ambient aura & subtle telemetry grid
     if (expandedStudio) {
       final auraCenter = Offset(size.width * 0.5, baseY * 0.58);
-      final auraShader = RadialGradient(
-        colors: [
-          palette.first.withValues(alpha: isPlaying ? (isDark ? 0.18 : 0.14) : 0.06),
-          palette[1 % palette.length]
-              .withValues(alpha: isPlaying ? (isDark ? 0.10 : 0.08) : 0.03),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: auraCenter, radius: size.width * 0.55),
-      );
-      canvas.drawRect(
-        Offset.zero & size,
-        Paint()..shader = auraShader,
-      );
+      final auraShader =
+          RadialGradient(
+            colors: [
+              palette.first.withValues(
+                alpha: isPlaying ? (isDark ? 0.18 : 0.14) : 0.06,
+              ),
+              palette[1 % palette.length].withValues(
+                alpha: isPlaying ? (isDark ? 0.10 : 0.08) : 0.03,
+              ),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.55, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: auraCenter, radius: size.width * 0.55),
+          );
+      canvas.drawRect(Offset.zero & size, Paint()..shader = auraShader);
 
       final gridPaint = Paint()
-        ..color = (isDark ? Colors.white : Colors.black)
-            .withValues(alpha: isDark ? 0.06 : 0.06)
+        ..color = (isDark ? Colors.white : Colors.black).withValues(
+          alpha: isDark ? 0.06 : 0.06,
+        )
         ..strokeWidth = 1.0;
 
       for (int g = 1; g <= 3; g++) {
@@ -296,8 +302,9 @@ class _SpectrumPainter extends CustomPainter {
             colors: [
               Colors.transparent,
               palette.first.withValues(alpha: isDark ? 0.45 : 0.38),
-              palette[2 % palette.length]
-                  .withValues(alpha: isDark ? 0.45 : 0.38),
+              palette[2 % palette.length].withValues(
+                alpha: isDark ? 0.45 : 0.38,
+              ),
               Colors.transparent,
             ],
           ).createShader(Rect.fromLTWH(0, baseY - 1, size.width, 2))
@@ -332,7 +339,8 @@ class _SpectrumPainter extends CustomPainter {
       final topY = baseY - barHeight;
 
       final barColor = _colorAt(u);
-      final topColor = Color.lerp(
+      final topColor =
+          Color.lerp(
             barColor,
             isDark ? Colors.white : barColor,
             isDark ? 0.25 : 0.0,
@@ -427,7 +435,8 @@ class _SpectrumPainter extends CustomPainter {
       final x = i * step + step * 0.5;
       final envY = baseY - (levels[i] * mainHeight * 0.88);
       final overtoneMod = 0.5 + 0.5 * sin(phase * 2.2 + u * pi * 3.0);
-      final overY = baseY -
+      final overY =
+          baseY -
           ((levels[i] * 0.55 + (isPlaying ? 0.16 * overtoneMod : 0.04)) *
                   mainHeight)
               .clamp(4.0, mainHeight * 0.92);
@@ -444,14 +453,17 @@ class _SpectrumPainter extends CustomPainter {
     canvas.drawPath(
       fillPath,
       Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            palette.first.withValues(alpha: isDark ? 0.14 : 0.12),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromLTWH(0, baseY - mainHeight, size.width, mainHeight)),
+        ..shader =
+            LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                palette.first.withValues(alpha: isDark ? 0.14 : 0.12),
+                Colors.transparent,
+              ],
+            ).createShader(
+              Rect.fromLTWH(0, baseY - mainHeight, size.width, mainHeight),
+            ),
     );
 
     canvas.drawPath(
@@ -470,8 +482,9 @@ class _SpectrumPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4
-        ..color = palette[1 % palette.length]
-            .withValues(alpha: isPlaying ? (isDark ? 0.42 : 0.34) : 0.18),
+        ..color = palette[1 % palette.length].withValues(
+          alpha: isPlaying ? (isDark ? 0.42 : 0.34) : 0.18,
+        ),
     );
   }
 

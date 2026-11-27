@@ -37,6 +37,7 @@ class MobilePlaybackBar extends ConsumerWidget {
         child: MuxisLiquidSurface(
           onTap: onExpandNowPlaying,
           borderRadius: 18,
+          enableBackdropBlur: true,
           blurSigma: 20,
           accentColor: accent,
           colorOverride: isDark

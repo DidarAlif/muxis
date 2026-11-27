@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/playlist.dart';
 import '../../shared/models/track.dart';
@@ -56,9 +57,9 @@ class StreamingOAuthService {
     required PreferencesService prefs,
     required DatabaseService db,
     Dio? dio,
-  })  : _prefs = prefs,
-        _db = db,
-        _dio = dio ?? Dio();
+  }) : _prefs = prefs,
+       _db = db,
+       _dio = dio ?? Dio();
 
   // Default public OAuth clients (optional fallback)
   static const String _defaultSpotifyClientId = '';
@@ -80,9 +81,17 @@ class StreamingOAuthService {
     try {
       if (Platform.isWindows) {
         // rundll32 url.dll,FileProtocolHandler reliably opens any URL in default Windows browser
-        final res = await Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
+        final res = await Process.run('rundll32', [
+          'url.dll,FileProtocolHandler',
+          url,
+        ]);
         if (res.exitCode == 0) return true;
-        await Process.run('powershell', ['-NoProfile', '-Command', 'Start-Process', '"$url"']);
+        await Process.run('powershell', [
+          '-NoProfile',
+          '-Command',
+          'Start-Process',
+          '"$url"',
+        ]);
         return true;
       } else if (Platform.isMacOS) {
         await Process.run('open', [url]);
@@ -111,7 +120,10 @@ class StreamingOAuthService {
   }
 
   /// Starts a temporary local HTTP loopback server to intercept the OAuth callback
-  Future<Map<String, dynamic>?> _listenForOAuthCallback(int port, String platformName) async {
+  Future<Map<String, dynamic>?> _listenForOAuthCallback(
+    int port,
+    String platformName,
+  ) async {
     HttpServer? server;
     try {
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
@@ -119,7 +131,10 @@ class StreamingOAuthService {
       for (final fallbackPort in _allowedPorts) {
         if (fallbackPort == port) continue;
         try {
-          server = await HttpServer.bind(InternetAddress.loopbackIPv4, fallbackPort);
+          server = await HttpServer.bind(
+            InternetAddress.loopbackIPv4,
+            fallbackPort,
+          );
           break;
         } catch (_) {}
       }
@@ -173,8 +188,9 @@ class StreamingOAuthService {
         errorMessage: session.isBlockedByGoogleWebView
             ? session.errorMessage
             : (session.isCancelled
-                ? 'YouTube Music sign-in was cancelled.'
-                : (session.errorMessage ?? 'Unable to connect YouTube Music.')),
+                  ? 'YouTube Music sign-in was cancelled.'
+                  : (session.errorMessage ??
+                        'Unable to connect YouTube Music.')),
       );
     }
 
@@ -210,7 +226,8 @@ class StreamingOAuthService {
 
     try {
       final profile = await ytProvider.fetchUserProfile();
-      if (profile['displayName'] != null && profile['displayName']!.isNotEmpty) {
+      if (profile['displayName'] != null &&
+          profile['displayName']!.isNotEmpty) {
         displayName = profile['displayName']!;
       }
       avatarUrl = profile['avatarUrl'];
@@ -220,13 +237,15 @@ class StreamingOAuthService {
 
     // On Windows desktop, fall back to hidden Edge WebView2 session only if HTTP lacked profile/playlists.
     if (playlists.isEmpty || displayName == 'YouTube Music Listener') {
-      final wvSession = await WebViewAuthBridge().syncYouTubeLibraryViaWebView();
+      final wvSession = await WebViewAuthBridge()
+          .syncYouTubeLibraryViaWebView();
       if (wvSession != null && wvSession.isSuccess) {
         if (wvSession.ytDisplayName != null &&
             wvSession.ytDisplayName!.isNotEmpty) {
           displayName = wvSession.ytDisplayName!;
         }
-        if (wvSession.ytAvatarUrl != null && wvSession.ytAvatarUrl!.isNotEmpty) {
+        if (wvSession.ytAvatarUrl != null &&
+            wvSession.ytAvatarUrl!.isNotEmpty) {
           avatarUrl = wvSession.ytAvatarUrl;
         }
         if (wvSession.ytPlaylists.isNotEmpty) {
@@ -273,14 +292,12 @@ class StreamingOAuthService {
 
     for (final pl in playlists.take(15)) {
       final tracks =
-          wvPlaylistTracks[pl.id] ?? await ytProvider.fetchPlaylistTracks(pl.id);
+          wvPlaylistTracks[pl.id] ??
+          await ytProvider.fetchPlaylistTracks(pl.id);
       if (tracks.isNotEmpty) {
         tracksCount += tracks.length;
         await _db.saveTracks(tracks);
-        await _db.setPlaylist(
-          pl.title,
-          tracks.map((t) => t.id).toList(),
-        );
+        await _db.setPlaylist(pl.title, tracks.map((t) => t.id).toList());
         hydratedPlaylists.add(
           pl.copyWith(tracks: tracks, trackCount: tracks.length),
         );
@@ -305,6 +322,16 @@ class StreamingOAuthService {
       }
       tracksCount += liked.length;
     }
+
+    try {
+      final featured = await ytProvider.fetchHomeFeaturedSections();
+      if (featured.isNotEmpty) {
+        await _prefs.saveFeaturedCache(
+          'youtube',
+          jsonEncode(featured.map((s) => s.toMap()).toList()),
+        );
+      }
+    } catch (_) {}
 
     return StreamingAuthResult(
       isSuccess: true,
@@ -344,7 +371,9 @@ class StreamingOAuthService {
     }
     if (session.spotifyPathfinderHashesJson != null &&
         session.spotifyPathfinderHashesJson!.isNotEmpty) {
-      await _prefs.saveSpotifyPathfinderHashes(session.spotifyPathfinderHashesJson!);
+      await _prefs.saveSpotifyPathfinderHashes(
+        session.spotifyPathfinderHashesJson!,
+      );
     }
 
     int capturedPlaylistsCount = 0;
@@ -387,6 +416,18 @@ class StreamingOAuthService {
       }
     }
 
+    if (session.spotifyFeaturedSections.isNotEmpty) {
+      final sections = SpotifyMusicProvider.featuredSectionsFromWebViewMaps(
+        session.spotifyFeaturedSections,
+      );
+      if (sections.isNotEmpty) {
+        await _prefs.saveFeaturedCache(
+          'spotify',
+          jsonEncode(sections.map((s) => s.toMap()).toList()),
+        );
+      }
+    }
+
     return syncSpotifyWithAccessToken(
       session.spotifyAccessToken!,
       fallbackDisplayName: session.spotifyDisplayName,
@@ -401,19 +442,24 @@ class StreamingOAuthService {
     PreferencesService prefs,
     List<Playlist> playlists, {
     required bool isSpotify,
+    bool isSoundCloud = false,
   }) async {
     final serialized = jsonEncode(
       playlists
-          .map((p) => {
-                'id': p.id,
-                'title': p.title,
-                'description': p.description,
-                'artworkUrl': p.artworkUrl,
-                'trackCount': p.trackCount,
-              })
+          .map(
+            (p) => {
+              'id': p.id,
+              'title': p.title,
+              'description': p.description,
+              'artworkUrl': p.artworkUrl,
+              'trackCount': p.trackCount,
+            },
+          )
           .toList(),
     );
-    if (isSpotify) {
+    if (isSoundCloud) {
+      await prefs.saveScPlaylistsCache(serialized);
+    } else if (isSpotify) {
       await prefs.saveSpotifyPlaylistsCache(serialized);
     } else {
       await prefs.saveYtPlaylistsCache(serialized);
@@ -432,8 +478,8 @@ class StreamingOAuthService {
   }) async {
     final sp = SpotifyMusicProvider(prefs: _prefs, dio: _dio);
 
-    String displayName = (fallbackDisplayName != null &&
-            fallbackDisplayName.isNotEmpty)
+    String displayName =
+        (fallbackDisplayName != null && fallbackDisplayName.isNotEmpty)
         ? fallbackDisplayName
         : 'Spotify Listener';
     String? avatarUrl = fallbackAvatarUrl;
@@ -448,8 +494,7 @@ class StreamingOAuthService {
             profile['displayName']!.isNotEmpty) {
           displayName = profile['displayName']!;
         }
-        if (profile['avatarUrl'] != null &&
-            profile['avatarUrl']!.isNotEmpty) {
+        if (profile['avatarUrl'] != null && profile['avatarUrl']!.isNotEmpty) {
           avatarUrl = profile['avatarUrl'];
         }
         if (profile['product'] != null && profile['product']!.isNotEmpty) {
@@ -465,7 +510,9 @@ class StreamingOAuthService {
     int tracksCount = seedTracksCount;
 
     try {
-      final playlists = await sp.fetchUserPlaylists(allowWebViewFallback: false);
+      final playlists = await sp.fetchUserPlaylists(
+        allowWebViewFallback: false,
+      );
       if (playlists.isNotEmpty) {
         playlistsCount = playlists.length;
         await _savePlaylistsCache(_prefs, playlists, isSpotify: true);
@@ -480,10 +527,7 @@ class StreamingOAuthService {
           );
           if (tracks.isNotEmpty) {
             await _db.saveTracks(tracks);
-            await _db.setPlaylist(
-              pl.title,
-              tracks.map((x) => x.id).toList(),
-            );
+            await _db.setPlaylist(pl.title, tracks.map((x) => x.id).toList());
             tracksCount += tracks.length;
           }
         }
@@ -501,6 +545,18 @@ class StreamingOAuthService {
             }
           }
           tracksCount += liked.length;
+        }
+      } catch (_) {}
+    }
+
+    if (!sp.lastRequestWasRateLimited) {
+      try {
+        final featured = await sp.fetchFeaturedSections();
+        if (featured.isNotEmpty) {
+          await _prefs.saveFeaturedCache(
+            'spotify',
+            jsonEncode(featured.map((s) => s.toMap()).toList()),
+          );
         }
       } catch (_) {}
     }
@@ -570,7 +626,8 @@ class StreamingOAuthService {
       return StreamingAuthResult(
         isSuccess: false,
         platform: 'Spotify',
-        errorMessage: 'Spotify authentication error: ${callbackParams['error']}',
+        errorMessage:
+            'Spotify authentication error: ${callbackParams['error']}',
       );
     }
 
@@ -662,7 +719,9 @@ class StreamingOAuthService {
                 final tracksRes = await _dio.get(
                   'https://api.spotify.com/v1/playlists/$plId/tracks',
                   queryParameters: {'limit': '50'},
-                  options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+                  options: Options(
+                    headers: {'Authorization': 'Bearer $accessToken'},
+                  ),
                 );
 
                 if (tracksRes.statusCode == 200 && tracksRes.data != null) {
@@ -836,10 +895,7 @@ class StreamingOAuthService {
       try {
         final channelRes = await _dio.get(
           'https://www.googleapis.com/youtube/v3/channels',
-          queryParameters: {
-            'part': 'snippet,contentDetails',
-            'mine': 'true',
-          },
+          queryParameters: {'part': 'snippet,contentDetails', 'mine': 'true'},
           options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
         );
 
@@ -847,7 +903,8 @@ class StreamingOAuthService {
           final items = channelRes.data['items'] as List?;
           if (items != null && items.isNotEmpty) {
             final snippet = items[0]['snippet'] as Map<String, dynamic>?;
-            displayName = snippet?['title'] as String? ?? 'YouTube Music Listener';
+            displayName =
+                snippet?['title'] as String? ?? 'YouTube Music Listener';
             avatarUrl = snippet?['thumbnails']?['default']?['url'] as String?;
           }
         }
@@ -876,7 +933,8 @@ class StreamingOAuthService {
           if (items != null) {
             playlistsCount = items.length;
             for (final pl in items) {
-              final plTitle = pl['snippet']?['title'] as String? ?? 'YouTube Playlist';
+              final plTitle =
+                  pl['snippet']?['title'] as String? ?? 'YouTube Playlist';
               final plId = pl['id'] as String?;
 
               if (plId != null) {
@@ -887,7 +945,9 @@ class StreamingOAuthService {
                     'playlistId': plId,
                     'maxResults': '50',
                   },
-                  options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+                  options: Options(
+                    headers: {'Authorization': 'Bearer $accessToken'},
+                  ),
                 );
 
                 if (itemsRes.statusCode == 200 && itemsRes.data != null) {
@@ -896,13 +956,19 @@ class StreamingOAuthService {
                     final importedTracks = <Track>[];
                     for (final item in trackItems) {
                       final snip = item['snippet'];
-                      final videoId = snip?['resourceId']?['videoId'] as String?;
+                      final videoId =
+                          snip?['resourceId']?['videoId'] as String?;
                       final title = snip?['title'] as String?;
-                      final artist = snip?['videoOwnerChannelTitle'] as String? ?? 'YouTube Artist';
-                      final thumb = snip?['thumbnails']?['high']?['url'] as String? ??
+                      final artist =
+                          snip?['videoOwnerChannelTitle'] as String? ??
+                          'YouTube Artist';
+                      final thumb =
+                          snip?['thumbnails']?['high']?['url'] as String? ??
                           snip?['thumbnails']?['default']?['url'] as String?;
 
-                      if (videoId != null && title != null && title != 'Private video') {
+                      if (videoId != null &&
+                          title != null &&
+                          title != 'Private video') {
                         final track = Track(
                           id: videoId,
                           title: title,
@@ -948,7 +1014,128 @@ class StreamingOAuthService {
     }
   }
 
-  Track _parseSpotifyTrack(Map<String, dynamic> item, {bool isFavorite = false}) {
+  /// Interactive Browser Sign-In for SoundCloud.
+  Future<StreamingAuthResult> signInWithSoundCloudWeb(
+    BuildContext context,
+  ) async {
+    final session = await WebViewAuthBridge().authenticateSoundCloud(context);
+    if (!session.isSuccess) {
+      return StreamingAuthResult(
+        isSuccess: false,
+        platform: 'SoundCloud',
+        errorMessage: session.isCancelled
+            ? 'SoundCloud sign-in was cancelled.'
+            : (session.errorMessage ?? 'Unable to connect SoundCloud.'),
+      );
+    }
+
+    if (session.scOAuthToken != null && session.scOAuthToken!.isNotEmpty) {
+      await _prefs.saveScOAuthToken(session.scOAuthToken!);
+    }
+
+    return syncSoundCloudAccount(
+      fallbackDisplayName: session.scDisplayName,
+      fallbackAvatarUrl: session.scAvatarUrl,
+    );
+  }
+
+  /// Synchronizes profile, playlists, liked tracks, and curated shelves from SoundCloud.
+  Future<StreamingAuthResult> syncSoundCloudAccount({
+    String? fallbackDisplayName,
+    String? fallbackAvatarUrl,
+  }) async {
+    final sc = SoundCloudMusicProvider(prefs: _prefs, dio: _dio);
+    String displayName =
+        (fallbackDisplayName != null && fallbackDisplayName.isNotEmpty)
+        ? fallbackDisplayName
+        : 'SoundCloud Listener';
+    String? avatarUrl = fallbackAvatarUrl;
+
+    try {
+      final profile = await sc.fetchUserProfile();
+      if (profile['displayName'] != null &&
+          profile['displayName']!.isNotEmpty) {
+        displayName = profile['displayName']!;
+      }
+      if (profile['avatarUrl'] != null && profile['avatarUrl']!.isNotEmpty) {
+        avatarUrl = profile['avatarUrl'];
+      }
+    } catch (_) {}
+
+    await _prefs.saveScUserProfile(displayName, avatarUrl);
+    await _prefs.saveActiveSource('soundcloud');
+
+    int tracksCount = 0;
+    final hydratedPlaylists = <Playlist>[];
+
+    try {
+      final playlists = await sc.fetchUserPlaylists();
+      for (final pl in playlists.take(12)) {
+        var tracks = pl.tracks.isNotEmpty
+            ? pl.tracks
+            : await sc.fetchPlaylistTracks(pl.id);
+        if (tracks.isNotEmpty) {
+          tracksCount += tracks.length;
+          await _db.saveTracks(tracks);
+          await _db.setPlaylist(pl.title, tracks.map((t) => t.id).toList());
+          hydratedPlaylists.add(
+            pl.copyWith(tracks: tracks, trackCount: tracks.length),
+          );
+        } else {
+          hydratedPlaylists.add(pl);
+        }
+      }
+      if (playlists.length > 12) {
+        hydratedPlaylists.addAll(playlists.skip(12));
+      }
+      if (hydratedPlaylists.isNotEmpty) {
+        await _savePlaylistsCache(
+          _prefs,
+          hydratedPlaylists,
+          isSpotify: false,
+          isSoundCloud: true,
+        );
+      }
+    } catch (_) {}
+
+    try {
+      final liked = await sc.fetchLikedTracks();
+      if (liked.isNotEmpty) {
+        await _db.saveTracks(liked);
+        for (final t in liked) {
+          if (!_db.isFavorite(t.id)) {
+            await _db.toggleFavorite(t.id);
+          }
+        }
+        tracksCount += liked.length;
+      }
+    } catch (_) {}
+
+    try {
+      final featured = await sc.fetchFeaturedSections();
+      if (featured.isNotEmpty) {
+        await _prefs.saveFeaturedCache(
+          'soundcloud',
+          jsonEncode(featured.map((s) => s.toMap()).toList()),
+        );
+      }
+    } catch (_) {}
+
+    return StreamingAuthResult(
+      isSuccess: true,
+      platform: 'SoundCloud',
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      subscription: 'SoundCloud Stream Bridge',
+      playlistsImported: hydratedPlaylists.length,
+      tracksImported: tracksCount,
+    );
+  }
+
+  Track _parseSpotifyTrack(
+    Map<String, dynamic> item, {
+    bool isFavorite = false,
+  }) {
     final id = item['id'] as String? ?? '';
     final title = item['name'] as String? ?? 'Unknown Title';
     final artistsList = item['artists'] as List?;

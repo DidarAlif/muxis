@@ -34,6 +34,17 @@ class PreferencesService {
   static const String _keyGoogleClientSecret = 'muxis_google_client_secret';
   static const String _keyAutoUpdateEnabled = 'muxis_auto_update_enabled';
   static const String _keySkippedUpdateVersion = 'muxis_skipped_update_version';
+  static const String _keyMiniPlayerOnMinimize =
+      'muxis_mini_player_on_minimize';
+  static const String _keyYtFeaturedCache = 'muxis_yt_featured_cache';
+  static const String _keySpFeaturedCache = 'muxis_sp_featured_cache';
+  static const String _keyScOAuthToken = 'muxis_sc_oauth_token';
+  static const String _keyScClientId = 'muxis_sc_client_id';
+  static const String _keyScUserName = 'muxis_sc_user_name';
+  static const String _keyScUserAvatar = 'muxis_sc_user_avatar';
+  static const String _keyScPlaylistsCache = 'muxis_sc_playlists_cache';
+  static const String _keyScFeaturedCache = 'muxis_sc_featured_cache';
+  static const String _keyRadioCountryCode = 'muxis_radio_country_code';
 
   Future<void> saveActiveSource(String source) async {
     final prefs = await SharedPreferences.getInstance();
@@ -234,6 +245,7 @@ class PreferencesService {
     await prefs.remove(_keyYtUserName);
     await prefs.remove(_keyYtUserAvatar);
     await prefs.remove(_keyYtPlaylistsCache);
+    await prefs.remove(_keyYtFeaturedCache);
     await prefs.remove(_keySpotifyClientId);
     await prefs.remove(_keySpotifyClientSecret);
     await prefs.remove(_keySpotifyAccessToken);
@@ -241,11 +253,17 @@ class PreferencesService {
     await prefs.remove(_keySpotifySpDc);
     await prefs.remove(_keySpotifyPathfinderHashes);
     await prefs.remove(_keySpotifyPlaylistsCache);
+    await prefs.remove(_keySpFeaturedCache);
     await prefs.remove(_keySpotifyUserName);
     await prefs.remove(_keySpotifyUserAvatar);
     await prefs.remove(_keySpotifyProduct);
     await prefs.remove(_keyGoogleClientId);
     await prefs.remove(_keyGoogleClientSecret);
+    await prefs.remove(_keyScOAuthToken);
+    await prefs.remove(_keyScUserName);
+    await prefs.remove(_keyScUserAvatar);
+    await prefs.remove(_keyScPlaylistsCache);
+    await prefs.remove(_keyScFeaturedCache);
   }
 
   Future<void> saveVolume(double volume) async {
@@ -320,5 +338,115 @@ class PreferencesService {
   Future<String?> getSkippedUpdateVersion() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keySkippedUpdateVersion);
+  }
+
+  Future<void> saveMiniPlayerOnMinimize(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyMiniPlayerOnMinimize, enabled);
+  }
+
+  Future<bool> getMiniPlayerOnMinimize() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyMiniPlayerOnMinimize) ?? true;
+  }
+
+  Future<void> saveFeaturedCache(String sourceKey, String jsonStr) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = sourceKey == 'spotify'
+        ? _keySpFeaturedCache
+        : (sourceKey == 'soundcloud'
+              ? _keyScFeaturedCache
+              : _keyYtFeaturedCache);
+    if (jsonStr.isEmpty) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, jsonStr);
+    }
+  }
+
+  Future<String?> getFeaturedCache(String sourceKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = sourceKey == 'spotify'
+        ? _keySpFeaturedCache
+        : (sourceKey == 'soundcloud'
+              ? _keyScFeaturedCache
+              : _keyYtFeaturedCache);
+    return prefs.getString(key);
+  }
+
+  Future<void> saveScOAuthToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (token.isEmpty) {
+      await prefs.remove(_keyScOAuthToken);
+    } else {
+      await prefs.setString(_keyScOAuthToken, token);
+    }
+  }
+
+  Future<String?> getScOAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyScOAuthToken);
+  }
+
+  Future<void> saveScClientId(String clientId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (clientId.isEmpty) {
+      await prefs.remove(_keyScClientId);
+    } else {
+      await prefs.setString(_keyScClientId, clientId);
+    }
+  }
+
+  Future<String?> getScClientId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyScClientId);
+  }
+
+  Future<void> saveScUserProfile(String name, String? avatarUrl) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (name.isEmpty) {
+      await prefs.remove(_keyScUserName);
+    } else {
+      await prefs.setString(_keyScUserName, name);
+    }
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      await prefs.setString(_keyScUserAvatar, avatarUrl);
+    } else {
+      await prefs.remove(_keyScUserAvatar);
+    }
+  }
+
+  Future<String?> getScUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyScUserName);
+  }
+
+  Future<String?> getScUserAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyScUserAvatar);
+  }
+
+  Future<void> saveScPlaylistsCache(String jsonStr) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (jsonStr.isEmpty) {
+      await prefs.remove(_keyScPlaylistsCache);
+    } else {
+      await prefs.setString(_keyScPlaylistsCache, jsonStr);
+    }
+  }
+
+  Future<String?> getScPlaylistsCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyScPlaylistsCache);
+  }
+
+  Future<void> saveRadioCountryCode(String code) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyRadioCountryCode, code);
+  }
+
+  Future<String?> getRadioCountryCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyRadioCountryCode);
   }
 }

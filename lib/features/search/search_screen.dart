@@ -8,6 +8,7 @@ import '../../app/theme/muxis_typography.dart';
 import '../../core/audio/audio_playback_service.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../providers/innertube_music_provider.dart';
+import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
@@ -15,7 +16,7 @@ import '../../shared/widgets/muxis_scroll_view.dart';
 import '../../shared/widgets/muxis_search_field.dart';
 import '../../shared/widgets/muxis_track_row.dart';
 
-enum SearchFilterSource { all, youtube, spotify }
+enum SearchFilterSource { all, youtube, spotify, soundcloud }
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -28,6 +29,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   final InnerTubeMusicProvider _ytProvider = InnerTubeMusicProvider();
   final SpotifyMusicProvider _spotifyProvider = SpotifyMusicProvider();
+  final SoundCloudMusicProvider _soundCloudProvider = SoundCloudMusicProvider();
 
   SearchFilterSource _filterSource = SearchFilterSource.all;
   List<Track> _results = [];
@@ -50,6 +52,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           setState(() => _filterSource = SearchFilterSource.youtube);
         if (source == 'spotify')
           setState(() => _filterSource = SearchFilterSource.spotify);
+        if (source == 'soundcloud')
+          setState(() => _filterSource = SearchFilterSource.soundcloud);
       }
     });
   }
@@ -80,14 +84,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           case SearchFilterSource.spotify:
             searchResults = await _spotifyProvider.search(trimmed);
             break;
+          case SearchFilterSource.soundcloud:
+            searchResults = await _soundCloudProvider.search(trimmed);
+            break;
           case SearchFilterSource.all:
             final ytFuture = _ytProvider.search(trimmed);
             final spFuture = _spotifyProvider.search(trimmed);
-            final res = await Future.wait([ytFuture, spFuture]);
+            final scFuture = _soundCloudProvider.search(trimmed);
+            final res = await Future.wait([ytFuture, spFuture, scFuture]);
             final ytTracks = res[0];
             final spTracks = res[1];
+            final scTracks = res[2];
             final seen = <String>{};
-            for (final t in [...ytTracks, ...spTracks]) {
+            for (final t in [...ytTracks, ...spTracks, ...scTracks]) {
               final key = '${t.title.toLowerCase()}_${t.artist.toLowerCase()}';
               if (!seen.contains(key)) {
                 seen.add(key);
@@ -119,7 +128,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final playback = ref.watch(playbackServiceProvider);
+    final playingTrackId = ref.watch(
+      playbackServiceProvider.select((s) => s.currentTrack?.id),
+    );
+    final isPlaying = ref.watch(
+      playbackServiceProvider.select((s) => s.isPlaying),
+    );
     final audioService = ref.read(playbackServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -159,6 +173,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 SearchFilterSource.spotify,
                 isDark,
                 icon: Icons.graphic_eq_rounded,
+              ),
+              _buildSourceChip(
+                'SoundCloud',
+                SearchFilterSource.soundcloud,
+                isDark,
+                icon: Icons.cloud_queue_rounded,
               ),
             ],
           ),
@@ -215,9 +235,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               return MuxisTrackRow(
                 track: track,
                 index: i,
-                isPlaying:
-                    playback.currentTrack?.id == track.id && playback.isPlaying,
-                onTap: () => audioService.playTrack(track),
+                isPlaying: playingTrackId == track.id && isPlaying,
+                onTap: () => audioService.playTrack(track, newQueue: _results),
                 onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
                 onPlayNextTap: () =>
                     audioService.addToQueue(track, playNext: true),

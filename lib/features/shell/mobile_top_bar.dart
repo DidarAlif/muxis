@@ -103,6 +103,26 @@ class MobileTopBar extends ConsumerWidget {
                 onTap: () => onNavigate(12),
               ),
             ),
+          if (accounts.soundcloud.isConnected || activeNavIndex == 13)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _PlatformPill(
+                label: 'SC',
+                active: activeNavIndex == 13,
+                color: MuxisColors.soundcloudOrange,
+                isDark: isDark,
+                onTap: () => onNavigate(13),
+              ),
+            ),
+
+          // World Radio Tuner Shortcut
+          _ActionIcon(
+            icon: Icons.radio_rounded,
+            tooltip: 'Global Radio Tuner',
+            isDark: isDark,
+            onTap: () => onNavigate(3),
+          ),
+          const SizedBox(width: 6),
 
           // Audio Studio DSP Button
           _ActionIcon(

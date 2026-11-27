@@ -13,6 +13,7 @@ import '../../core/database/database_service.dart';
 import '../../core/local_scanner/local_library_scanner.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../shared/models/track.dart';
+import '../../shared/utils/library_filter.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
 import '../../shared/widgets/muxis_scroll_view.dart';
@@ -31,7 +32,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   late int _tabIndex;
   bool _isScanning = false;
   bool _isDragging = false;
+  final TextEditingController _filterCtrl = TextEditingController();
   String _searchFilter = '';
+  LibrarySortOption _sortOption = LibrarySortOption.recentlyAdded;
+  LibraryKeywordPreset _presetFilter = LibraryKeywordPreset.all;
   String? _selectedAlbum;
   String? _selectedArtist;
   String? _selectedPlaylist;
@@ -40,6 +44,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   void initState() {
     super.initState();
     _tabIndex = widget.initialTabIndex.clamp(0, 5);
+  }
+
+  @override
+  void dispose() {
+    _filterCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -423,7 +433,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final db = ref.watch(databaseServiceProvider);
-    final playback = ref.watch(playbackServiceProvider);
+    final playback = ref.watch(
+      playbackServiceProvider.select(
+        (s) => (currentTrack: s.currentTrack, isPlaying: s.isPlaying),
+      ),
+    );
     final audioService = ref.read(playbackServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -550,49 +564,191 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Search Filter Bar (for tracks view)
-                if (_tabIndex == 0) ...[
-                  TextField(
-                    style: TextStyle(
-                      color: MuxisColors.textPrimary(isDark),
-                      fontSize: 13,
-                    ),
-                    decoration: InputDecoration(
-                      hintText:
-                          'Filter your library by title, artist, or album...',
-                      hintStyle: TextStyle(
-                        color: MuxisColors.textMuted(isDark),
-                        fontSize: 13,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        size: 18,
-                        color: MuxisColors.accent(isDark),
-                      ),
-                      filled: true,
-                      fillColor: isDark
-                          ? MuxisColors.elevatedSurface.withOpacity(0.75)
-                          : Colors.white.withOpacity(0.8),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: MuxisColors.border(isDark),
+                // Search, Sort Dropdown & Pre-Sorting Keyword Chips (All Tracks & Favorites)
+                if (_tabIndex == 0 || _tabIndex == 4) ...[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 560;
+                      final searchField = TextField(
+                        controller: _filterCtrl,
+                        style: TextStyle(
+                          color: MuxisColors.textPrimary(isDark),
+                          fontSize: 13,
                         ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: MuxisColors.border(isDark),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Filter by title, artist, album, or format...',
+                          hintStyle: TextStyle(
+                            color: MuxisColors.textMuted(isDark),
+                            fontSize: 13,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: MuxisColors.accent(isDark),
+                          ),
+                          suffixIcon:
+                              (_searchFilter.isNotEmpty ||
+                                  _presetFilter != LibraryKeywordPreset.all)
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                  ),
+                                  tooltip: 'Clear filters',
+                                  onPressed: () {
+                                    _filterCtrl.clear();
+                                    setState(() {
+                                      _searchFilter = '';
+                                      _presetFilter = LibraryKeywordPreset.all;
+                                      _sortOption =
+                                          LibrarySortOption.recentlyAdded;
+                                    });
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: isDark
+                              ? MuxisColors.elevatedSurface.withOpacity(0.75)
+                              : Colors.white.withOpacity(0.8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: MuxisColors.border(isDark),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: MuxisColors.border(isDark),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    onChanged: (val) => setState(
-                      () => _searchFilter = val.trim().toLowerCase(),
-                    ),
+                        onChanged: (val) => setState(
+                          () => _searchFilter = val.trim().toLowerCase(),
+                        ),
+                      );
+
+                      final sortDropdown = Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? MuxisColors.elevatedSurface.withOpacity(0.82)
+                              : Colors.white.withOpacity(0.86),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: MuxisColors.border(isDark)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<LibrarySortOption>(
+                            value: _sortOption,
+                            dropdownColor: MuxisColors.surface(isDark),
+                            icon: Icon(
+                              Icons.sort_rounded,
+                              size: 18,
+                              color: MuxisColors.accent(isDark),
+                            ),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                            items: LibrarySortOption.values
+                                .map(
+                                  (opt) => DropdownMenuItem(
+                                    value: opt,
+                                    child: Text(opt.label),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (opt) {
+                              if (opt != null) {
+                                setState(() => _sortOption = opt);
+                              }
+                            },
+                          ),
+                        ),
+                      );
+
+                      if (isCompact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            searchField,
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: sortDropdown,
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: searchField),
+                          const SizedBox(width: 12),
+                          sortDropdown,
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: LibraryKeywordPreset.values.map((preset) {
+                      final selected = _presetFilter == preset;
+                      final accent = MuxisColors.accent(isDark);
+                      return MuxisLiquidSurface(
+                        onTap: () {
+                          setState(() {
+                            _presetFilter = preset;
+                            if (preset == LibraryKeywordPreset.extended) {
+                              _sortOption = LibrarySortOption.durationDesc;
+                            } else if (preset ==
+                                LibraryKeywordPreset.shortTracks) {
+                              _sortOption = LibrarySortOption.durationAsc;
+                            } else if (preset == LibraryKeywordPreset.all) {
+                              _sortOption = LibrarySortOption.recentlyAdded;
+                            }
+                          });
+                        },
+                        enableGlass: false,
+                        blurSigma: 0,
+                        borderRadius: 16,
+                        accentColor: accent,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 6,
+                        ),
+                        colorOverride: selected
+                            ? accent.withOpacity(isDark ? 0.22 : 0.16)
+                            : (isDark
+                                  ? Colors.white.withOpacity(0.05)
+                                  : Colors.white.withOpacity(0.75)),
+                        borderOverride: Border.all(
+                          color: selected ? accent : MuxisColors.border(isDark),
+                          width: selected ? 1.4 : 1,
+                        ),
+                        child: Text(
+                          preset.label,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: selected
+                                ? accent
+                                : MuxisColors.textSecondary(isDark),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -728,13 +884,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     required Map<String, List<String>> playlists,
     required List<Track> favoriteTracks,
     required List<Track> recentTracks,
-    required dynamic playback,
+    required ({Track? currentTrack, bool isPlaying}) playback,
     required AudioPlaybackService audioService,
     required DatabaseService db,
   }) {
     switch (_tabIndex) {
       case 0:
-        return _buildTracksList(allTracks, playback, audioService);
+        return _buildTracksList(
+          allTracks,
+          playback,
+          audioService,
+          applySortAndPreset: true,
+        );
       case 1:
         return _buildPlaylistsView(
           playlists,
@@ -757,40 +918,51 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           db,
         );
       default:
-        return _buildTracksList(allTracks, playback, audioService);
+        return _buildTracksList(
+          allTracks,
+          playback,
+          audioService,
+          applySortAndPreset: true,
+        );
     }
   }
 
   // --- TAB 0: ALL TRACKS ---
   Widget _buildTracksList(
     List<Track> tracks,
-    dynamic playback,
-    AudioPlaybackService audioService,
-  ) {
-    var filtered = tracks;
-    if (_searchFilter.isNotEmpty) {
-      filtered = tracks.where((t) {
-        return t.title.toLowerCase().contains(_searchFilter) ||
-            t.artist.toLowerCase().contains(_searchFilter) ||
-            (t.album?.toLowerCase().contains(_searchFilter) ?? false);
-      }).toList();
-    }
+    ({Track? currentTrack, bool isPlaying}) playback,
+    AudioPlaybackService audioService, {
+    bool applySortAndPreset = false,
+  }) {
+    final filtered = applySortAndPreset
+        ? applyLibrarySortAndFilter(
+            tracks: tracks,
+            searchQuery: _searchFilter,
+            preset: _presetFilter,
+            sortOption: _sortOption,
+          )
+        : tracks;
 
     if (filtered.isEmpty) {
       final isDark = Theme.of(context).brightness == Brightness.dark;
+      final hasTracksInCollection = tracks.isNotEmpty;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Center(
           child: Column(
             children: [
               Icon(
-                Icons.library_music_outlined,
+                hasTracksInCollection
+                    ? Icons.filter_list_off_rounded
+                    : Icons.library_music_outlined,
                 size: 56,
                 color: MuxisColors.textMuted(isDark).withOpacity(0.55),
               ),
               const SizedBox(height: 16),
               Text(
-                'No tracks in your library yet',
+                hasTracksInCollection
+                    ? 'No matching tracks for current filter'
+                    : 'No tracks in your library yet',
                 style: TextStyle(
                   color: MuxisColors.textPrimary(isDark),
                   fontSize: 16,
@@ -799,9 +971,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                MediaQuery.sizeOf(context).width < 768
-                    ? 'Tap "Import Music" to scan audio folders or files on your device.'
-                    : 'Drag and drop audio files anywhere, or click "Import Music" to scan folders.',
+                hasTracksInCollection
+                    ? 'Try choosing another keyword chip or reset your library filters.'
+                    : (MediaQuery.sizeOf(context).width < 768
+                          ? 'Tap "Import Music" to scan audio folders or files on your device.'
+                          : 'Drag and drop audio files anywhere, or click "Import Music" to scan folders.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: MuxisColors.textSecondary(isDark),
@@ -810,11 +984,27 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               ),
               const SizedBox(height: 20),
               MuxisButton(
-                label: 'Import Music Folder',
-                icon: const Icon(Icons.folder_open_rounded, size: 18),
+                label: hasTracksInCollection
+                    ? 'Reset Filters'
+                    : 'Import Music Folder',
+                icon: Icon(
+                  hasTracksInCollection
+                      ? Icons.clear_all_rounded
+                      : Icons.folder_open_rounded,
+                  size: 18,
+                ),
                 variant: MuxisButtonVariant.primary,
                 height: 38,
-                onPressed: _showImportDialog,
+                onPressed: hasTracksInCollection
+                    ? () {
+                        _filterCtrl.clear();
+                        setState(() {
+                          _searchFilter = '';
+                          _presetFilter = LibraryKeywordPreset.all;
+                          _sortOption = LibrarySortOption.recentlyAdded;
+                        });
+                      }
+                    : _showImportDialog,
               ),
             ],
           ),
@@ -845,7 +1035,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget _buildPlaylistsView(
     Map<String, List<String>> playlists,
     List<Track> allTracks,
-    dynamic playback,
+    ({Track? currentTrack, bool isPlaying}) playback,
     AudioPlaybackService audioService,
     DatabaseService db,
   ) {
@@ -1089,7 +1279,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   // --- TAB 2: ALBUMS ---
   Widget _buildAlbumsView(
     List<Track> allTracks,
-    dynamic playback,
+    ({Track? currentTrack, bool isPlaying}) playback,
     AudioPlaybackService audioService,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1274,7 +1464,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   // --- TAB 3: ARTISTS ---
   Widget _buildArtistsView(
     List<Track> allTracks,
-    dynamic playback,
+    ({Track? currentTrack, bool isPlaying}) playback,
     AudioPlaybackService audioService,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1466,7 +1656,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   // --- TAB 4: FAVORITES ---
   Widget _buildFavoritesView(
     List<Track> favorites,
-    dynamic playback,
+    ({Track? currentTrack, bool isPlaying}) playback,
     AudioPlaybackService audioService,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1536,7 +1726,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        _buildTracksList(favorites, playback, audioService),
+        _buildTracksList(
+          favorites,
+          playback,
+          audioService,
+          applySortAndPreset: true,
+        ),
       ],
     );
   }
@@ -1544,7 +1739,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   // --- TAB 5: RECENTLY PLAYED ---
   Widget _buildRecentlyPlayedView(
     List<Track> recents,
-    dynamic playback,
+    ({Track? currentTrack, bool isPlaying}) playback,
     AudioPlaybackService audioService,
     DatabaseService db,
   ) {
