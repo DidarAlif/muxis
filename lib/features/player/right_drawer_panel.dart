@@ -15,8 +15,9 @@ import 'audio_visualizer.dart';
 
 class RightDrawerPanel extends ConsumerStatefulWidget {
   final VoidCallback onClose;
+  final double? width;
 
-  const RightDrawerPanel({super.key, required this.onClose});
+  const RightDrawerPanel({super.key, required this.onClose, this.width});
 
   @override
   ConsumerState<RightDrawerPanel> createState() => _RightDrawerPanelState();
@@ -81,19 +82,21 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
-          width: 340,
+          width: widget.width ?? 340,
           decoration: BoxDecoration(
             color: isDark
                 ? MuxisColors.deepSpace.withValues(alpha: 0.78)
                 : Colors.white.withValues(alpha: 0.80),
-            border: Border(
-              left: BorderSide(
-                color: isDark
-                    ? MuxisColors.subtleBorderDark
-                    : Colors.white.withValues(alpha: 0.92),
-                width: 1,
-              ),
-            ),
+            border: widget.width == null
+                ? Border(
+                    left: BorderSide(
+                      color: isDark
+                          ? MuxisColors.subtleBorderDark
+                          : Colors.white.withValues(alpha: 0.92),
+                      width: 1,
+                    ),
+                  )
+                : null,
           ),
           child: Column(
             children: [
@@ -179,15 +182,13 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
     Color accent,
   ) {
     final queue = playback.queue;
-    final textMuted =
-        isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight;
+    final textMuted = isDark
+        ? MuxisColors.textMutedDark
+        : MuxisColors.textMutedLight;
 
     if (queue.isEmpty) {
       return Center(
-        child: Text(
-          'Queue is empty',
-          style: TextStyle(color: textMuted),
-        ),
+        child: Text('Queue is empty', style: TextStyle(color: textMuted)),
       );
     }
 
@@ -234,8 +235,8 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
                 decoration: BoxDecoration(
                   color: isCurrent
                       ? (isDark
-                          ? MuxisColors.elevatedSurface
-                          : accent.withValues(alpha: 0.10))
+                            ? MuxisColors.elevatedSurface
+                            : accent.withValues(alpha: 0.10))
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   border: isCurrent
@@ -260,7 +261,8 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
                             : MuxisGradients.prismaticLightPrimary,
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: track.artworkUrl != null &&
+                      child:
+                          track.artworkUrl != null &&
                               track.artworkUrl!.isNotEmpty
                           ? Image.network(
                               track.artworkUrl!,
@@ -298,18 +300,15 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
                               color: isCurrent
                                   ? accent
                                   : (isDark
-                                      ? MuxisColors.textPrimaryDark
-                                      : MuxisColors.textPrimaryLight),
+                                        ? MuxisColors.textPrimaryDark
+                                        : MuxisColors.textPrimaryLight),
                             ),
                           ),
                           Text(
                             track.artist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: textMuted,
-                            ),
+                            style: TextStyle(fontSize: 11, color: textMuted),
                           ),
                         ],
                       ),
@@ -345,10 +344,12 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
     final textSecondary = isDark
         ? MuxisColors.textSecondaryDark
         : MuxisColors.textSecondaryLight;
-    final textMuted =
-        isDark ? MuxisColors.textMutedDark : MuxisColors.textMutedLight;
-    final bandGains =
-        eq.isEnabled ? eq.bands.map((b) => b.gainDb).toList() : null;
+    final textMuted = isDark
+        ? MuxisColors.textMutedDark
+        : MuxisColors.textMutedLight;
+    final bandGains = eq.isEnabled
+        ? eq.bands.map((b) => b.gainDb).toList()
+        : null;
 
     return Padding(
       padding: const EdgeInsets.all(18),
@@ -517,11 +518,7 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
     );
   }
 
-  Widget _buildLyricsView(
-    Duration currentPosition,
-    bool isDark,
-    Color accent,
-  ) {
+  Widget _buildLyricsView(Duration currentPosition, bool isDark, Color accent) {
     return ListView.builder(
       padding: const EdgeInsets.all(20),
       itemCount: _lyrics.length,
@@ -544,8 +541,8 @@ class _RightDrawerPanelState extends ConsumerState<RightDrawerPanel>
                   color: isActive
                       ? accent
                       : (isDark
-                          ? MuxisColors.textSecondaryDark
-                          : MuxisColors.textSecondaryLight),
+                            ? MuxisColors.textSecondaryDark
+                            : MuxisColors.textSecondaryLight),
                 ),
               ),
               if (line.translation != null) ...[

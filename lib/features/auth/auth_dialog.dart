@@ -47,8 +47,14 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
     final authService = ref.read(authServiceProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 520;
+
     return Dialog(
       backgroundColor: isDark ? MuxisColors.obsidian : MuxisColors.whiteSurface,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: isMobile ? 20 : 24,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
@@ -60,7 +66,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog>
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(isMobile ? 18 : 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

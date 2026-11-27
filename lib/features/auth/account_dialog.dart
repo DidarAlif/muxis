@@ -22,8 +22,14 @@ class AccountDialog extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = authState.user;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 520;
+
     return Dialog(
       backgroundColor: isDark ? MuxisColors.obsidian : MuxisColors.whiteSurface,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: isMobile ? 20 : 24,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
@@ -35,7 +41,7 @@ class AccountDialog extends ConsumerWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(isMobile ? 18 : 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

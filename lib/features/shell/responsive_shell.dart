@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../player/mobile_playback_bar.dart';
+import '../studio/mobile_audio_studio_sheet.dart';
+import 'mobile_top_bar.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -83,7 +88,29 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
     );
   }
 
+  void _openMobileQueueSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.84,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: RightDrawerPanel(
+            width: double.infinity,
+            onClose: () => Navigator.of(ctx).pop(),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _openAudioStudio() {
+    if (MediaQuery.sizeOf(context).width < 768) {
+      MobileAudioStudioSheet.show(context);
+      return;
+    }
     showDialog(context: context, builder: (_) => const AudioStudioSheet());
   }
 
@@ -122,22 +149,22 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<String?>(
-      playbackServiceProvider.select((s) => s.errorMessage),
-      (prev, next) {
-        if (next != null && next.isNotEmpty && next != prev && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+    ref.listen<String?>(playbackServiceProvider.select((s) => s.errorMessage), (
+      prev,
+      next,
+    ) {
+      if (next != null && next.isNotEmpty && next != prev && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        }
-      },
-    );
+          ),
+        );
+      }
+    });
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
@@ -152,8 +179,8 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
     final mobileNavIdx = _navIndex == 10
         ? 4
         : (_navIndex == 4 || (_navIndex >= 5 && _navIndex <= 9)
-            ? 3
-            : _navIndex.clamp(0, 2));
+              ? 3
+              : (_navIndex >= 11 ? 0 : _navIndex.clamp(0, 2)));
 
     return KeyboardListener(
       focusNode: _keyboardFocusNode,
@@ -165,88 +192,149 @@ class _ResponsiveShellState extends ConsumerState<ResponsiveShell> {
           primaryTint: _navIndex == 12
               ? MuxisColors.spotifyGreen
               : (_navIndex == 11 ? MuxisColors.youtubeRed : null),
-          child: Column(
-            children: [
-              // Top Main Workspace Area
-              Expanded(
-                child: Row(
-                  children: [
-                    if (isDesktop)
-                      MuxisSidebar(
-                        selectedIndex: _navIndex,
-                        onDestinationSelected: (i) =>
-                            setState(() => _navIndex = i),
-                        onOpenAudioStudio: _openAudioStudio,
+          child: SafeArea(
+            top: !isDesktop,
+            bottom: false,
+            child: Column(
+              children: [
+                if (!isDesktop)
+                  MobileTopBar(
+                    activeNavIndex: _navIndex,
+                    onNavigate: (i) => setState(() => _navIndex = i),
+                    onOpenQueueSheet: _openMobileQueueSheet,
+                    onOpenAudioStudio: _openAudioStudio,
+                  ),
+
+                // Top Main Workspace Area
+                Expanded(
+                  child: Row(
+                    children: [
+                      if (isDesktop)
+                        MuxisSidebar(
+                          selectedIndex: _navIndex,
+                          onDestinationSelected: (i) =>
+                              setState(() => _navIndex = i),
+                          onOpenAudioStudio: _openAudioStudio,
+                        ),
+
+                      Expanded(
+                        child: Container(
+                          color: Colors.transparent,
+                          child: _buildScreen(_navIndex),
+                        ),
                       ),
 
-                    Expanded(
-                      child: Container(
-                        color: Colors.transparent,
-                        child: _buildScreen(_navIndex),
-                      ),
-                    ),
-
-                    if (isDesktop && _isRightDrawerOpen)
-                      RightDrawerPanel(
-                        onClose: () =>
-                            setState(() => _isRightDrawerOpen = false),
-                      ),
-                  ],
+                      if (isDesktop && _isRightDrawerOpen)
+                        RightDrawerPanel(
+                          onClose: () =>
+                              setState(() => _isRightDrawerOpen = false),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
 
-              BottomPlaybackBar(
-                onExpandNowPlaying: () =>
-                    setState(() => _isNowPlayingExpanded = true),
-                onToggleRightDrawer: () =>
-                    setState(() => _isRightDrawerOpen = !_isRightDrawerOpen),
-                onOpenAudioStudio: _openAudioStudio,
-                isLyricsActive: _isRightDrawerOpen,
-                isQueueActive: _isRightDrawerOpen,
-              ),
-            ],
+                // Persistent Playback Console (Desktop full bar vs Mobile compact glass mini-bar)
+                if (isDesktop)
+                  BottomPlaybackBar(
+                    onExpandNowPlaying: () =>
+                        setState(() => _isNowPlayingExpanded = true),
+                    onToggleRightDrawer: () => setState(
+                      () => _isRightDrawerOpen = !_isRightDrawerOpen,
+                    ),
+                    onOpenAudioStudio: _openAudioStudio,
+                    isLyricsActive: _isRightDrawerOpen,
+                    isQueueActive: _isRightDrawerOpen,
+                  )
+                else
+                  MobilePlaybackBar(
+                    onExpandNowPlaying: () =>
+                        setState(() => _isNowPlayingExpanded = true),
+                  ),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: !isDesktop
-            ? BottomNavigationBar(
-                currentIndex: mobileNavIdx,
-                onTap: (i) {
-                  if (i == 3) {
-                    setState(() => _navIndex = 4);
-                  } else if (i == 4) {
-                    setState(() => _navIndex = 10);
-                  } else {
-                    setState(() => _navIndex = i);
-                  }
-                },
-                backgroundColor: isDark
-                    ? MuxisColors.obsidian
-                    : Colors.white.withOpacity(0.95),
-                selectedItemColor: MuxisColors.accent(isDark),
-                unselectedItemColor: MuxisColors.textMuted(isDark),
-                type: BottomNavigationBarType.fixed,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.home_filled),
-                    label: 'Home',
+            ? NavigationBarTheme(
+                data: NavigationBarThemeData(
+                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                    final selected = states.contains(WidgetState.selected);
+                    return TextStyle(
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected
+                          ? MuxisColors.accent(isDark)
+                          : MuxisColors.textMuted(isDark),
+                    );
+                  }),
+                  iconTheme: WidgetStateProperty.resolveWith((states) {
+                    final selected = states.contains(WidgetState.selected);
+                    return IconThemeData(
+                      size: 21,
+                      color: selected
+                          ? MuxisColors.accent(isDark)
+                          : MuxisColors.textMuted(isDark),
+                    );
+                  }),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: MuxisColors.border(isDark).withOpacity(0.7),
+                      ),
+                    ),
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.explore_rounded),
-                    label: 'Explore',
+                  child: NavigationBar(
+                    height: 62,
+                    selectedIndex: mobileNavIdx,
+                    labelBehavior:
+                        NavigationDestinationLabelBehavior.alwaysShow,
+                    backgroundColor: isDark
+                        ? MuxisColors.deepSpace.withOpacity(0.95)
+                        : Colors.white.withOpacity(0.96),
+                    indicatorColor: MuxisColors.accent(isDark)
+                        .withOpacity(0.18),
+                    onDestinationSelected: (idx) {
+                      setState(() {
+                        if (idx == 3) {
+                          _navIndex = 4;
+                        } else if (idx == 4) {
+                          _navIndex = 10;
+                        } else {
+                          _navIndex = idx;
+                        }
+                      });
+                    },
+                    destinations: const [
+                      NavigationDestination(
+                        icon: Icon(Icons.home_outlined),
+                        selectedIcon: Icon(Icons.home_rounded),
+                        label: 'Home',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.explore_outlined),
+                        selectedIcon: Icon(Icons.explore_rounded),
+                        label: 'Explore',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.search_rounded),
+                        selectedIcon: Icon(Icons.search_rounded),
+                        label: 'Search',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.library_music_outlined),
+                        selectedIcon: Icon(Icons.library_music_rounded),
+                        label: 'Library',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings_rounded),
+                        label: 'Settings',
+                      ),
+                    ],
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.search_rounded),
-                    label: 'Search',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.library_music_rounded),
-                    label: 'Library',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_rounded),
-                    label: 'Settings',
-                  ),
-                ],
+                ),
               )
             : null,
       ),

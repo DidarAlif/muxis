@@ -58,8 +58,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     final spotifySpotlight = _featuredSpotify.isNotEmpty
         ? _featuredSpotify
         : (accounts.spotify.recommendedTracks.isNotEmpty
-            ? accounts.spotify.recommendedTracks
-            : accounts.spotify.likedTracks);
+              ? accounts.spotify.recommendedTracks
+              : accounts.spotify.likedTracks);
 
     final moods = [
       {
@@ -99,7 +99,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           const SizedBox(height: 6),
           Text(
             'Browse curated genre stations, new lossless releases, and atmospheric soundscapes.',
-            style: TextStyle(fontSize: 14, color: MuxisColors.textSecondary(isDark)),
+            style: TextStyle(
+              fontSize: 14,
+              color: MuxisColors.textSecondary(isDark),
+            ),
           ),
           const SizedBox(height: 28),
 
@@ -214,8 +217,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           const SizedBox(height: 36),
 
           // YouTube Music Curated Hits
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Trending Global Hits (Ad-Free YouTube Music)',
@@ -246,10 +252,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           else
             LayoutBuilder(
               builder: (context, constraints) {
+                final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
                 final cardWidth = _responsiveCardWidth(constraints.maxWidth);
                 return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
+                  spacing: spacing,
+                  runSpacing: spacing,
                   children: _featuredYt.take(12).map((t) {
                     return MuxisCard(
                       width: cardWidth,
@@ -270,8 +277,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             const SizedBox(height: 36),
 
             // Spotify Featured Bridge
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   'Your Spotify Spotlight',
@@ -291,24 +301,21 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
             LayoutBuilder(
               builder: (context, constraints) {
+                final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
                 final cardWidth = _responsiveCardWidth(constraints.maxWidth);
                 return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
+                  spacing: spacing,
+                  runSpacing: spacing,
                   children: spotifySpotlight.take(12).map((t) {
                     return MuxisCard(
                       width: cardWidth,
                       title: t.title,
                       subtitle: t.artist,
                       artworkUrl: t.artworkUrl,
-                      onTap: () => audioService.playTrack(
-                        t,
-                        newQueue: spotifySpotlight,
-                      ),
-                      onPlayTap: () => audioService.playTrack(
-                        t,
-                        newQueue: spotifySpotlight,
-                      ),
+                      onTap: () =>
+                          audioService.playTrack(t, newQueue: spotifySpotlight),
+                      onPlayTap: () =>
+                          audioService.playTrack(t, newQueue: spotifySpotlight),
                     );
                   }).toList(),
                 );
@@ -321,11 +328,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   static double _responsiveCardWidth(double availableWidth) {
-    const double spacing = 16.0;
-    const double target = 172.0;
+    final bool isCompact = availableWidth < 520;
+    final double spacing = isCompact ? 12.0 : 16.0;
+    final double target = isCompact ? 152.0 : 172.0;
     final cols = ((availableWidth + spacing) / (target + spacing))
         .floor()
         .clamp(2, 7);
-    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(146.0, 210.0);
+    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(132.0, 210.0);
   }
 }

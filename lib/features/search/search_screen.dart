@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,8 +46,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.initState();
     ref.read(preferencesServiceProvider).getActiveSource().then((source) {
       if (mounted) {
-        if (source == 'youtube') setState(() => _filterSource = SearchFilterSource.youtube);
-        if (source == 'spotify') setState(() => _filterSource = SearchFilterSource.spotify);
+        if (source == 'youtube')
+          setState(() => _filterSource = SearchFilterSource.youtube);
+        if (source == 'spotify')
+          setState(() => _filterSource = SearchFilterSource.spotify);
       }
     });
   }
@@ -124,157 +127,184 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        Text('Search & Discovery', style: MuxisTypography.pageTitle(isDark: isDark)),
-        const SizedBox(height: 16),
+          Text(
+            'Search & Discovery',
+            style: MuxisTypography.pageTitle(isDark: isDark),
+          ),
+          const SizedBox(height: 16),
 
-        // Search Field
-        MuxisSearchField(
-          controller: _controller,
-          onChanged: _onSearch,
-          onSubmitted: (q) => _onSearch(q, immediate: true),
-          onClear: () => _onSearch('', immediate: true),
-        ),
-        const SizedBox(height: 14),
+          // Search Field
+          MuxisSearchField(
+            controller: _controller,
+            onChanged: _onSearch,
+            onSubmitted: (q) => _onSearch(q, immediate: true),
+            onClear: () => _onSearch('', immediate: true),
+          ),
+          const SizedBox(height: 14),
 
-        // Source Filter Chips
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _buildSourceChip('All Sources', SearchFilterSource.all, isDark),
-            _buildSourceChip('YouTube Music', SearchFilterSource.youtube, isDark, icon: Icons.smart_display_rounded),
-            _buildSourceChip('Spotify', SearchFilterSource.spotify, isDark, icon: Icons.graphic_eq_rounded),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        if (_isSearching)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
-            child: Center(
-              child: Column(
-                children: [
-                  CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(MuxisColors.electricCyan),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Querying ad-free global music streams...',
-                    style: TextStyle(fontSize: 13, color: MuxisColors.textMutedDark),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else if (_results.isNotEmpty) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Source Filter Chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Text(
-                'Search Results (${_results.length})',
-                style: MuxisTypography.sectionHeading(isDark: isDark),
+              _buildSourceChip('All Sources', SearchFilterSource.all, isDark),
+              _buildSourceChip(
+                'YouTube Music',
+                SearchFilterSource.youtube,
+                isDark,
+                icon: Icons.smart_display_rounded,
               ),
-              Text(
-                'Ad-free audio streaming ready',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
-                  color: MuxisColors.electricCyan.withOpacity(0.8),
-                ),
+              _buildSourceChip(
+                'Spotify',
+                SearchFilterSource.spotify,
+                isDark,
+                icon: Icons.graphic_eq_rounded,
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ...List.generate(_results.length, (i) {
-            final track = _results[i];
-            return MuxisTrackRow(
-              track: track,
-              index: i,
-              isPlaying:
-                  playback.currentTrack?.id == track.id && playback.isPlaying,
-              onTap: () => audioService.playTrack(track),
-              onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
-              onPlayNextTap: () =>
-                  audioService.addToQueue(track, playNext: true),
-              onAddToQueueTap: () => audioService.addToQueue(track),
-            );
-          }),
-        ] else if (_lastQuery.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.music_off_rounded,
-                    size: 40,
-                    color: MuxisColors.textMuted(isDark),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No matching songs found for "$_lastQuery"',
-                    style: MuxisTypography.sectionHeading(isDark: isDark),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Try searching by exact song title + artist name.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: MuxisColors.textSecondary(isDark),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ] else ...[
-          // Default Search Suggestions
-          Text(
-            'Popular Global Searches',
-            style: MuxisTypography.sectionHeading(isDark: isDark),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              'Daft Punk',
-              'The Weeknd',
-              'Queen Bohemian Rhapsody',
-              'Synthwave Cyberpunk',
-              'Lo-Fi Frequency',
-              'Hans Zimmer Interstellar',
-              'Despacito',
-              'Coldplay',
-            ]
-                .map(
-                  (term) => ActionChip(
-                    backgroundColor: isDark
-                        ? MuxisColors.elevatedSurface
-                        : MuxisColors.secondarySurface,
-                    label: Text(
-                      term,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white : Colors.black87,
+          const SizedBox(height: 24),
+
+          if (_isSearching)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        MuxisColors.electricCyan,
                       ),
                     ),
-                    onPressed: () {
-                      _controller.text = term;
-                      _onSearch(term);
-                    },
+                    SizedBox(height: 16),
+                    Text(
+                      'Querying ad-free global music streams...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: MuxisColors.textMutedDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_results.isNotEmpty) ...[
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Search Results (${_results.length})',
+                  style: MuxisTypography.sectionHeading(isDark: isDark),
+                ),
+                Text(
+                  'Ad-free audio streaming ready',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'JetBrains Mono',
+                    color: MuxisColors.electricCyan.withOpacity(0.8),
                   ),
-                )
-                .toList(),
-          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(_results.length, (i) {
+              final track = _results[i];
+              return MuxisTrackRow(
+                track: track,
+                index: i,
+                isPlaying:
+                    playback.currentTrack?.id == track.id && playback.isPlaying,
+                onTap: () => audioService.playTrack(track),
+                onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
+                onPlayNextTap: () =>
+                    audioService.addToQueue(track, playNext: true),
+                onAddToQueueTap: () => audioService.addToQueue(track),
+              );
+            }),
+          ] else if (_lastQuery.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.music_off_rounded,
+                      size: 40,
+                      color: MuxisColors.textMuted(isDark),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No matching songs found for "$_lastQuery"',
+                      style: MuxisTypography.sectionHeading(isDark: isDark),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Try searching by exact song title + artist name.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: MuxisColors.textSecondary(isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            // Default Search Suggestions
+            Text(
+              'Popular Global Searches',
+              style: MuxisTypography.sectionHeading(isDark: isDark),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children:
+                  [
+                        'Daft Punk',
+                        'The Weeknd',
+                        'Queen Bohemian Rhapsody',
+                        'Synthwave Cyberpunk',
+                        'Lo-Fi Frequency',
+                        'Hans Zimmer Interstellar',
+                        'Despacito',
+                        'Coldplay',
+                      ]
+                      .map(
+                        (term) => ActionChip(
+                          backgroundColor: isDark
+                              ? MuxisColors.elevatedSurface
+                              : MuxisColors.secondarySurface,
+                          label: Text(
+                            term,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          onPressed: () {
+                            _controller.text = term;
+                            _onSearch(term);
+                          },
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
         ],
-      ],
       ),
     );
   }
 
-  Widget _buildSourceChip(String label, SearchFilterSource source, bool isDark, {IconData? icon}) {
+  Widget _buildSourceChip(
+    String label,
+    SearchFilterSource source,
+    bool isDark, {
+    IconData? icon,
+  }) {
     final isSelected = _filterSource == source;
     return MuxisLiquidSurface(
       onTap: () {
@@ -288,12 +318,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       borderRadius: 16,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       colorOverride: isSelected
-          ? (isDark ? MuxisColors.electricCyan.withOpacity(0.2) : MuxisColors.electricCyan.withOpacity(0.15))
-          : (isDark ? MuxisColors.elevatedSurface : MuxisColors.secondarySurface),
+          ? (isDark
+                ? MuxisColors.electricCyan.withOpacity(0.2)
+                : MuxisColors.electricCyan.withOpacity(0.15))
+          : (isDark
+                ? MuxisColors.elevatedSurface
+                : MuxisColors.secondarySurface),
       borderOverride: Border.all(
         color: isSelected
             ? MuxisColors.electricCyan
-            : (isDark ? MuxisColors.subtleBorderDark : MuxisColors.subtleBorderLight),
+            : (isDark
+                  ? MuxisColors.subtleBorderDark
+                  : MuxisColors.subtleBorderLight),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -302,7 +338,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Icon(
               icon,
               size: 14,
-              color: isSelected ? MuxisColors.electricCyan : (isDark ? Colors.white70 : Colors.black54),
+              color: isSelected
+                  ? MuxisColors.electricCyan
+                  : (isDark ? Colors.white70 : Colors.black54),
             ),
             const SizedBox(width: 6),
           ],
@@ -311,7 +349,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected ? MuxisColors.electricCyan : (isDark ? Colors.white70 : Colors.black87),
+              color: isSelected
+                  ? MuxisColors.electricCyan
+                  : (isDark ? Colors.white70 : Colors.black87),
             ),
           ),
         ],

@@ -9,12 +9,12 @@ class MuxisScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => const {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.unknown,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.unknown,
+  };
 }
 
 /// Standardized vertical scroll container with its own ScrollController,
@@ -22,13 +22,9 @@ class MuxisScrollBehavior extends MaterialScrollBehavior {
 /// scrolling never stalls across views or conflicts with nested children.
 class MuxisScrollView extends StatefulWidget {
   final Widget child;
-  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? padding;
 
-  const MuxisScrollView({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-  });
+  const MuxisScrollView({super.key, required this.child, this.padding});
 
   @override
   State<MuxisScrollView> createState() => _MuxisScrollViewState();
@@ -45,18 +41,28 @@ class _MuxisScrollViewState extends State<MuxisScrollView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isMobile = width < 768;
+    final effectivePadding =
+        widget.padding ??
+        (isMobile
+            ? const EdgeInsets.fromLTRB(16, 14, 16, 20)
+            : const EdgeInsets.symmetric(horizontal: 32, vertical: 24));
+    final physics = isMobile
+        ? const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics())
+        : const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics());
+
     return Scrollbar(
       controller: _controller,
-      interactive: true,
-      thickness: 6,
+      interactive: !isMobile,
+      thickness: isMobile ? 3.5 : 6,
       radius: const Radius.circular(8),
       child: SingleChildScrollView(
         controller: _controller,
         primary: false,
-        padding: widget.padding,
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: ClampingScrollPhysics(),
-        ),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: effectivePadding,
+        physics: physics,
         child: widget.child,
       ),
     );

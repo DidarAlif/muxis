@@ -86,8 +86,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ? 'Connected to YouTube Music as ${result.displayName}! Synced ${result.playlistsImported} playlists & ${result.tracksImported} tracks.'
               : (result.errorMessage ?? 'YouTube Music sign-in cancelled.'),
         ),
-        backgroundColor:
-            result.isSuccess ? MuxisColors.success : MuxisColors.error,
+        backgroundColor: result.isSuccess
+            ? MuxisColors.success
+            : MuxisColors.error,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -107,8 +108,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ? 'Connected to Spotify as ${result.displayName}! Synced ${result.playlistsImported} playlists & ${result.tracksImported} tracks.'
               : (result.errorMessage ?? 'Spotify sign-in cancelled.'),
         ),
-        backgroundColor:
-            result.isSuccess ? MuxisColors.success : MuxisColors.error,
+        backgroundColor: result.isSuccess
+            ? MuxisColors.success
+            : MuxisColors.error,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -187,9 +189,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   // Internal / Advanced Manual Options (hidden cleanly inside accordion)
                   Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                    ),
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       title: Text(
@@ -259,8 +260,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                             await prefs.saveYtCookie(cookie);
                             await prefs.saveYtSapisid(sapisid);
-                            final oauth =
-                                ref.read(streamingOAuthServiceProvider);
+                            final oauth = ref.read(
+                              streamingOAuthServiceProvider,
+                            );
                             await oauth.syncYouTubeInnerTubeAccount();
 
                             if (ctx.mounted) Navigator.of(ctx).pop();
@@ -321,7 +323,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 .read(streamingOAuthServiceProvider)
                                 .signInWithYouTubeBrowser();
                             await _loadSettings();
-                            if (mounted && !res.isSuccess && res.errorMessage != null) {
+                            if (mounted &&
+                                !res.isSuccess &&
+                                res.errorMessage != null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(res.errorMessage!),
@@ -423,9 +427,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   // Internal / Advanced Developer Options (collapsed by default)
                   Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                    ),
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       title: Text(
@@ -465,7 +468,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             color: MuxisColors.textPrimary(isDark),
                           ),
                           decoration: InputDecoration(
-                            labelText: 'Custom Spotify Client Secret (Optional)',
+                            labelText:
+                                'Custom Spotify Client Secret (Optional)',
                             filled: true,
                             fillColor: MuxisColors.secondaryBg(isDark),
                             border: OutlineInputBorder(
@@ -492,7 +496,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 .read(streamingOAuthServiceProvider)
                                 .signInWithSpotifyBrowser();
                             await _loadSettings();
-                            if (mounted && !res.isSuccess && res.errorMessage != null) {
+                            if (mounted &&
+                                !res.isSuccess &&
+                                res.errorMessage != null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(res.errorMessage!),
@@ -543,14 +549,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Settings', style: MuxisTypography.pageTitle(isDark: isDark)),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // --- SECTION 1: ACTIVE STREAMING PLATFORM ---
           _buildSectionTitle('ACTIVE STREAMING PLATFORM', isDark),
           _buildCard(
             isDark,
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -562,10 +568,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      const gap = 12.0;
+                      const gap = 10.0;
                       final cols = constraints.maxWidth >= 620 ? 3 : 1;
                       final itemW = cols == 1
                           ? constraints.maxWidth
@@ -617,513 +623,352 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-        const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
-        // --- SECTION 2: STREAMING ACCOUNTS & SIGN-IN ---
-        _buildSectionTitle('STREAMING ACCOUNTS & INTEGRATIONS', isDark),
-        _buildCard(
-          isDark,
-          child: Column(
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: MuxisGradients.youtubePlatformGradient,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: accounts.youtube.avatarUrl != null &&
-                              accounts.youtube.avatarUrl!.isNotEmpty
-                          ? Image.network(
-                              accounts.youtube.avatarUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.smart_display_rounded,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.smart_display_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'YouTube Music',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: MuxisColors.textPrimary(isDark),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: hasYt
-                                      ? MuxisColors.accent(isDark)
-                                          .withOpacity(0.18)
-                                      : MuxisColors.youtubeRed
-                                          .withOpacity(0.14),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  hasYt ? 'LINKED • SYNCED' : 'NOT LINKED',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: hasYt
-                                        ? MuxisColors.accent(isDark)
-                                        : MuxisColors.youtubeRed,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            hasYt
-                                ? '${accounts.youtube.displayName ?? 'YouTube Account'} • ${accounts.youtube.playlists.length} playlists synced'
-                                : 'Log in via browser redirection to sync playlists, liked music, and stream ad-free.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: MuxisColors.textSecondary(isDark),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (hasYt) ...[
-                          IconButton(
-                            icon: Icon(
-                              Icons.sync_rounded,
-                              size: 20,
-                              color: MuxisColors.accent(isDark),
-                            ),
-                            tooltip: 'Sync YouTube Music',
-                            onPressed: () async {
-                              final msg =
-                                  await accountsNotifier.syncYouTubeLive();
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(msg),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.logout_rounded,
-                              size: 20,
-                              color: MuxisColors.textMuted(isDark),
-                            ),
-                            tooltip: 'Sign Out YouTube Music',
-                            onPressed: () async {
-                              await accountsNotifier.disconnectYouTube();
-                              await _loadSettings();
-                            },
-                          ),
-                        ],
-                        MuxisButton(
-                          label: hasYt ? 'Manage' : 'Sign In via Browser',
-                          variant: hasYt
-                              ? MuxisButtonVariant.secondary
-                              : MuxisButtonVariant.primary,
-                          height: 36,
-                          isLoading:
-                              _isBrowserAuthRunning || accounts.youtube.isSyncing,
-                          onPressed: hasYt
-                              ? _showYouTubeSignInDialog
-                              : _startYouTubeDirectBrowserLogin,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: MuxisColors.border(isDark)),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: MuxisGradients.spotifyPlatformGradient,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: accounts.spotify.avatarUrl != null &&
-                              accounts.spotify.avatarUrl!.isNotEmpty
-                          ? Image.network(
-                              accounts.spotify.avatarUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.graphic_eq_rounded,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.graphic_eq_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Spotify',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: MuxisColors.textPrimary(isDark),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: hasSp
-                                      ? MuxisColors.spotifyGreen
-                                          .withOpacity(0.18)
-                                      : Colors.grey.withOpacity(0.16),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  hasSp
-                                      ? (accounts.spotify.planBadge ?? 'LINKED')
-                                      : 'NOT LINKED',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: hasSp
-                                        ? MuxisColors.spotifyGreen
-                                        : MuxisColors.textMuted(isDark),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            hasSp
-                                ? '${accounts.spotify.displayName ?? 'Spotify Account'} • ${accounts.spotify.playlists.length} playlists synced'
-                                : 'Log in via browser redirection to import Spotify playlists & stream ad-free.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: MuxisColors.textSecondary(isDark),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (hasSp) ...[
-                          IconButton(
-                            icon: const Icon(
-                              Icons.sync_rounded,
-                              size: 20,
-                              color: MuxisColors.spotifyGreen,
-                            ),
-                            tooltip: 'Sync Spotify Playlists',
-                            onPressed: () async {
-                              final msg =
-                                  await accountsNotifier.syncSpotifyLive();
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(msg),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.logout_rounded,
-                              size: 20,
-                              color: MuxisColors.textMuted(isDark),
-                            ),
-                            tooltip: 'Disconnect Spotify',
-                            onPressed: () async {
-                              await accountsNotifier.disconnectSpotify();
-                              await _loadSettings();
-                            },
-                          ),
-                        ],
-                        MuxisButton(
-                          label: hasSp ? 'Manage' : 'Sign In via Browser',
-                          variant: hasSp
-                              ? MuxisButtonVariant.secondary
-                              : MuxisButtonVariant.primary,
-                          height: 36,
-                          isLoading:
-                              _isBrowserAuthRunning || accounts.spotify.isSyncing,
-                          onPressed: hasSp
-                              ? _showSpotifySignInDialog
-                              : _startSpotifyDirectBrowserLogin,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // --- SECTION 3: APPEARANCE & THEME ---
-        _buildSectionTitle('APPEARANCE', isDark),
-        _buildCard(
-          isDark,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // --- SECTION 2: STREAMING ACCOUNTS & SIGN-IN ---
+          _buildSectionTitle('STREAMING ACCOUNTS & INTEGRATIONS', isDark),
+          _buildCard(
+            isDark,
+            child: Column(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Theme Mode',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: MuxisColors.textPrimary(isDark),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              gradient: MuxisGradients.youtubePlatformGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child:
+                                accounts.youtube.avatarUrl != null &&
+                                    accounts.youtube.avatarUrl!.isNotEmpty
+                                ? Image.network(
+                                    accounts.youtube.avatarUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.smart_display_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.smart_display_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'YouTube Music',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: MuxisColors.textPrimary(isDark),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: hasYt
+                                            ? MuxisColors.accent(isDark)
+                                                  .withOpacity(0.18)
+                                            : MuxisColors.youtubeRed
+                                                  .withOpacity(0.14),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        hasYt
+                                            ? 'LINKED • SYNCED'
+                                            : 'NOT LINKED',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: hasYt
+                                              ? MuxisColors.accent(isDark)
+                                              : MuxisColors.youtubeRed,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  hasYt
+                                      ? '${accounts.youtube.displayName ?? 'YouTube Account'} • ${accounts.youtube.playlists.length} playlists synced'
+                                      : 'Log in via browser redirection to sync playlists, liked music, and stream ad-free.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: MuxisColors.textSecondary(isDark),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Aligned Luminous Aurora Light Glass & Dark Obsidian Glass',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: MuxisColors.textSecondary(isDark),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (hasYt) ...[
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.sync_rounded,
+                                size: 20,
+                                color: MuxisColors.accent(isDark),
+                              ),
+                              tooltip: 'Sync YouTube Music',
+                              onPressed: () async {
+                                final msg = await accountsNotifier
+                                    .syncYouTubeLive();
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(msg),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.logout_rounded,
+                                size: 20,
+                                color: MuxisColors.textMuted(isDark),
+                              ),
+                              tooltip: 'Sign Out YouTube Music',
+                              onPressed: () async {
+                                await accountsNotifier.disconnectYouTube();
+                                await _loadSettings();
+                              },
+                            ),
+                          ],
+                          MuxisButton(
+                            label: hasYt ? 'Manage' : 'Sign In via Browser',
+                            variant: hasYt
+                                ? MuxisButtonVariant.secondary
+                                : MuxisButtonVariant.primary,
+                            height: 34,
+                            isLoading:
+                                _isBrowserAuthRunning ||
+                                accounts.youtube.isSyncing,
+                            onPressed: hasYt
+                                ? _showYouTubeSignInDialog
+                                : _startYouTubeDirectBrowserLogin,
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                DropdownButton<ThemeMode>(
-                  value: themeMode,
-                  dropdownColor: MuxisColors.surface(isDark),
-                  style: TextStyle(color: MuxisColors.textPrimary(isDark)),
-                  underline: const SizedBox(),
-                  onChanged: (mode) {
-                    if (mode != null) themeNotifier.setTheme(mode);
-                  },
-                  items: const [
-                    DropdownMenuItem(
-                      value: ThemeMode.dark,
-                      child: Text('Dark Obsidian'),
-                    ),
-                    DropdownMenuItem(
-                      value: ThemeMode.light,
-                      child: Text('Light Aurora Glass'),
-                    ),
-                    DropdownMenuItem(
-                      value: ThemeMode.system,
-                      child: Text('System Appearance'),
-                    ),
-                  ],
+                Divider(height: 1, color: MuxisColors.border(isDark)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              gradient: MuxisGradients.spotifyPlatformGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child:
+                                accounts.spotify.avatarUrl != null &&
+                                    accounts.spotify.avatarUrl!.isNotEmpty
+                                ? Image.network(
+                                    accounts.spotify.avatarUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.graphic_eq_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.graphic_eq_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Spotify',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: MuxisColors.textPrimary(isDark),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: hasSp
+                                            ? MuxisColors.spotifyGreen
+                                                  .withOpacity(0.18)
+                                            : Colors.grey.withOpacity(0.16),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        hasSp
+                                            ? (accounts.spotify.planBadge ??
+                                                  'LINKED')
+                                            : 'NOT LINKED',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: hasSp
+                                              ? MuxisColors.spotifyGreen
+                                              : MuxisColors.textMuted(isDark),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  hasSp
+                                      ? '${accounts.spotify.displayName ?? 'Spotify Account'} • ${accounts.spotify.playlists.length} playlists synced'
+                                      : 'Log in via browser redirection to import Spotify playlists & stream ad-free.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: MuxisColors.textSecondary(isDark),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (hasSp) ...[
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.sync_rounded,
+                                size: 20,
+                                color: MuxisColors.spotifyGreen,
+                              ),
+                              tooltip: 'Sync Spotify Playlists',
+                              onPressed: () async {
+                                final msg = await accountsNotifier
+                                    .syncSpotifyLive();
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(msg),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.logout_rounded,
+                                size: 20,
+                                color: MuxisColors.textMuted(isDark),
+                              ),
+                              tooltip: 'Disconnect Spotify',
+                              onPressed: () async {
+                                await accountsNotifier.disconnectSpotify();
+                                await _loadSettings();
+                              },
+                            ),
+                          ],
+                          MuxisButton(
+                            label: hasSp ? 'Manage' : 'Sign In via Browser',
+                            variant: hasSp
+                                ? MuxisButtonVariant.secondary
+                                : MuxisButtonVariant.primary,
+                            height: 34,
+                            isLoading:
+                                _isBrowserAuthRunning ||
+                                accounts.spotify.isSyncing,
+                            onPressed: hasSp
+                                ? _showSpotifySignInDialog
+                                : _startSpotifyDirectBrowserLogin,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ),
 
-        const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
-        // --- SECTION 4: AUDIO FIDELITY & ENGINE ---
-        _buildSectionTitle('AUDIO FIDELITY & ENGINE', isDark),
-        _buildCard(
-          isDark,
-          child: Column(
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Streaming Quality',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: MuxisColors.textPrimary(isDark),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Target output audio bitrate and decoding format',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: MuxisColors.textSecondary(isDark),
-                          ),
-                        ),
-                      ],
-                    ),
-                    DropdownButton<String>(
-                      value: _audioQuality,
-                      dropdownColor: MuxisColors.surface(isDark),
-                      style: TextStyle(color: MuxisColors.textPrimary(isDark)),
-                      underline: const SizedBox(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _audioQuality = val);
-                          ref
-                              .read(preferencesServiceProvider)
-                              .saveAudioQuality(val);
-                        }
-                      },
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'FLAC 24-bit Lossless',
-                          child: Text('FLAC 24-bit Lossless'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'High Fidelity (AAC 256kbps / Opus)',
-                          child: Text('High Fidelity (AAC 256kbps / Opus)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Standard (AAC 130kbps)',
-                          child: Text('Standard (AAC 130kbps)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Data Saver (96 kbps)',
-                          child: Text('Data Saver (96 kbps)'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: MuxisColors.border(isDark)),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hardware Audio Engine',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: MuxisColors.textPrimary(isDark),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Direct hardware output via JustAudio & Media Foundation',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: MuxisColors.textSecondary(isDark),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: MuxisColors.accent(isDark).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'WASAPI / COREAUDIO ACTIVE',
-                        style: TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: MuxisColors.accent(isDark),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // --- SECTION 5: STORAGE & CACHE ---
-        _buildSectionTitle('STORAGE & CACHE', isDark),
-        _buildCard(
-          isDark,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: MuxisColors.secondaryBg(isDark),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: MuxisColors.border(isDark)),
-                  ),
-                  child: Icon(
-                    Icons.storage_rounded,
-                    color: MuxisColors.accent(isDark),
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
+          // --- SECTION 3: APPEARANCE & THEME ---
+          _buildSectionTitle('APPEARANCE', isDark),
+          _buildCard(
+            isDark,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Offline Database & Stream Cache',
+                        'Theme Mode',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -1132,7 +977,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Database: ${(_dbSizeBytes / 1024).toStringAsFixed(1)} KB • Temporary streaming and artwork buffers',
+                        'Aligned Luminous Aurora Light Glass & Dark Obsidian Glass',
                         style: TextStyle(
                           fontSize: 12,
                           color: MuxisColors.textSecondary(isDark),
@@ -1140,93 +985,310 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 16),
-                MuxisButton(
-                  label: 'Clear Cache',
-                  variant: MuxisButtonVariant.secondary,
-                  height: 36,
-                  onPressed: () async {
-                    final db = ref.read(databaseServiceProvider);
-                    await db.clearCache();
-                    if (mounted) {
-                      _loadSettings();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Temporary audio and artwork cache successfully cleared',
-                          ),
-                          backgroundColor: MuxisColors.success,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
+                  DropdownButton<ThemeMode>(
+                    value: themeMode,
+                    dropdownColor: MuxisColors.surface(isDark),
+                    style: TextStyle(color: MuxisColors.textPrimary(isDark)),
+                    underline: const SizedBox(),
+                    onChanged: (mode) {
+                      if (mode != null) themeNotifier.setTheme(mode);
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: ThemeMode.dark,
+                        child: Text('Dark Obsidian'),
+                      ),
+                      DropdownMenuItem(
+                        value: ThemeMode.light,
+                        child: Text('Light Aurora Glass'),
+                      ),
+                      DropdownMenuItem(
+                        value: ThemeMode.system,
+                        child: Text('System Appearance'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
 
-        const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
-        // --- SECTION 6: ABOUT MUXIS ---
-        _buildSectionTitle('ABOUT MUXIS', isDark),
-        _buildCard(
-          isDark,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+          // --- SECTION 4: AUDIO FIDELITY & ENGINE ---
+          _buildSectionTitle('AUDIO FIDELITY & ENGINE', isDark),
+          _buildCard(
+            isDark,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.asset(
-                        'assets/brand/app_icon_1024.png',
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.high,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Streaming Quality',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Target output audio bitrate and decoding format',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: MuxisColors.textSecondary(isDark),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'MUXIS',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 3,
-                        color: MuxisColors.accent(isDark),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'v1.1.6 (Official Brand Identity, Liquid Glass UX & Full YT Sync)',
-                        overflow: TextOverflow.ellipsis,
+                      DropdownButton<String>(
+                        value: _audioQuality,
+                        dropdownColor: MuxisColors.surface(isDark),
                         style: TextStyle(
-                          fontSize: 12,
-                          color: MuxisColors.textMuted(isDark),
+                          color: MuxisColors.textPrimary(isDark),
+                        ),
+                        underline: const SizedBox(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _audioQuality = val);
+                            ref
+                                .read(preferencesServiceProvider)
+                                .saveAudioQuality(val);
+                          }
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'FLAC 24-bit Lossless',
+                            child: Text('FLAC 24-bit Lossless'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'High Fidelity (AAC 256kbps / Opus)',
+                            child: Text('High Fidelity (AAC 256kbps / Opus)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Standard (AAC 130kbps)',
+                            child: Text('Standard (AAC 130kbps)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Data Saver (96 kbps)',
+                            child: Text('Data Saver (96 kbps)'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: MuxisColors.border(isDark)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hardware Audio Engine',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Direct hardware output via JustAudio & Media Foundation',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: MuxisColors.textSecondary(isDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: MuxisColors.accent(isDark).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'WASAPI / COREAUDIO ACTIVE',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: MuxisColors.accent(isDark),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Cross-Platform Music Streaming & Local Player with Luminous Aurora Liquid Glass design, automatic browser authentication for YouTube Music and Spotify, dedicated per-platform streaming hubs, 10-band studio DSP, and kinetic audio spectrum visualization.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: MuxisColors.textSecondary(isDark),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
+
+          const SizedBox(height: 22),
+
+          // --- SECTION 5: STORAGE & CACHE ---
+          _buildSectionTitle('STORAGE & CACHE', isDark),
+          _buildCard(
+            isDark,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: MuxisColors.secondaryBg(isDark),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: MuxisColors.border(isDark)),
+                        ),
+                        child: Icon(
+                          Icons.storage_rounded,
+                          color: MuxisColors.accent(isDark),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Offline Database & Stream Cache',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: MuxisColors.textPrimary(isDark),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Database: ${(_dbSizeBytes / 1024).toStringAsFixed(1)} KB • Temporary streaming and artwork buffers',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: MuxisColors.textSecondary(isDark),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  MuxisButton(
+                    label: 'Clear Cache',
+                    variant: MuxisButtonVariant.secondary,
+                    height: 34,
+                    onPressed: () async {
+                      final db = ref.read(databaseServiceProvider);
+                      await db.clearCache();
+                      if (mounted) {
+                        _loadSettings();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Temporary audio and artwork cache successfully cleared',
+                            ),
+                            backgroundColor: MuxisColors.success,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          // --- SECTION 6: ABOUT MUXIS ---
+          _buildSectionTitle('ABOUT MUXIS', isDark),
+          _buildCard(
+            isDark,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.asset(
+                          'assets/brand/app_icon_1024.png',
+                          width: 38,
+                          height: 38,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      ),
+                      Text(
+                        'MUXIS',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                          color: MuxisColors.accent(isDark),
+                        ),
+                      ),
+                      Text(
+                        'v1.1.7 • Official Brand Identity, Windows Setup & Mobile UX',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: MuxisColors.textMuted(isDark),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Cross-Platform Music Streaming & Local Player with Luminous Aurora Liquid Glass design, automatic browser authentication for YouTube Music and Spotify, dedicated per-platform streaming hubs, 10-band studio DSP, and kinetic audio spectrum visualization.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: MuxisColors.textSecondary(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1244,17 +1306,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return MuxisLiquidSurface(
       onTap: () async {
         setState(() => _activeSource = id);
-        await ref
-            .read(streamingAccountsProvider.notifier)
-            .setActiveSource(id);
+        await ref.read(streamingAccountsProvider.notifier).setActiveSource(id);
       },
       enableGlass: false,
       blurSigma: 0,
       borderRadius: 12,
       accentColor: activeColor,
       padding: const EdgeInsets.all(14),
-      colorOverride:
-          isSelected ? activeColor.withOpacity(0.14) : Colors.transparent,
+      colorOverride: isSelected
+          ? activeColor.withOpacity(0.14)
+          : Colors.transparent,
       borderOverride: Border.all(
         color: isSelected ? activeColor : MuxisColors.border(isDark),
         width: isSelected ? 1.5 : 1,
@@ -1267,8 +1328,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Icon(
                 icon,
                 size: 18,
-                color:
-                    isSelected ? activeColor : MuxisColors.textMuted(isDark),
+                color: isSelected ? activeColor : MuxisColors.textMuted(isDark),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1292,8 +1352,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle,
             style: TextStyle(
               fontSize: 11,
-              color:
-                  isSelected ? activeColor : MuxisColors.textMuted(isDark),
+              color: isSelected ? activeColor : MuxisColors.textMuted(isDark),
             ),
           ),
         ],

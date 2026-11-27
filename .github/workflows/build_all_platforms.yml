@@ -50,16 +50,33 @@ jobs:
       - name: Build Windows Executable
         run: flutter build windows --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
-      - name: Package Windows Release ZIP
+      - name: Package Windows Release ZIP & Installer
         shell: pwsh
         run: |
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Muxis-Windows-x64.zip -Force
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+            if ($cmd) { $iscc = $cmd.Source }
+          }
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+            if ($cmd) { $iscc = $cmd.Source }
+          }
+          if (-not (Test-Path $iscc)) {
+            throw "Inno Setup compiler not found at $iscc"
+          }
+          & $iscc "/DOutputBaseName=Muxis-Windows-x64-Setup" "installer\windows\muxis_setup.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Muxis-Windows-x64
-          path: Muxis-Windows-x64.zip
+          path: |
+            Muxis-Windows-x64-Setup.exe
+            Muxis-Windows-x64.zip
           retention-days: 14
 
   build-macos:
@@ -173,6 +190,9 @@ jobs:
         run: |
           cp -rf assets/brand/icons/android/mipmap-* android/app/src/main/res/
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          if [ -f android/app/src/main/AndroidManifest.xml ]; then
+            sed -i 's/android:label="muxis"/android:label="MUXIS"/g' android/app/src/main/AndroidManifest.xml
+          fi
 
       - name: Upgrade Android Gradle Plugin for WebView AAR
         run: |

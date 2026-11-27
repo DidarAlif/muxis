@@ -30,50 +30,49 @@ class PlaylistDetailScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        // Back Button
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            icon: const Icon(Icons.arrow_back_rounded, size: 18),
-            label: const Text('Back'),
-            onPressed: onBack,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Playlist Header
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // Cover Art
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: MuxisGradients.auroraSpectrum,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x33000000),
-                    blurRadius: 18,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.playlist_play_rounded,
-                  size: 72,
-                  color: Colors.white,
-                ),
-              ),
+          // Back Button
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('Back'),
+              onPressed: onBack,
             ),
-            const SizedBox(width: 24),
+          ),
+          const SizedBox(height: 12),
 
-            // Metadata
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Playlist Header
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 560;
+              final coverSize = isCompact ? 132.0 : 180.0;
+              final coverArt = Container(
+                width: coverSize,
+                height: coverSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: MuxisGradients.auroraSpectrum,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.playlist_play_rounded,
+                    size: isCompact ? 54 : 72,
+                    color: Colors.white,
+                  ),
+                ),
+              );
+
+              final metadata = Column(
+                crossAxisAlignment: isCompact
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'PLAYLIST',
@@ -88,25 +87,34 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 6),
                   Text(
                     playlist.title,
-                    style: MuxisTypography.displayHero(isDark: isDark),
+                    textAlign: isCompact ? TextAlign.center : TextAlign.start,
+                    style: isCompact
+                        ? MuxisTypography.pageTitle(isDark: isDark)
+                        : MuxisTypography.displayHero(isDark: isDark),
                   ),
                   if (playlist.description != null) ...[
                     const SizedBox(height: 8),
                     Text(
                       playlist.description!,
+                      textAlign: isCompact ? TextAlign.center : TextAlign.start,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: MuxisColors.textSecondary(isDark),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Text(
                     '${playlist.trackCount} tracks • ${_formatDuration(playlist.totalDuration)}',
                     style: MuxisTypography.timecode(isDark: isDark),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    alignment: isCompact
+                        ? WrapAlignment.center
+                        : WrapAlignment.start,
                     children: [
                       MuxisButton(
                         label: 'Play',
@@ -115,7 +123,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                           color: isDark ? Colors.black : Colors.white,
                         ),
                         variant: MuxisButtonVariant.primary,
-                        height: 38,
+                        height: isCompact ? 34 : 38,
                         onPressed: () {
                           if (playlist.tracks.isNotEmpty) {
                             audioService.playTrack(
@@ -125,12 +133,11 @@ class PlaylistDetailScreen extends ConsumerWidget {
                           }
                         },
                       ),
-                      const SizedBox(width: 12),
                       MuxisButton(
                         label: 'Shuffle',
-                        icon: const Icon(Icons.shuffle_rounded, size: 18),
+                        icon: const Icon(Icons.shuffle_rounded, size: 17),
                         variant: MuxisButtonVariant.secondary,
-                        height: 38,
+                        height: isCompact ? 34 : 38,
                         onPressed: () {
                           if (playlist.tracks.isNotEmpty) {
                             audioService.toggleShuffle();
@@ -144,28 +151,44 @@ class PlaylistDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
+              );
 
-        const SizedBox(height: 36),
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [coverArt, const SizedBox(height: 16), metadata],
+                );
+              }
 
-        // Track Table
-        ...List.generate(playlist.tracks.length, (i) {
-          final track = playlist.tracks[i];
-          return MuxisTrackRow(
-            track: track,
-            index: i,
-            isPlaying:
-                playback.currentTrack?.id == track.id && playback.isPlaying,
-            onTap: () =>
-                audioService.playTrack(track, newQueue: playlist.tracks),
-            onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
-            onPlayNextTap: () => audioService.addToQueue(track, playNext: true),
-            onAddToQueueTap: () => audioService.addToQueue(track),
-          );
-        }),
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  coverArt,
+                  const SizedBox(width: 24),
+                  Expanded(child: metadata),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 36),
+
+          // Track Table
+          ...List.generate(playlist.tracks.length, (i) {
+            final track = playlist.tracks[i];
+            return MuxisTrackRow(
+              track: track,
+              index: i,
+              isPlaying:
+                  playback.currentTrack?.id == track.id && playback.isPlaying,
+              onTap: () =>
+                  audioService.playTrack(track, newQueue: playlist.tracks),
+              onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
+              onPlayNextTap: () =>
+                  audioService.addToQueue(track, playNext: true),
+              onAddToQueueTap: () => audioService.addToQueue(track),
+            );
+          }),
         ],
       ),
     );

@@ -78,6 +78,9 @@ jobs:
         run: |
           cp -rf assets/brand/icons/android/mipmap-* android/app/src/main/res/
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          if [ -f android/app/src/main/AndroidManifest.xml ]; then
+            sed -i 's/android:label="muxis"/android:label="MUXIS"/g' android/app/src/main/AndroidManifest.xml
+          fi
 
       - name: Upgrade Android Gradle Plugin for WebView AAR
         if: matrix.platform.target == 'android'
@@ -101,6 +104,26 @@ jobs:
           flutter build windows --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Muxis-Windows-x64-${{ github.ref_name }}.zip -Force
           Copy-Item Muxis-Windows-x64-${{ github.ref_name }}.zip Muxis-Windows-x64.zip -Force
+
+          # Build Standard Windows Installer (.exe) via Inno Setup
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+            if ($cmd) { $iscc = $cmd.Source }
+          }
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+            if ($cmd) { $iscc = $cmd.Source }
+          }
+          if (-not (Test-Path $iscc)) {
+            throw "Inno Setup compiler not found at $iscc"
+          }
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($ver)) { $ver = "1.1.7" }
+          & $iscc "/DMyAppVersion=$ver" "/DOutputBaseName=Muxis-Windows-x64-Setup-${{ github.ref_name }}" "installer\windows\muxis_setup.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          Copy-Item "Muxis-Windows-x64-Setup-${{ github.ref_name }}.exe" "Muxis-Windows-x64-Setup.exe" -Force
 
       # Build macOS
       - name: Build macOS
@@ -140,6 +163,7 @@ jobs:
           path: |
             Muxis-*-${{ github.ref_name }}.*
             Muxis-Windows-x64.zip
+            Muxis-Windows-x64-Setup.exe
             Muxis-macOS-Universal.zip
             Muxis-Linux-x64.tar.gz
             Muxis-Android.apk

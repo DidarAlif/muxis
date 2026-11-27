@@ -84,393 +84,450 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final accounts = ref.watch(streamingAccountsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
     return MuxisScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        // --- 1. HERO FEATURED PRISMATIC BANNER ---
-        Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: isDark
-                ? MuxisGradients.auroraSpectrum
-                : MuxisGradients.auroraLightHero,
-            boxShadow: [
-              BoxShadow(
-                color: (isDark
-                        ? MuxisColors.neonGreen
-                        : MuxisColors.neonGreenLight)
-                    .withOpacity(0.28),
-                blurRadius: 28,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _heroBadge(
-                          accounts.hasAnyConnected
-                              ? '${accounts.connectedCount} STREAM PLATFORM${accounts.connectedCount == 2 ? 'S' : ''} LINKED'
-                              : 'MULTI-PLATFORM AD-FREE AUDIO',
-                        ),
-                        if (accounts.youtube.isConnected)
-                          _heroBadge('YT MUSIC LIVE'),
-                        if (accounts.spotify.isConnected)
-                          _heroBadge('SPOTIFY BRIDGE LIVE'),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Prismatic Horizons',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.black : Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      accounts.hasAnyConnected
-                          ? 'Your connected streaming libraries are synced below and ready for instant ad-free playback.'
-                          : 'Sign in through the web browser to link YouTube Music, Spotify, or both and stream seamlessly without ads.',
-                      maxLines: 2,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark
-                            ? const Color(0xCC000000)
-                            : Colors.white.withOpacity(0.92),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 10,
-                      children: [
-                        MuxisButton(
-                          label: 'Play Spotlight',
-                          icon: Icon(
-                            Icons.play_arrow_rounded,
-                            color: isDark ? Colors.white : MuxisColors.textPrimaryLight,
-                          ),
-                          variant: MuxisButtonVariant.secondary,
-                          height: 38,
-                          onPressed: () {
-                            if (playback.queue.isNotEmpty) {
-                              audioService.playTrack(playback.queue[0]);
-                            } else if (accounts.youtube.recommendedTracks.isNotEmpty) {
-                              audioService.playTrack(
-                                accounts.youtube.recommendedTracks[0],
-                                newQueue: accounts.youtube.recommendedTracks,
-                              );
-                            } else if (_trendingTracks.isNotEmpty) {
-                              audioService.playTrack(
-                                _trendingTracks[0],
-                                newQueue: _trendingTracks,
-                              );
-                            }
-                          },
-                        ),
-                        MuxisButton(
-                          label: 'Search Catalog',
-                          variant: MuxisButtonVariant.liquidGlass,
-                          height: 38,
-                          onPressed: () => widget.onNavigate(2),
-                        ),
-                      ],
-                    ),
-                  ],
+          // --- 1. HERO FEATURED PRISMATIC BANNER ---
+          Container(
+            padding: EdgeInsets.all(isMobile ? 18 : 28),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
+              gradient: isDark
+                  ? MuxisGradients.auroraSpectrum
+                  : MuxisGradients.auroraLightHero,
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      (isDark
+                              ? MuxisColors.neonGreen
+                              : MuxisColors.neonGreenLight)
+                          .withOpacity(0.28),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
                 ),
-              ),
-              const SizedBox(width: 24),
-              Container(
-                width: 116,
-                height: 116,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.32),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  'assets/brand/app_icon_1024.png',
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 28),
-
-        // --- 2. QUICK CONNECT PLATFORM BANNER (Shown when < 2 platforms linked) ---
-        if (!accounts.youtube.isConnected || !accounts.spotify.isConnected)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                accounts.hasAnyConnected
-                    ? 'Link Another Platform'
-                    : 'Connect Streaming Platforms',
-                style: MuxisTypography.sectionHeading(isDark: isDark),
-              ),
-              const SizedBox(height: 12),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final both = !accounts.youtube.isConnected &&
-                      !accounts.spotify.isConnected;
-                  final twoCols = both && constraints.maxWidth >= 680;
-                  final cardWidth = twoCols
-                      ? (constraints.maxWidth - 16) / 2
-                      : constraints.maxWidth;
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 14,
-                    children: [
-                      if (!accounts.youtube.isConnected)
-                        SizedBox(
-                          width: cardWidth,
-                          child: _buildConnectPlatformCard(
-                            title: 'YouTube Music',
-                            subtitle:
-                                'Browser sign-in • Sync playlists, likes & ad-free 256kbps',
-                            icon: Icons.smart_display_rounded,
-                            gradient: MuxisGradients.youtubePlatformGradient,
-                            isLoading: accounts.youtube.isSyncing,
-                            isDark: isDark,
-                            onConnect: () => _connectPlatform('youtube'),
-                          ),
-                        ),
-                      if (!accounts.spotify.isConnected)
-                        SizedBox(
-                          width: cardWidth,
-                          child: _buildConnectPlatformCard(
-                            title: 'Spotify',
-                            subtitle:
-                                'Browser sign-in • Import your playlists & stream via audio bridge',
-                            icon: Icons.graphic_eq_rounded,
-                            gradient: MuxisGradients.spotifyPlatformGradient,
-                            isLoading: accounts.spotify.isSyncing,
-                            isDark: isDark,
-                            onConnect: () => _connectPlatform('spotify'),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 30),
-            ],
-          ),
-
-        // --- 3. DYNAMIC LINKED STREAMING SECTION(S) (1 section if 1 linked, 2 sections if 2 linked) ---
-        if (accounts.youtube.isConnected) ...[
-          _buildLinkedPlatformSection(
-            title: 'YouTube Music — Your Stream Hub',
-            subtitle:
-                '${accounts.youtube.displayName ?? 'Connected'} • ${accounts.youtube.playlists.length} Playlists',
-            brandColor: MuxisColors.youtubeRed,
-            tracks: accounts.youtube.recommendedTracks.isNotEmpty
-                ? accounts.youtube.recommendedTracks
-                : accounts.youtube.likedTracks,
-            playlists: accounts.youtube.playlists,
-            navDestination: 11,
-            isDark: isDark,
-            audioService: audioService,
-          ),
-          const SizedBox(height: 32),
-        ],
-
-        if (accounts.spotify.isConnected) ...[
-          _buildLinkedPlatformSection(
-            title: 'Spotify — Your Stream Hub',
-            subtitle:
-                '${accounts.spotify.displayName ?? 'Connected'} • ${accounts.spotify.playlists.length} Playlists',
-            brandColor: MuxisColors.spotifyGreen,
-            tracks: accounts.spotify.recommendedTracks.isNotEmpty
-                ? accounts.spotify.recommendedTracks
-                : accounts.spotify.likedTracks,
-            playlists: accounts.spotify.playlists,
-            navDestination: 12,
-            isDark: isDark,
-            audioService: audioService,
-          ),
-          const SizedBox(height: 32),
-        ],
-
-        // --- 4. TRENDING WORLDWIDE SPOTLIGHT ---
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Trending Worldwide (Ad-Free Streaming)',
-              style: MuxisTypography.sectionHeading(isDark: isDark),
+              ],
             ),
-            TextButton(
-              onPressed: () => widget.onNavigate(1),
-              child: Text(
-                'Explore All Stations',
-                style: TextStyle(
-                  color: MuxisColors.accent(isDark),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        if (_loadingTrending)
-          const Center(child: CircularProgressIndicator())
-        else if (_trendingTracks.isEmpty)
-          MuxisGlassCard(
-            padding: const EdgeInsets.all(20),
-            borderRadius: 16,
-            child: Text(
-              'Unable to load live trending tracks right now. Try Search or sync a streaming account above.',
-              style: TextStyle(
-                fontSize: 13,
-                color: MuxisColors.textSecondary(isDark),
-              ),
-            ),
-          )
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final visible = _trendingTracks.take(12).toList();
-              final cardWidth = _responsiveCardWidth(constraints.maxWidth);
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: visible.map((track) {
-                  return MuxisCard(
-                    width: cardWidth,
-                    title: track.title,
-                    subtitle: track.artist,
-                    artworkUrl: track.artworkUrl,
-                    onTap: () =>
-                        audioService.playTrack(track, newQueue: _trendingTracks),
-                    onPlayTap: () =>
-                        audioService.playTrack(track, newQueue: _trendingTracks),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-
-        const SizedBox(height: 36),
-
-        // --- 5. QUEUED TRACKS LIST ---
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Active Audio Queue',
-              style: MuxisTypography.sectionHeading(isDark: isDark),
-            ),
-            TextButton(
-              onPressed: () => widget.onNavigate(4),
-              child: Text(
-                'View Local Library',
-                style: TextStyle(
-                  color: MuxisColors.accent(isDark),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        if (playback.queue.isEmpty)
-          MuxisGlassCard(
-            padding: const EdgeInsets.all(22),
-            borderRadius: 16,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.playlist_play_rounded,
-                  size: 36,
-                  color: MuxisColors.accent(isDark),
-                ),
-                const SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      Row(
+                        children: [
+                          if (isMobile) ...[
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.24),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Image.asset(
+                                'assets/brand/app_icon_1024.png',
+                                fit: BoxFit.cover,
+                                filterQuality: FilterQuality.high,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                _heroBadge(
+                                  accounts.hasAnyConnected
+                                      ? '${accounts.connectedCount} STREAM PLATFORM${accounts.connectedCount == 2 ? 'S' : ''} LINKED'
+                                      : 'MULTI-PLATFORM AD-FREE AUDIO',
+                                ),
+                                if (accounts.youtube.isConnected)
+                                  _heroBadge('YT MUSIC LIVE'),
+                                if (accounts.spotify.isConnected)
+                                  _heroBadge('SPOTIFY BRIDGE LIVE'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: isMobile ? 10 : 12),
                       Text(
-                        'Queue is Ready',
-                        style: MuxisTypography.cardTitle(isDark: isDark),
+                        'Prismatic Horizons',
+                        style: TextStyle(
+                          fontSize: isMobile ? 22 : 28,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.black : Colors.white,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Tap any track above or open a linked streaming platform to listen immediately.',
+                        accounts.hasAnyConnected
+                            ? 'Your connected streaming libraries are synced below and ready for instant ad-free playback.'
+                            : 'Sign in through the web browser to link YouTube Music, Spotify, or both and stream seamlessly without ads.',
+                        maxLines: isMobile ? 3 : 2,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: MuxisColors.textSecondary(isDark),
+                          fontSize: isMobile ? 12 : 13,
+                          fontWeight: FontWeight.w500,
+                          color: isDark
+                              ? const Color(0xCC000000)
+                              : Colors.white.withOpacity(0.92),
                         ),
+                      ),
+                      SizedBox(height: isMobile ? 12 : 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        children: [
+                          MuxisButton(
+                            label: 'Play Spotlight',
+                            icon: Icon(
+                              Icons.play_arrow_rounded,
+                              color: isDark ? Colors.black : Colors.white,
+                            ),
+                            variant: MuxisButtonVariant.secondary,
+                            height: isMobile ? 34 : 38,
+                            onPressed: () {
+                              if (playback.queue.isNotEmpty) {
+                                audioService.playTrack(playback.queue[0]);
+                              } else if (accounts
+                                  .youtube
+                                  .recommendedTracks
+                                  .isNotEmpty) {
+                                audioService.playTrack(
+                                  accounts.youtube.recommendedTracks[0],
+                                  newQueue: accounts.youtube.recommendedTracks,
+                                );
+                              } else if (_trendingTracks.isNotEmpty) {
+                                audioService.playTrack(
+                                  _trendingTracks[0],
+                                  newQueue: _trendingTracks,
+                                );
+                              }
+                            },
+                          ),
+                          MuxisButton(
+                            label: 'Search Catalog',
+                            variant: MuxisButtonVariant.liquidGlass,
+                            height: isMobile ? 34 : 38,
+                            onPressed: () => widget.onNavigate(2),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                MuxisButton(
-                  label: 'Play Trending',
-                  variant: MuxisButtonVariant.primary,
-                  height: 36,
-                  onPressed: () {
-                    if (_trendingTracks.isNotEmpty) {
-                      audioService.playTrack(
-                        _trendingTracks[0],
-                        newQueue: _trendingTracks,
-                      );
-                    }
-                  },
-                ),
+                if (!isMobile) ...[
+                  const SizedBox(width: 24),
+                  Container(
+                    width: 116,
+                    height: 116,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.32),
+                          blurRadius: 22,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.asset(
+                      'assets/brand/app_icon_1024.png',
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                ],
               ],
             ),
-          )
-        else
-          ...List.generate(playback.queue.take(10).length, (i) {
-            final track = playback.queue[i];
-            return MuxisTrackRow(
-              track: track,
-              index: i,
-              isPlaying:
-                  playback.currentTrack?.id == track.id && playback.isPlaying,
-              onTap: () => audioService.playTrack(track),
-              onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
-            );
-          }),
+          ),
+
+          const SizedBox(height: 28),
+
+          // --- 2. QUICK CONNECT PLATFORM BANNER (Shown when < 2 platforms linked) ---
+          if (!accounts.youtube.isConnected || !accounts.spotify.isConnected)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  accounts.hasAnyConnected
+                      ? 'Link Another Platform'
+                      : 'Connect Streaming Platforms',
+                  style: MuxisTypography.sectionHeading(isDark: isDark),
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final both =
+                        !accounts.youtube.isConnected &&
+                        !accounts.spotify.isConnected;
+                    final twoCols = both && constraints.maxWidth >= 680;
+                    final cardWidth = twoCols
+                        ? (constraints.maxWidth - 16) / 2
+                        : constraints.maxWidth;
+                    return Wrap(
+                      spacing: 16,
+                      runSpacing: 14,
+                      children: [
+                        if (!accounts.youtube.isConnected)
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildConnectPlatformCard(
+                              title: 'YouTube Music',
+                              subtitle: 'Browser sign-in • Sync playlists, likes & ad-free 256kbps',
+                              icon: Icons.smart_display_rounded,
+                              gradient: MuxisGradients.youtubePlatformGradient,
+                              isLoading: accounts.youtube.isSyncing,
+                              isDark: isDark,
+                              onConnect: () => _connectPlatform('youtube'),
+                            ),
+                          ),
+                        if (!accounts.spotify.isConnected)
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildConnectPlatformCard(
+                              title: 'Spotify',
+                              subtitle: 'Browser sign-in • Import your playlists & stream via audio bridge',
+                              icon: Icons.graphic_eq_rounded,
+                              gradient: MuxisGradients.spotifyPlatformGradient,
+                              isLoading: accounts.spotify.isSyncing,
+                              isDark: isDark,
+                              onConnect: () => _connectPlatform('spotify'),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
+
+          // --- 3. DYNAMIC LINKED STREAMING SECTION(S) (1 section if 1 linked, 2 sections if 2 linked) ---
+          if (accounts.youtube.isConnected) ...[
+            _buildLinkedPlatformSection(
+              title: 'YouTube Music — Your Stream Hub',
+              subtitle:
+                  '${accounts.youtube.displayName ?? 'Connected'} • ${accounts.youtube.playlists.length} Playlists',
+              brandColor: MuxisColors.youtubeRed,
+              tracks: accounts.youtube.recommendedTracks.isNotEmpty
+                  ? accounts.youtube.recommendedTracks
+                  : accounts.youtube.likedTracks,
+              playlists: accounts.youtube.playlists,
+              navDestination: 11,
+              isDark: isDark,
+              audioService: audioService,
+            ),
+            const SizedBox(height: 32),
+          ],
+
+          if (accounts.spotify.isConnected) ...[
+            _buildLinkedPlatformSection(
+              title: 'Spotify — Your Stream Hub',
+              subtitle:
+                  '${accounts.spotify.displayName ?? 'Connected'} • ${accounts.spotify.playlists.length} Playlists',
+              brandColor: MuxisColors.spotifyGreen,
+              tracks: accounts.spotify.recommendedTracks.isNotEmpty
+                  ? accounts.spotify.recommendedTracks
+                  : accounts.spotify.likedTracks,
+              playlists: accounts.spotify.playlists,
+              navDestination: 12,
+              isDark: isDark,
+              audioService: audioService,
+            ),
+            const SizedBox(height: 32),
+          ],
+
+          // --- 4. TRENDING WORLDWIDE SPOTLIGHT ---
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Trending Worldwide (Ad-Free Streaming)',
+                style: MuxisTypography.sectionHeading(isDark: isDark),
+              ),
+              TextButton(
+                onPressed: () => widget.onNavigate(1),
+                child: Text(
+                  'Explore All Stations',
+                  style: TextStyle(
+                    color: MuxisColors.accent(isDark),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (_loadingTrending)
+            const Center(child: CircularProgressIndicator())
+          else if (_trendingTracks.isEmpty)
+            MuxisGlassCard(
+              padding: const EdgeInsets.all(20),
+              borderRadius: 16,
+              child: Text(
+                'Unable to load live trending tracks right now. Try Search or sync a streaming account above.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: MuxisColors.textSecondary(isDark),
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final visible = _trendingTracks.take(12).toList();
+                final spacing = constraints.maxWidth < 520 ? 12.0 : 16.0;
+                final cardWidth = _responsiveCardWidth(constraints.maxWidth);
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: visible.map((track) {
+                    return MuxisCard(
+                      width: cardWidth,
+                      title: track.title,
+                      subtitle: track.artist,
+                      artworkUrl: track.artworkUrl,
+                      onTap: () => audioService.playTrack(
+                        track,
+                        newQueue: _trendingTracks,
+                      ),
+                      onPlayTap: () => audioService.playTrack(
+                        track,
+                        newQueue: _trendingTracks,
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+
+          const SizedBox(height: 30),
+
+          // --- 5. QUEUED TRACKS LIST ---
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Active Audio Queue',
+                style: MuxisTypography.sectionHeading(isDark: isDark),
+              ),
+              TextButton(
+                onPressed: () => widget.onNavigate(4),
+                child: Text(
+                  'View Local Library',
+                  style: TextStyle(
+                    color: MuxisColors.accent(isDark),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (playback.queue.isEmpty)
+            MuxisGlassCard(
+              padding: EdgeInsets.all(isMobile ? 16 : 22),
+              borderRadius: 16,
+              child: Wrap(
+                spacing: 14,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.playlist_play_rounded,
+                        size: 32,
+                        color: MuxisColors.accent(isDark),
+                      ),
+                      const SizedBox(width: 14),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Queue is Ready',
+                              style: MuxisTypography.cardTitle(isDark: isDark),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tap any track above or open a linked streaming platform to listen immediately.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: MuxisColors.textSecondary(isDark),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  MuxisButton(
+                    label: 'Play Trending',
+                    variant: MuxisButtonVariant.primary,
+                    height: 36,
+                    onPressed: () {
+                      if (_trendingTracks.isNotEmpty) {
+                        audioService.playTrack(
+                          _trendingTracks[0],
+                          newQueue: _trendingTracks,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            )
+          else
+            ...List.generate(playback.queue.take(10).length, (i) {
+              final track = playback.queue[i];
+              return MuxisTrackRow(
+                track: track,
+                index: i,
+                isPlaying:
+                    playback.currentTrack?.id == track.id && playback.isPlaying,
+                onTap: () => audioService.playTrack(track),
+                onFavoriteTap: () => audioService.toggleFavoriteCurrentTrack(),
+              );
+            }),
         ],
       ),
     );
   }
 
   static double _responsiveCardWidth(double availableWidth) {
-    const double spacing = 16.0;
-    const double target = 172.0;
+    final bool isCompact = availableWidth < 520;
+    final double spacing = isCompact ? 12.0 : 16.0;
+    final double target = isCompact ? 152.0 : 172.0;
     final cols = ((availableWidth + spacing) / (target + spacing))
         .floor()
         .clamp(2, 7);
-    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(146.0, 210.0);
+    return ((availableWidth - spacing * (cols - 1)) / cols).clamp(132.0, 210.0);
   }
 
   Widget _heroBadge(String text) {
@@ -503,55 +560,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required VoidCallback onConnect,
   }) {
     return MuxisGlassCard(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       borderRadius: 16,
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stackCompact = constraints.maxWidth < 340;
+          if (stackCompact) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: MuxisColors.textPrimary(isDark),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: gradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: MuxisColors.textPrimary(isDark),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: MuxisColors.textSecondary(isDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: MuxisColors.textSecondary(isDark),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: MuxisButton(
+                    label: isLoading ? 'Connecting...' : 'Sign In',
+                    icon: const Icon(Icons.open_in_browser_rounded, size: 15),
+                    variant: MuxisButtonVariant.primary,
+                    height: 34,
+                    isLoading: isLoading,
+                    onPressed: onConnect,
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          MuxisButton(
-            label: isLoading ? 'Connecting...' : 'Sign In',
-            icon: const Icon(Icons.open_in_browser_rounded, size: 16),
-            variant: MuxisButtonVariant.primary,
-            height: 38,
-            isLoading: isLoading,
-            onPressed: onConnect,
-          ),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: MuxisColors.textPrimary(isDark),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: MuxisColors.textSecondary(isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              MuxisButton(
+                label: isLoading ? 'Connecting...' : 'Sign In',
+                icon: const Icon(Icons.open_in_browser_rounded, size: 15),
+                variant: MuxisButtonVariant.primary,
+                height: 36,
+                isLoading: isLoading,
+                onPressed: onConnect,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -570,15 +691,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final hasTracks = tracks.isNotEmpty;
 
     return MuxisGlassCard(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       borderRadius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 10,
@@ -595,21 +720,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: MuxisTypography.sectionHeading(isDark: isDark),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: MuxisColors.textSecondary(isDark),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: MuxisTypography.sectionHeading(isDark: isDark),
                         ),
-                      ),
-                    ],
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: MuxisColors.textSecondary(isDark),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -617,7 +744,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: 'Open Hub',
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 variant: MuxisButtonVariant.liquidGlass,
-                height: 36,
+                height: 34,
                 onPressed: () => widget.onNavigate(navDestination),
               ),
             ],
@@ -634,10 +761,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           else
             LayoutBuilder(
               builder: (context, constraints) {
+                final spacing = constraints.maxWidth < 520 ? 12.0 : 14.0;
                 final cardWidth = _responsiveCardWidth(constraints.maxWidth);
                 return Wrap(
-                  spacing: 14,
-                  runSpacing: 14,
+                  spacing: spacing,
+                  runSpacing: spacing,
                   children: [
                     ...playlists.take(6).map((pl) {
                       return MuxisCard(
@@ -649,9 +777,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onTap: () => widget.onNavigate(navDestination),
                         onPlayTap: pl.tracks.isNotEmpty
                             ? () => audioService.playTrack(
-                                  pl.tracks.first,
-                                  newQueue: pl.tracks,
-                                )
+                                pl.tracks.first,
+                                newQueue: pl.tracks,
+                              )
                             : () => widget.onNavigate(navDestination),
                       );
                     }),
@@ -661,7 +789,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         title: t.title,
                         subtitle: t.artist,
                         artworkUrl: t.artworkUrl,
-                        onTap: () => audioService.playTrack(t, newQueue: tracks),
+                        onTap: () =>
+                            audioService.playTrack(t, newQueue: tracks),
                         onPlayTap: () =>
                             audioService.playTrack(t, newQueue: tracks),
                       );
