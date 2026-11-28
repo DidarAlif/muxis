@@ -1581,7 +1581,7 @@
       const m = PLATFORM_META[k];
       const conn = platformLinks[k] || { isConnected: false };
       const row = document.createElement('div');
-      row.className = `platform-card liquid-card ${m.cls}`;
+      row.className = `platform-card liquid-card ${m.cls}${conn.isConnected ? ' settings-row-card' : ''}`;
       row.innerHTML = `<div class="platform-badge-circle ${m.cls}">${m.badge}</div><div class="platform-card-info"><strong>${m.name}</strong><span></span></div><div class="platform-hub-actions"></div>`;
       row.querySelector('.platform-card-info span').textContent = conn.isConnected
         ? `${conn.displayName || 'Connected'} · ${(conn.playlists || []).length} sets · ${conn.planBadge || 'Synced'}`
