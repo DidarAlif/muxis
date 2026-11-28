@@ -292,6 +292,31 @@ async function connectSoundCloud(cred: StoredCredential): Promise<{
     Referer: 'https://soundcloud.com/',
   };
 
+  if (cred.mode === 'oauth_pkce' && cred.oauthCode && cred.codeVerifier && cred.clientId && cred.redirectUri) {
+    const tokenRes = await fetch('https://secure.soundcloud.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: cred.clientId.trim(),
+        ...(cred.clientSecret ? { client_secret: cred.clientSecret.trim() } : {}),
+        redirect_uri: cred.redirectUri.trim(),
+        code_verifier: cred.codeVerifier.trim(),
+        code: cred.oauthCode.trim(),
+      }).toString(),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!tokenRes.ok) {
+      throw new Error('SoundCloud OAuth sign-in exchange failed. Verify Client ID / Redirect URI or try Profile URL.');
+    }
+    const td = (await tokenRes.json()) as { access_token?: string };
+    if (!td.access_token) throw new Error('SoundCloud OAuth did not return an access token.');
+    cred.mode = 'oauth_token';
+    cred.accessToken = td.access_token;
+    delete cred.oauthCode;
+    delete cred.codeVerifier;
+  }
+
   if (cred.mode === 'oauth_token' && cred.accessToken) {
     const tok = cred.accessToken.trim().replace(/^OAuth\s+/i, '').replace(/^Bearer\s+/i, '');
     headers.Authorization = `OAuth ${tok}`;
@@ -490,6 +515,123 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
     Referer: `${YT_MUSIC_ORIGIN}/`,
     'User-Agent': BROWSER_UA,
   };
+
+  if (cred.mode === 'oauth_token' && cred.accessToken) {
+    const ytBearer = cred.accessToken.trim().replace(/^Bearer\s+/i, '');
+    const gHeaders = { Authorization: `Bearer ${ytBearer}`, Accept: 'application/json' };
+    const [chRes, plRes, likeRes, chartsRes] = await Promise.all([
+      fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
+        headers: gHeaders,
+        signal: AbortSignal.timeout(7000),
+      }).catch(() => null),
+      fetch('https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=25', {
+        headers: gHeaders,
+        signal: AbortSignal.timeout(7000),
+      }).catch(() => null),
+      fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&myRating=like&maxResults=25', {
+        headers: gHeaders,
+        signal: AbortSignal.timeout(7000),
+      }).catch(() => null),
+      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
+        method: 'POST',
+        headers: baseHeaders,
+        body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_charts' }),
+      }).catch(() => null),
+    ]);
+
+    if (!chRes?.ok && !plRes?.ok && !likeRes?.ok) {
+      throw new Error('Google YouTube OAuth token expired or missing YouTube Read permission.');
+    }
+
+    const chJson = chRes?.ok
+      ? ((await chRes.json()) as { items?: Array<{ snippet?: { title?: string; thumbnails?: { default?: { url?: string }; high?: { url?: string } } } }> })
+      : null;
+    const chItem = chJson?.items?.[0]?.snippet;
+
+    const plJson = plRes?.ok
+      ? ((await plRes.json()) as {
+          items?: Array<{
+            id?: string;
+            snippet?: { title?: string; description?: string; thumbnails?: { high?: { url?: string }; medium?: { url?: string } } };
+            contentDetails?: { itemCount?: number };
+          }>;
+        })
+      : null;
+    const playlists: PlatformPlaylistDTO[] = (plJson?.items ?? [])
+      .filter((p) => p.id && p.snippet?.title)
+      .map((p) => ({
+        id: p.id!,
+        title: p.snippet!.title!,
+        description: p.snippet?.description || 'YouTube Music Library',
+        artworkUrl: p.snippet?.thumbnails?.high?.url || p.snippet?.thumbnails?.medium?.url || null,
+        trackCount: p.contentDetails?.itemCount ?? 0,
+        tracks: [],
+      }));
+
+    // Hydrate first playlist tracks right away if present
+    if (playlists.length) {
+      const firstPlRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${encodeURIComponent(playlists[0].id)}&maxResults=25`,
+        { headers: gHeaders }
+      ).catch(() => null);
+      if (firstPlRes?.ok) {
+        const fp = (await firstPlRes.json()) as {
+          items?: Array<{
+            snippet?: {
+              title?: string;
+              videoOwnerChannelTitle?: string;
+              channelTitle?: string;
+              resourceId?: { videoId?: string };
+              thumbnails?: { high?: { url?: string }; medium?: { url?: string } };
+            };
+          }>;
+        };
+        playlists[0].tracks = (fp.items ?? [])
+          .filter((it) => it.snippet?.resourceId?.videoId && it.snippet?.title && it.snippet.title !== 'Private video')
+          .map((it) => ({
+            id: `yt-${it.snippet!.resourceId!.videoId}`,
+            title: it.snippet!.title!,
+            artist: it.snippet!.videoOwnerChannelTitle || it.snippet!.channelTitle || 'YouTube Music',
+            album: playlists[0].title,
+            durationSec: 210,
+            artworkUrl: it.snippet!.thumbnails?.high?.url || it.snippet!.thumbnails?.medium?.url || null,
+            source: 'youtube',
+            audioFormat: 'YouTube Google OAuth',
+          }));
+      }
+    }
+
+    const likeJson = likeRes?.ok
+      ? ((await likeRes.json()) as {
+          items?: Array<{
+            id?: string;
+            snippet?: { title?: string; channelTitle?: string; thumbnails?: { high?: { url?: string }; medium?: { url?: string } } };
+          }>;
+        })
+      : null;
+    const likedTracks: StreamTrackDTO[] = (likeJson?.items ?? [])
+      .filter((v) => v.id && v.snippet?.title)
+      .map((v) => ({
+        id: `yt-${v.id}`,
+        title: v.snippet!.title!,
+        artist: (v.snippet!.channelTitle || 'YouTube Creator').replace(/\s*-\s*Topic$/i, ''),
+        album: 'YouTube Liked Music',
+        durationSec: 210,
+        artworkUrl: v.snippet!.thumbnails?.high?.url || v.snippet!.thumbnails?.medium?.url || null,
+        source: 'youtube',
+        audioFormat: 'YouTube Google OAuth',
+      }));
+
+    const recommendedTracks = chartsRes?.ok ? extractResponsiveItems(await chartsRes.json()).slice(0, 20) : [];
+    return {
+      displayName: chItem?.title || 'YouTube Music Account',
+      avatarUrl: chItem?.thumbnails?.high?.url || chItem?.thumbnails?.default?.url || null,
+      planBadge: 'Google OAuth Linked',
+      playlists,
+      likedTracks,
+      recommendedTracks: recommendedTracks.length ? recommendedTracks : likedTracks.slice(0, 15),
+    };
+  }
 
   if (cred.mode === 'cookie' && cred.cookie) {
     const cookieHeader = cred.cookie.trim();
@@ -709,9 +851,41 @@ async function scrapeSpotifyPublicUrl(rawUrl: string): Promise<{
   playlists: PlatformPlaylistDTO[];
   tracks: StreamTrackDTO[];
 }> {
+  const userMatch = rawUrl.match(/open\.spotify\.com\/user\/([^/?#]+)/i);
+  if (userMatch) {
+    const uid = decodeURIComponent(userMatch[1]);
+    const pageRes = await fetch(`https://open.spotify.com/user/${encodeURIComponent(uid)}`, {
+      headers: { 'User-Agent': BROWSER_UA },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!pageRes.ok) throw new Error('Could not reach that Spotify profile URL (ensure the profile is public).');
+    const html = await pageRes.text();
+    const titleMatch = html.match(/<meta property="og:title" content="([^"]+)"/i);
+    const imgMatch = html.match(/<meta property="og:image" content="([^"]+)"/i);
+    const plIds = [...new Set([...html.matchAll(/spotify\.com\/playlist\/([a-zA-Z0-9]+)/g)].map((m) => m[1]))].slice(0, 8);
+    const playlists: PlatformPlaylistDTO[] = [];
+    const tracks: StreamTrackDTO[] = [];
+    for (const plId of plIds.slice(0, 3)) {
+      try {
+        const sub = await scrapeSpotifyPublicUrl(`https://open.spotify.com/playlist/${plId}`);
+        playlists.push(...sub.playlists);
+        tracks.push(...sub.tracks);
+      } catch {}
+    }
+    if (!playlists.length && !titleMatch) {
+      throw new Error('Could not read public Spotify playlists from that user profile (try pasting a direct playlist link or sign in with OAuth).');
+    }
+    return {
+      displayName: titleMatch ? titleMatch[1].replace(/\s*\|\s*Spotify$/i, '').trim() : uid,
+      avatarUrl: imgMatch ? imgMatch[1] : playlists[0]?.artworkUrl ?? null,
+      playlists,
+      tracks: tracks.slice(0, 35),
+    };
+  }
+
   const match = rawUrl.match(/open\.spotify\.com\/(playlist|album|artist|track)\/([a-zA-Z0-9]+)/i);
   if (!match) {
-    throw new Error('Paste a valid Spotify Playlist, Album, Artist, or Track link (open.spotify.com/...).');
+    throw new Error('Paste a valid Spotify Profile, Playlist, Album, Artist, or Track link (open.spotify.com/...).');
   }
   const kind = match[1].toLowerCase();
   const id = match[2];
@@ -856,10 +1030,14 @@ async function connectSpotify(cred: StoredCredential): Promise<{
     avatarUrl = me.images?.[0]?.url ?? null;
     if (me.product) planBadge = `Spotify ${me.product.toUpperCase()}`;
 
-    const [plRes, likesRes] = await Promise.all([
+    const [plRes, likesRes, topRes] = await Promise.all([
       fetch('https://api.spotify.com/v1/me/playlists?limit=25', { headers: spHeaders }).catch(() => null),
       fetch('https://api.spotify.com/v1/me/tracks?limit=30', { headers: spHeaders }).catch(() => null),
+      fetch('https://api.spotify.com/v1/me/top/tracks?limit=16', { headers: spHeaders }).catch(() => null),
     ]);
+    const topTracks = topRes?.ok
+      ? (((await topRes.json()) as { items?: unknown[] }).items ?? []).map(mapSpotifyTrackObj).filter((t): t is StreamTrackDTO => Boolean(t))
+      : [];
     if (plRes?.ok) {
       const pd = (await plRes.json()) as {
         items?: Array<{
@@ -881,7 +1059,6 @@ async function connectSpotify(cred: StoredCredential): Promise<{
           tracks: [],
         });
       }
-      // Hydrate tracks for first 2 playlists so immediate playback works smoothly
       for (const pl of playlists.slice(0, 2)) {
         const ptRes = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(pl.id)}/tracks?limit=30`, {
           headers: spHeaders,
@@ -896,6 +1073,14 @@ async function connectSpotify(cred: StoredCredential): Promise<{
       const ld = (await likesRes.json()) as { items?: unknown[] };
       likedTracks = (ld.items ?? []).map(mapSpotifyTrackObj).filter((t): t is StreamTrackDTO => Boolean(t));
     }
+    return {
+      displayName,
+      avatarUrl: avatarUrl || likedTracks[0]?.artworkUrl || playlists[0]?.artworkUrl || null,
+      planBadge,
+      playlists,
+      likedTracks,
+      recommendedTracks: topTracks.length ? topTracks : (playlists[0]?.tracks?.length ? playlists[0].tracks.slice(0, 16) : likedTracks.slice(0, 16)),
+    };
   } else {
     // Client-credentials token: verify via public Spotify browse/search API
     const searchRes = await fetch('https://api.spotify.com/v1/search?q=electronic%20chill&type=track&limit=18', {
@@ -979,7 +1164,23 @@ export async function handlePlatformLinksRoute(
     }
   }
 
-  // 1. GET all connected streaming platforms for the signed-in user
+  // 1a. GET public/admin-configured OAuth Client IDs (non-secret PKCE IDs)
+  if (path === '/api/stream/links/oauth-config' && request.method === 'GET') {
+    const flagsRes = await db
+      .prepare(`SELECT key, value FROM app_config_flags WHERE key IN ('spotify_client_id', 'soundcloud_client_id')`)
+      .all<{ key: string; value: string }>();
+    const map: Record<string, string> = {};
+    for (const r of flagsRes.results ?? []) map[r.key] = r.value;
+    return json(
+      {
+        spotifyClientId: map.spotify_client_id || '',
+        soundcloudClientId: map.soundcloud_client_id || '',
+      },
+      200
+    );
+  }
+
+  // 1b. GET all connected streaming platforms for the signed-in user
   if (path === '/api/stream/links' && request.method === 'GET') {
     const rows = await db
       .prepare('SELECT * FROM streaming_connections WHERE user_id = ? AND is_connected = 1')
@@ -1160,6 +1361,155 @@ export async function handlePlatformLinksRoute(
       .bind(userId, body.platform)
       .run();
     return json({ ok: true, platform: body.platform }, 200);
+  }
+
+  // 5. GET live playlist tracks hydration on demand (saves back into D1 playlists_json)
+  if (path === '/api/stream/links/playlist-tracks' && request.method === 'GET') {
+    const platform = url.searchParams.get('platform') as StreamingPlatform | null;
+    const playlistId = (url.searchParams.get('playlistId') ?? '').trim();
+    if ((platform !== 'youtube' && platform !== 'spotify' && platform !== 'soundcloud') || !playlistId) {
+      return err('Missing valid platform or playlistId.', 400);
+    }
+
+    const row = await db
+      .prepare('SELECT * FROM streaming_connections WHERE user_id = ? AND platform = ? AND is_connected = 1')
+      .bind(userId, platform)
+      .first<ConnectionRow>();
+    if (!row) return err(`${platform} is not connected.`, 404);
+
+    const cred = safeJsonParse<StoredCredential | null>(row.credential_json, null);
+    const playlists = safeJsonParse<PlatformPlaylistDTO[]>(row.playlists_json, []);
+    const existingPl = playlists.find((p) => p.id === playlistId);
+    if (existingPl && existingPl.tracks.length > 0) {
+      return json({ ok: true, tracks: existingPl.tracks }, 200);
+    }
+
+    let hydrated: StreamTrackDTO[] = [];
+    try {
+      if (platform === 'soundcloud') {
+        const cid = await getSoundCloudClientId();
+        if (cid) {
+          const hdrs: Record<string, string> = {
+            'User-Agent': BROWSER_UA,
+            Origin: 'https://soundcloud.com',
+            Referer: 'https://soundcloud.com/',
+          };
+          if (cred?.accessToken) hdrs.Authorization = `OAuth ${cred.accessToken.trim().replace(/^OAuth\s+/i, '')}`;
+          const plRes = await fetch(
+            `${SC_API_V2}/playlists/${encodeURIComponent(playlistId)}?representation=full&client_id=${encodeURIComponent(cid)}`,
+            { headers: hdrs, signal: AbortSignal.timeout(8000) }
+          );
+          if (plRes.ok) {
+            const pObj = (await plRes.json()) as { tracks?: Array<Record<string, unknown>> };
+            const missingIds: number[] = [];
+            for (const raw of pObj.tracks ?? []) {
+              const t = normalizeScTrack(raw);
+              if (t) hydrated.push(t);
+              else if (typeof raw.id === 'number') missingIds.push(raw.id);
+            }
+            if (missingIds.length) {
+              for (let i = 0; i < Math.min(missingIds.length, 40); i += 40) {
+                const chunk = missingIds.slice(i, i + 40);
+                const trRes = await fetch(
+                  `${SC_API_V2}/tracks?ids=${chunk.join(',')}&client_id=${encodeURIComponent(cid)}`,
+                  { headers: hdrs, signal: AbortSignal.timeout(7000) }
+                );
+                if (trRes.ok) {
+                  const arr = (await trRes.json()) as unknown[];
+                  for (const item of arr) {
+                    const tr = normalizeScTrack(item);
+                    if (tr) hydrated.push(tr);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else if (platform === 'spotify') {
+        if (cred?.accessToken) {
+          const ptRes = await fetch(
+            `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks?limit=40`,
+            { headers: { Authorization: `Bearer ${cred.accessToken}` }, signal: AbortSignal.timeout(8000) }
+          ).catch(() => null);
+          if (ptRes?.ok) {
+            const pt = (await ptRes.json()) as { items?: unknown[] };
+            hydrated = (pt.items ?? []).map(mapSpotifyTrackObj).filter((t): t is StreamTrackDTO => Boolean(t));
+          }
+        }
+        if (!hydrated.length) {
+          const pub = await scrapeSpotifyPublicUrl(`https://open.spotify.com/playlist/${playlistId}`);
+          hydrated = pub.tracks;
+        }
+      } else if (platform === 'youtube') {
+        if (cred?.mode === 'oauth_token' && cred.accessToken) {
+          const gRes = await fetch(
+            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${encodeURIComponent(playlistId)}&maxResults=40`,
+            { headers: { Authorization: `Bearer ${cred.accessToken}` }, signal: AbortSignal.timeout(8000) }
+          ).catch(() => null);
+          if (gRes?.ok) {
+            const gp = (await gRes.json()) as {
+              items?: Array<{
+                snippet?: {
+                  title?: string;
+                  videoOwnerChannelTitle?: string;
+                  channelTitle?: string;
+                  resourceId?: { videoId?: string };
+                  thumbnails?: { high?: { url?: string }; medium?: { url?: string } };
+                };
+              }>;
+            };
+            hydrated = (gp.items ?? [])
+              .filter((it) => it.snippet?.resourceId?.videoId && it.snippet?.title && it.snippet.title !== 'Private video')
+              .map((it) => ({
+                id: `yt-${it.snippet!.resourceId!.videoId}`,
+                title: it.snippet!.title!,
+                artist: it.snippet!.videoOwnerChannelTitle || it.snippet!.channelTitle || 'YouTube Music',
+                album: existingPl?.title || 'YouTube Playlist',
+                durationSec: 210,
+                artworkUrl: it.snippet!.thumbnails?.high?.url || it.snippet!.thumbnails?.medium?.url || null,
+                source: 'youtube',
+                audioFormat: 'YouTube Google OAuth',
+              }));
+          }
+        }
+        if (!hydrated.length) {
+          const browseId = playlistId.startsWith('VL') || playlistId.startsWith('UC') ? playlistId : `VL${playlistId}`;
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            Origin: YT_MUSIC_ORIGIN,
+            Referer: `${YT_MUSIC_ORIGIN}/`,
+            'User-Agent': BROWSER_UA,
+          };
+          if (cred?.cookie) {
+            const auth = await computeSapisidAuthHeader(cred.cookie, cred.sapisid);
+            if (auth) {
+              headers.Cookie = cred.cookie;
+              headers.Authorization = auth;
+            }
+          }
+          const bRes = await fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ context: WEB_REMIX_CTX, browseId }),
+            signal: AbortSignal.timeout(8000),
+          }).catch(() => null);
+          if (bRes?.ok) {
+            hydrated = extractResponsiveItems(await bRes.json()).slice(0, 40);
+          }
+        }
+      }
+    } catch {}
+
+    if (hydrated.length && existingPl) {
+      existingPl.tracks = hydrated;
+      existingPl.trackCount = Math.max(existingPl.trackCount || 0, hydrated.length);
+      await db
+        .prepare('UPDATE streaming_connections SET playlists_json = ?, updated_at = ? WHERE user_id = ? AND platform = ?')
+        .bind(JSON.stringify(playlists), new Date().toISOString(), userId, platform)
+        .run();
+    }
+
+    return json({ ok: true, tracks: hydrated }, 200);
   }
 
   return err('Unsupported streaming link route.', 404);

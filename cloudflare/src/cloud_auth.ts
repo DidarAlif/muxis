@@ -405,6 +405,8 @@ export async function handleCloudRoute(
       return err('Missing poll_secret parameter.', 400);
     }
     const appRedirect = url.searchParams.get('app_redirect');
+    const reqScope = (url.searchParams.get('scope') ?? '').trim().toLowerCase();
+    const isYoutube = reqScope === 'youtube';
 
     const stateBytes = crypto.getRandomValues(new Uint8Array(24));
     const state = base64UrlEncode(stateBytes);
@@ -431,7 +433,10 @@ export async function handleCloudRoute(
       authUrl.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
       authUrl.searchParams.set('redirect_uri', callbackUrl);
       authUrl.searchParams.set('response_type', 'code');
-      authUrl.searchParams.set('scope', 'openid email profile');
+      authUrl.searchParams.set(
+        'scope',
+        isYoutube ? 'openid email profile https://www.googleapis.com/auth/youtube.readonly' : 'openid email profile'
+      );
       authUrl.searchParams.set('state', state);
       authUrl.searchParams.set('code_challenge', codeChallenge);
       authUrl.searchParams.set('code_challenge_method', 'S256');
@@ -441,7 +446,7 @@ export async function handleCloudRoute(
     }
 
     const bridgeBase = (env.FIREBASE_AUTH_BRIDGE_URL ?? 'https://muxis-cloud.firebaseapp.com').replace(/\/+$/, '');
-    const firebaseAuthUrl = `${bridgeBase}/?state=${encodeURIComponent(state)}&worker=${encodeURIComponent(url.origin)}`;
+    const firebaseAuthUrl = `${bridgeBase}/?state=${encodeURIComponent(state)}&worker=${encodeURIComponent(url.origin)}${isYoutube ? '&yt=1' : ''}`;
     return json({ auth_url: firebaseAuthUrl, state, mode: 'firebase_client' });
   }
 
@@ -450,7 +455,7 @@ export async function handleCloudRoute(
     if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_WEB_API_KEY) {
       return err('Firebase client bridge is not configured on Worker.', 503);
     }
-    let body: { state?: string; id_token?: string };
+    let body: { state?: string; id_token?: string; yt_access_token?: string };
     try {
       body = await request.json();
     } catch {
@@ -534,10 +539,13 @@ export async function handleCloudRoute(
       avatarUrl: googleInfo?.photoUrl || fbUser.photoUrl || null,
     });
     const jwt = await signJwt({ sub: userObj.id, email: userObj.email }, jwtSecret);
+    const storedUserPayload = body.yt_access_token
+      ? { ...userObj, _yt_access_token: body.yt_access_token }
+      : userObj;
 
     await db
       .prepare(`UPDATE oauth_states SET status = 'complete', result_token = ?, result_user_json = ? WHERE state = ?`)
-      .bind(jwt, JSON.stringify(userObj), state)
+      .bind(jwt, JSON.stringify(storedUserPayload), state)
       .run();
 
     return json({ ok: true, email: userObj.email, redirect_url: row.app_redirect }, 200);
@@ -689,10 +697,15 @@ export async function handleCloudRoute(
       return json({ status: 'error', error: row.error_message ?? 'Google login failed.' }, 200);
     }
 
+    const parsedResult = row.result_user_json ? (JSON.parse(row.result_user_json) as Record<string, unknown>) : null;
+    const ytToken = typeof parsedResult?._yt_access_token === 'string' ? parsedResult._yt_access_token : null;
+    if (parsedResult) delete parsedResult._yt_access_token;
+
     return json({
       status: 'complete',
       access_token: row.result_token,
-      user: row.result_user_json ? JSON.parse(row.result_user_json) : null,
+      user: parsedResult,
+      ...(ytToken ? { youtube_access_token: ytToken } : {}),
     });
   }
 
@@ -837,26 +850,78 @@ export async function handleCloudRoute(
         rejected: users.filter((u) => u.pwa_approval_status === 'rejected').length,
         admins: users.filter((u) => u.is_admin).length,
       };
-      return json({ ok: true, require_pwa_approval: requireApproval, stats, users, admin: serializedAdmin }, 200);
+      const flagsRes = await db
+        .prepare(`SELECT key, value FROM app_config_flags WHERE key IN ('spotify_client_id', 'soundcloud_client_id')`)
+        .all<{ key: string; value: string }>();
+      const flagsMap: Record<string, string> = {};
+      for (const f of flagsRes.results ?? []) flagsMap[f.key] = f.value;
+      return json(
+        {
+          ok: true,
+          require_pwa_approval: requireApproval,
+          spotify_client_id: flagsMap.spotify_client_id || '',
+          soundcloud_client_id: flagsMap.soundcloud_client_id || '',
+          stats,
+          users,
+          admin: serializedAdmin,
+        },
+        200
+      );
     }
 
     if (path === '/api/admin/settings' && request.method === 'POST') {
-      let body: { require_pwa_approval?: boolean };
+      let body: { require_pwa_approval?: boolean; spotify_client_id?: string; soundcloud_client_id?: string };
       try {
         body = await request.json();
       } catch {
         return err('Invalid JSON request body.', 400);
       }
-      const val = body.require_pwa_approval === false ? 'false' : 'true';
       const now = new Date().toISOString();
-      await db
-        .prepare(
-          `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('require_pwa_approval', ?, ?)
-           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-        )
-        .bind(val, now)
-        .run();
-      return json({ ok: true, require_pwa_approval: val === 'true', updated_at: now }, 200);
+      const upserts: D1PreparedStatement[] = [];
+      let nextRequire = true;
+      if (typeof body.require_pwa_approval === 'boolean') {
+        const val = body.require_pwa_approval ? 'true' : 'false';
+        nextRequire = body.require_pwa_approval;
+        upserts.push(
+          db
+            .prepare(
+              `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('require_pwa_approval', ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+            )
+            .bind(val, now)
+        );
+      }
+      if (typeof body.spotify_client_id === 'string') {
+        upserts.push(
+          db
+            .prepare(
+              `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('spotify_client_id', ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+            )
+            .bind(body.spotify_client_id.trim(), now)
+        );
+      }
+      if (typeof body.soundcloud_client_id === 'string') {
+        upserts.push(
+          db
+            .prepare(
+              `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('soundcloud_client_id', ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+            )
+            .bind(body.soundcloud_client_id.trim(), now)
+        );
+      }
+      if (upserts.length) await db.batch(upserts);
+      return json(
+        {
+          ok: true,
+          require_pwa_approval: nextRequire,
+          spotify_client_id: body.spotify_client_id?.trim(),
+          soundcloud_client_id: body.soundcloud_client_id?.trim(),
+          updated_at: now,
+        },
+        200
+      );
     }
 
     const statusMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/status$/);

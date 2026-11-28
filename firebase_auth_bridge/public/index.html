@@ -187,17 +187,29 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
 
     const params = new URLSearchParams(window.location.search);
     const urlState = (params.get('state') || '').trim();
     const urlWorker = (params.get('worker') || '').trim();
+    const urlYt = (params.get('yt') || '').trim();
 
     if (urlState) {
       sessionStorage.setItem('muxis_oauth_state', urlState);
     }
     if (urlWorker) {
       sessionStorage.setItem('muxis_worker_url', urlWorker);
+    }
+    if (urlYt === '1') {
+      sessionStorage.setItem('muxis_oauth_yt', '1');
+    } else if (urlState) {
+      sessionStorage.removeItem('muxis_oauth_yt');
+    }
+    const wantYoutubeScope = (urlYt || sessionStorage.getItem('muxis_oauth_yt') || '') === '1';
+    if (wantYoutubeScope) {
+      provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
+      provider.setCustomParameters({ prompt: 'consent select_account', include_granted_scopes: 'true' });
+    } else {
+      provider.setCustomParameters({ prompt: 'select_account' });
     }
 
     const oauthState = urlState || sessionStorage.getItem('muxis_oauth_state') || '';
@@ -220,7 +232,7 @@
       statusBox.textContent = msg;
     }
 
-    async function completeWorkerHandoff(user) {
+    async function completeWorkerHandoff(user, credResult = null) {
       if (!oauthState) {
         heading.textContent = 'Google Verified';
         setStatus('ok', `Signed in as ${user.email}. Return to the MUXIS app to start your login from the Cloud dialog.`);
@@ -228,14 +240,16 @@
         return;
       }
 
-      btnLabel.textContent = 'Syncing with Cloudflare D1...';
+      btnLabel.textContent = wantYoutubeScope ? 'Linking YouTube Music...' : 'Syncing with Cloudflare D1...';
       googleBtn.disabled = true;
 
       const idToken = await user.getIdToken(true);
+      const oauthCred = credResult ? GoogleAuthProvider.credentialFromResult(credResult) : null;
+      const ytAccessToken = oauthCred?.accessToken || '';
       const res = await fetch(`${workerUrl}/api/auth/firebase/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: oauthState, id_token: idToken })
+        body: JSON.stringify({ state: oauthState, id_token: idToken, yt_access_token: ytAccessToken || undefined })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
@@ -243,7 +257,8 @@
       }
 
       sessionStorage.removeItem('muxis_oauth_state');
-      heading.textContent = 'Signed In with Google!';
+      sessionStorage.removeItem('muxis_oauth_yt');
+      heading.textContent = wantYoutubeScope ? 'YouTube / Google Authorized!' : 'Signed In with Google!';
       subtitle.textContent = `Connected ${data.email || user.email} to MUXIS Cloud on Cloudflare D1.`;
       googleBtn.style.display = 'none';
       setStatus('ok', 'Your profile & sync session are saved in Cloudflare. You can close this browser tab and return to MUXIS.');
@@ -259,7 +274,7 @@
       try {
         const redirectResult = await getRedirectResult(auth);
         if (redirectResult && redirectResult.user) {
-          await completeWorkerHandoff(redirectResult.user);
+          await completeWorkerHandoff(redirectResult.user, redirectResult);
         }
       } catch (err) {
         setStatus('err', err.message || 'Google sign-in redirect failed.');
@@ -275,7 +290,7 @@
 
       try {
         const res = await signInWithPopup(auth, provider);
-        await completeWorkerHandoff(res.user);
+        await completeWorkerHandoff(res.user, res);
       } catch (err) {
         if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
           await signInWithRedirect(auth, provider);

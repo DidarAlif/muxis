@@ -43,6 +43,17 @@
       else e.target.checked = !enabled;
     });
 
+    document.getElementById('save-oauth-keys-btn').addEventListener('click', async () => {
+      const spotify_client_id = document.getElementById('admin-sp-cid').value.trim();
+      const soundcloud_client_id = document.getElementById('admin-sc-cid').value.trim();
+      const res = await apiFetch('/api/admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({ spotify_client_id, soundcloud_client_id })
+      });
+      if (res.ok) showToast('OAuth Client IDs saved to Cloudflare D1');
+      else showToast('Failed to save OAuth Client IDs');
+    });
+
     if (token) await loadAdminOverview();
     else showLogin();
   });
@@ -178,6 +189,8 @@
       document.getElementById('stat-rejected').textContent = String(data.stats?.rejected ?? 0);
       document.getElementById('stat-total').textContent = String(data.stats?.total ?? 0);
       document.getElementById('require-approval-toggle').checked = data.require_pwa_approval !== false;
+      document.getElementById('admin-sp-cid').value = data.spotify_client_id || '';
+      document.getElementById('admin-sc-cid').value = data.soundcloud_client_id || '';
       showDashboard();
       renderUsers();
     } catch (_) {

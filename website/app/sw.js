@@ -1,4 +1,4 @@
-const CACHE_NAME = 'muxis-pwa-v5';
+const CACHE_NAME = 'muxis-pwa-v6';
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
