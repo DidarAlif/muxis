@@ -11,6 +11,7 @@ class PreferencesService {
   static const String _keyRepeatMode = 'muxis_repeat_mode';
   static const String _keyAudioQuality = 'muxis_audio_quality';
   static const String _keyLastScannedDir = 'muxis_last_scanned_dir';
+  static const String _keyExtraScanRoots = 'muxis_extra_scan_roots';
   static const String _keyActiveSource = 'muxis_active_streaming_source';
   static const String _keyYtCookie = 'muxis_yt_cookie';
   static const String _keyYtSapisid = 'muxis_yt_sapisid';
@@ -309,11 +310,26 @@ class PreferencesService {
   Future<void> saveLastScannedDir(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLastScannedDir, path);
+    await addExtraScanRoot(path);
   }
 
   Future<String?> getLastScannedDir() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyLastScannedDir);
+  }
+
+  Future<void> addExtraScanRoot(String dirPath) async {
+    final clean = dirPath.trim();
+    if (clean.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getStringList(_keyExtraScanRoots) ?? const [];
+    if (existing.contains(clean)) return;
+    await prefs.setStringList(_keyExtraScanRoots, [...existing, clean]);
+  }
+
+  Future<List<String>> getExtraScanRoots() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyExtraScanRoots) ?? const [];
   }
 
   Future<void> saveAutoUpdateEnabled(bool enabled) async {

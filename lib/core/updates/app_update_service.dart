@@ -45,7 +45,7 @@ class AppUpdateState {
   const AppUpdateState({
     this.phase = UpdatePhase.idle,
     this.currentVersion = AppUpdateNotifier.fallbackAppVersion,
-    this.currentBuild = '18',
+    this.currentBuild = '29',
     this.availableUpdate,
     this.progress = 0.0,
     this.receivedBytes = 0,
@@ -115,7 +115,7 @@ final appUpdateProvider =
 class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
   static const String githubOwner = 'DidarAlif';
   static const String githubRepo = 'muxis';
-  static const String fallbackAppVersion = '1.2.8';
+  static const String fallbackAppVersion = '1.2.9';
 
   final PreferencesService _prefs;
   final Dio _dio = Dio(
@@ -558,6 +558,26 @@ class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
       return;
     }
 
+    if (Platform.isIOS) {
+      final shareResult = await OpenFilex.open(filePath);
+      if (!mounted) return;
+      if (shareResult.type == ResultType.done) {
+        state = state.copyWith(
+          phase: UpdatePhase.readyToInstall,
+          statusMessage:
+              'Downloaded ${update.asset.name}. Open it in AltStore, SideStore, or Files to update MUXIS on your iPhone.',
+        );
+      } else {
+        state = state.copyWith(
+          phase: UpdatePhase.readyToInstall,
+          statusMessage:
+              'Saved ${update.asset.name} in MUXIS temporary storage. Opening the release page so you can install via AltStore / SideStore / Sideloadly.',
+        );
+        await openReleasePage();
+      }
+      return;
+    }
+
     if (Platform.isMacOS) {
       if (filePath.toLowerCase().endsWith('.zip')) {
         final extractDir = p.join(
@@ -686,6 +706,16 @@ class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
             {
               'name': 'Muxis-Android.apk',
               'browser_download_url': '$dlBase/Muxis-Android.apk',
+              'size': 0,
+            },
+            {
+              'name': 'Muxis-iOS.ipa',
+              'browser_download_url': '$dlBase/Muxis-iOS.ipa',
+              'size': 0,
+            },
+            {
+              'name': 'Muxis-iOS-Unsigned.zip',
+              'browser_download_url': '$dlBase/Muxis-iOS-Unsigned.zip',
               'size': 0,
             },
             {

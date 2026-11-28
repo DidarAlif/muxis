@@ -97,6 +97,12 @@ async function initReleaseVersionFetch() {
           } else if (name.includes('android') && name.endsWith('.apk')) {
             const btn = document.querySelector('a[href*="Android.apk"]');
             if (btn) btn.href = downloadUrl;
+          } else if (name.includes('ios') && name.endsWith('.ipa')) {
+            const btn = document.querySelector('a[href*="Muxis-iOS.ipa"]');
+            if (btn) btn.href = downloadUrl;
+          } else if (name.includes('ios') && name.endsWith('.zip')) {
+            const btn = document.querySelector('a[href*="iOS-Unsigned"]');
+            if (btn) btn.href = downloadUrl;
           }
         });
       }

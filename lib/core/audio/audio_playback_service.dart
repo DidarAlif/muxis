@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../providers/innertube_music_provider.dart';
 import '../../providers/soundcloud_music_provider.dart';
 import '../../providers/spotify_music_provider.dart';
 import '../../shared/models/track.dart';
+import '../../shared/utils/storage_scanner_utils.dart';
 import '../database/database_service.dart';
 import 'dsp/equalizer_node.dart';
 import 'dsp/vocal_remover.dart';
@@ -273,8 +276,20 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       String? playUri;
 
       if (track.localFilePath != null && track.localFilePath!.isNotEmpty) {
-        // Local music playback
-        await _player.setFilePath(track.localFilePath!);
+        // Local music playback (rebind iOS container Documents UUID after app update)
+        var resolvedPath = track.localFilePath!;
+        var localFile = File(resolvedPath);
+        if (!await localFile.exists() && !kIsWeb && Platform.isIOS) {
+          try {
+            final docsDir = await getApplicationDocumentsDirectory();
+            resolvedPath = StorageScannerHelper.resolveSandboxRelativeMusicPath(
+              resolvedPath,
+              currentDocumentsDir: docsDir.path,
+            );
+            localFile = File(resolvedPath);
+          } catch (_) {}
+        }
+        await _player.setFilePath(resolvedPath);
         if (_isDisposed || requestId != _playRequestId) return;
         _hasLoadedSource = true;
         await _player.play();
@@ -553,6 +568,21 @@ class AudioPlaybackService extends StateNotifier<PlaybackState> {
       newQueue.add(track);
     }
     state = state.copyWith(queue: newQueue);
+  }
+
+  /// Appends multiple imported/discovered tracks to the queue in a single state update,
+  /// skipping tracks already queued by ID.
+  void addTracksToQueue(List<Track> tracks) {
+    if (tracks.isEmpty) return;
+    final existingIds = state.queue.map((t) => t.id).toSet();
+    final toAppend = <Track>[];
+    for (final t in tracks) {
+      if (existingIds.add(t.id)) {
+        toAppend.add(t);
+      }
+    }
+    if (toAppend.isEmpty) return;
+    state = state.copyWith(queue: [...state.queue, ...toAppend]);
   }
 
   void reorderQueue(int oldIndex, int newIndex) {

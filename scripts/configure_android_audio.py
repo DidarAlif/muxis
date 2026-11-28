@@ -34,7 +34,7 @@ def configure_manifest(manifest_path: Path) -> None:
             1,
         )
 
-    # 3. Required internet, background audio & notification permissions
+    # 3. Required internet, storage scan, background audio & notification permissions
     required_perms = [
         '<uses-permission android:name="android.permission.INTERNET"/>',
         '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
@@ -42,6 +42,8 @@ def configure_manifest(manifest_path: Path) -> None:
         '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
         '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>',
         '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
+        '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>',
+        '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>',
     ]
     missing_perms = [p for p in required_perms if p not in text]
     if missing_perms:
@@ -104,16 +106,73 @@ def configure_main_activity(android_src_root: Path) -> None:
                 "import android.content.pm.PackageManager\n"
                 "import android.os.Build\n"
                 "import android.os.Bundle\n"
-                "import com.ryanheise.audioservice.AudioServiceActivity\n\n"
+                "import com.ryanheise.audioservice.AudioServiceActivity\n"
+                "import io.flutter.embedding.engine.FlutterEngine\n"
+                "import io.flutter.plugin.common.MethodChannel\n\n"
                 "class MainActivity : AudioServiceActivity() {\n"
+                "    private var pendingStoragePermResult: MethodChannel.Result? = null\n\n"
+                "    private fun hasAudioStoragePermission(): Boolean {\n"
+                "        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {\n"
+                "            checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED\n"
+                "        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {\n"
+                "            checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED\n"
+                "        } else {\n"
+                "            true\n"
+                "        }\n"
+                "    }\n\n"
                 "    override fun onCreate(savedInstanceState: Bundle?) {\n"
                 "        super.onCreate(savedInstanceState)\n"
+                "        val toRequest = mutableListOf<String>()\n"
                 "        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {\n"
-                "            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=\n"
-                "                PackageManager.PERMISSION_GRANTED\n"
-                "            ) {\n"
-                "                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)\n"
+                "            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {\n"
+                "                toRequest.add(Manifest.permission.POST_NOTIFICATIONS)\n"
                 "            }\n"
+                "            if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {\n"
+                "                toRequest.add(Manifest.permission.READ_MEDIA_AUDIO)\n"
+                "            }\n"
+                "        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {\n"
+                "            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {\n"
+                "                toRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)\n"
+                "            }\n"
+                "        }\n"
+                "        if (toRequest.isNotEmpty()) {\n"
+                "            requestPermissions(toRequest.toTypedArray(), 1001)\n"
+                "        }\n"
+                "    }\n\n"
+                "    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {\n"
+                "        super.configureFlutterEngine(flutterEngine)\n"
+                "        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, \"app.muxis/storage_permissions\")\n"
+                "            .setMethodCallHandler { call, result ->\n"
+                "                if (call.method == \"requestAudioStoragePermission\") {\n"
+                "                    if (hasAudioStoragePermission()) {\n"
+                "                        result.success(true)\n"
+                "                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {\n"
+                "                        pendingStoragePermResult?.success(false)\n"
+                "                        pendingStoragePermResult = result\n"
+                "                        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {\n"
+                "                            Manifest.permission.READ_MEDIA_AUDIO\n"
+                "                        } else {\n"
+                "                            Manifest.permission.READ_EXTERNAL_STORAGE\n"
+                "                        }\n"
+                "                        requestPermissions(arrayOf(perm), 1002)\n"
+                "                    } else {\n"
+                "                        result.success(true)\n"
+                "                    }\n"
+                "                } else {\n"
+                "                    result.notImplemented()\n"
+                "                }\n"
+                "            }\n"
+                "    }\n\n"
+                "    override fun onRequestPermissionsResult(\n"
+                "        requestCode: Int,\n"
+                "        permissions: Array<out String>,\n"
+                "        grantResults: IntArray\n"
+                "    ) {\n"
+                "        super.onRequestPermissionsResult(requestCode, permissions, grantResults)\n"
+                "        if (requestCode == 1002) {\n"
+                "            val pending = pendingStoragePermResult\n"
+                "            pendingStoragePermResult = null\n"
+                "            pending?.success(hasAudioStoragePermission())\n"
                 "        }\n"
                 "    }\n"
                 "}\n"

@@ -28,6 +28,9 @@ jobs:
           - name: Android
             os: ubuntu-latest
             target: android
+          - name: iOS
+            os: macos-latest
+            target: ios
 
     steps:
       - name: Checkout repository
@@ -89,6 +92,10 @@ jobs:
           if [ -f android/settings.gradle.kts ]; then
             sed -i 's/8\.1\.0/8.1.4/g' android/settings.gradle.kts
           fi
+
+      - name: Inject iOS Brand Icons, Background Audio & Files Configuration
+        if: matrix.platform.target == 'ios'
+        run: python3 scripts/configure_ios_app.py
 
       - name: Install dependencies
         run: flutter pub get
@@ -160,6 +167,20 @@ jobs:
           cp ./Muxis-Android-${{ github.ref_name }}.apk ./Muxis-Android.apk
           cp ./Muxis-Android-${{ github.ref_name }}.aab ./Muxis-Android.aab
 
+      # Build iOS
+      - name: Build iOS
+        if: matrix.platform.target == 'ios'
+        run: |
+          flutter build ios --release --no-codesign --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          cd build/ios/iphoneos
+          rm -rf Payload && mkdir -p Payload
+          cp -R Runner.app Payload/ || cp -R *.app Payload/
+          zip -r -y ../../../Muxis-iOS-${{ github.ref_name }}.ipa Payload
+          zip -r -y ../../../Muxis-iOS-Unsigned-${{ github.ref_name }}.zip Runner.app || zip -r -y ../../../Muxis-iOS-Unsigned-${{ github.ref_name }}.zip *.app
+          cd ../../..
+          cp ./Muxis-iOS-${{ github.ref_name }}.ipa ./Muxis-iOS.ipa
+          cp ./Muxis-iOS-Unsigned-${{ github.ref_name }}.zip ./Muxis-iOS-Unsigned.zip
+
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -172,6 +193,8 @@ jobs:
             Muxis-Linux-x64.tar.gz
             Muxis-Android.apk
             Muxis-Android.aab
+            Muxis-iOS.ipa
+            Muxis-iOS-Unsigned.zip
           retention-days: 2
 
   publish-github-release:

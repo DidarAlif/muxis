@@ -245,30 +245,30 @@ jobs:
           cache: true
 
       - name: Generate iOS Scaffolding
-        run: |
-          flutter create --platforms=ios --org app.muxis .
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g' ios/Runner.xcodeproj/project.pbxproj
+        run: flutter create --platforms=ios --org app.muxis .
+
+      - name: Inject iOS Brand Icons, Background Audio & Files Configuration
+        run: python3 scripts/configure_ios_app.py
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Configure iOS Podfile Deployment Target
-        run: |
-          if [ -f ios/Podfile ]; then
-            sed -i '' "s/^# *platform :ios, '.*'/platform :ios, '14.0'/" ios/Podfile
-          fi
-
       - name: Build iOS App
         run: flutter build ios --release --no-codesign --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
-      - name: Package iOS App
+      - name: Package iOS App (.ipa + .zip)
         run: |
           cd build/ios/iphoneos
+          rm -rf Payload && mkdir -p Payload
+          cp -R Runner.app Payload/ || cp -R *.app Payload/
+          zip -r -y ../../../Muxis-iOS.ipa Payload
           zip -r -y ../../../Muxis-iOS-Unsigned.zip Runner.app || zip -r -y ../../../Muxis-iOS-Unsigned.zip *.app
 
       - name: Upload iOS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Muxis-iOS-Unsigned
-          path: Muxis-iOS-Unsigned.zip
+          name: Muxis-iOS-Artifacts
+          path: |
+            Muxis-iOS.ipa
+            Muxis-iOS-Unsigned.zip
           retention-days: 14

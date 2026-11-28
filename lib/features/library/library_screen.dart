@@ -15,6 +15,7 @@ import '../../core/local_scanner/local_library_scanner.dart';
 import '../../core/storage/preferences_service.dart';
 import '../../shared/models/track.dart';
 import '../../shared/utils/library_filter.dart';
+import '../../shared/utils/storage_scanner_utils.dart';
 import '../../shared/widgets/muxis_button.dart';
 import '../../shared/widgets/muxis_liquid_surface.dart';
 import '../../shared/widgets/muxis_track_row.dart';
@@ -34,6 +35,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   bool _isDragging = false;
   final ScrollController _scrollCtrl = ScrollController();
   final TextEditingController _filterCtrl = TextEditingController();
+  final ValueNotifier<String?> _scanProgressText = ValueNotifier<String?>(null);
   Timer? _searchDebounce;
   String _searchFilter = '';
   LibrarySortOption _sortOption = LibrarySortOption.recentlyAdded;
@@ -66,6 +68,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     _searchDebounce?.cancel();
     _scrollCtrl.dispose();
     _filterCtrl.dispose();
+    _scanProgressText.dispose();
     super.dispose();
   }
 
@@ -154,6 +157,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final prefs = ref.read(preferencesServiceProvider);
     final lastDir = await prefs.getLastScannedDir() ?? '';
     final pathCtrl = TextEditingController(text: lastDir);
+    final isPhone = Platform.isAndroid || Platform.isIOS;
+    final isIOS = Platform.isIOS;
+    final scanWholeLabel = isIOS
+        ? 'Scan iPhone Storage & Files'
+        : (Platform.isAndroid
+              ? 'Scan Whole Phone Storage'
+              : 'Scan Music & Downloads Folders');
+    final subtitleText = isIOS
+        ? 'Scans your iPhone MUXIS Files folder (Files -> On My iPhone -> MUXIS), Inbox, saved folders, or pick audio tracks directly from iCloud Drive / On My iPhone.'
+        : (Platform.isAndroid
+              ? 'Scan your entire phone storage & SD card for MP3, FLAC, M4A, WAV, AAC, OGG, and OPUS music, or choose a specific folder.'
+              : 'Scan your Music & Downloads library automatically, pick a folder, or import audio files. Supported: FLAC, MP3, WAV, AAC, M4A, OGG, OPUS.');
+    final pathHintText = Platform.isAndroid
+        ? '/storage/emulated/0/Music'
+        : (isIOS
+              ? 'On My iPhone/MUXIS (Files app)'
+              : r'e.g. C:\Users\Username\Music');
 
     if (!mounted) return;
 
@@ -180,94 +200,116 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              'Import Local Audio Files',
-              style: TextStyle(
-                color: MuxisColors.textPrimary(isDark),
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Import Local Audio Files',
+                style: TextStyle(
+                  color: MuxisColors.textPrimary(isDark),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Pick a music folder or specific audio files. Supported formats: FLAC, MP3, WAV, AAC, M4A, OGG, OPUS.',
-              style: TextStyle(
-                color: MuxisColors.textSecondary(isDark),
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: MuxisButton(
-                    label: 'Browse Folder',
-                    icon: const Icon(Icons.folder_open_rounded, size: 18),
-                    variant: MuxisButtonVariant.secondary,
-                    height: 42,
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await _pickAndScanDirectory();
-                    },
-                  ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                subtitleText,
+                style: TextStyle(
+                  color: MuxisColors.textSecondary(isDark),
+                  fontSize: 13,
+                  height: 1.4,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: MuxisButton(
-                    label: 'Pick Audio Files',
-                    icon: const Icon(Icons.audio_file_rounded, size: 18),
-                    variant: MuxisButtonVariant.liquidGlass,
-                    height: 42,
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await _pickAndScanFiles();
-                    },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: MuxisButton(
+                  label: scanWholeLabel,
+                  icon: Icon(
+                    isPhone ? Icons.phone_iphone_rounded : Icons.radar_rounded,
+                    size: 18,
+                    color: isDark ? Colors.black : Colors.white,
                   ),
+                  variant: MuxisButtonVariant.primary,
+                  height: 44,
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    await _scanWholeDeviceStorage();
+                  },
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Or enter a custom folder path manually:',
-              style: TextStyle(
-                color: MuxisColors.textMuted(isDark),
-                fontSize: 12,
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: pathCtrl,
-              style: TextStyle(
-                color: MuxisColors.textPrimary(isDark),
-                fontSize: 13,
-                fontFamily: 'JetBrains Mono',
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: MuxisButton(
+                      label: isIOS ? 'Link Folder' : 'Browse Folder',
+                      icon: const Icon(Icons.folder_open_rounded, size: 18),
+                      variant: MuxisButtonVariant.secondary,
+                      height: 42,
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        await _pickAndScanDirectory();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: MuxisButton(
+                      label: isIOS ? 'iPhone Files Picker' : 'Pick Audio Files',
+                      icon: const Icon(Icons.audio_file_rounded, size: 18),
+                      variant: MuxisButtonVariant.liquidGlass,
+                      height: 42,
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        await _pickAndScanFiles();
+                      },
+                    ),
+                  ),
+                ],
               ),
-              decoration: InputDecoration(
-                hintText: r'e.g. C:\Users\Username\Music',
-                hintStyle: TextStyle(
+              const SizedBox(height: 18),
+              Text(
+                'Or enter a custom folder path manually:',
+                style: TextStyle(
                   color: MuxisColors.textMuted(isDark),
                   fontSize: 12,
                 ),
-                filled: true,
-                fillColor: MuxisColors.secondaryBg(isDark),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: MuxisColors.border(isDark)),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: pathCtrl,
+                style: TextStyle(
+                  color: MuxisColors.textPrimary(isDark),
+                  fontSize: 13,
+                  fontFamily: 'JetBrains Mono',
                 ),
-                prefixIcon: Icon(
-                  Icons.folder_rounded,
-                  color: MuxisColors.accent(isDark),
-                  size: 20,
+                decoration: InputDecoration(
+                  hintText: pathHintText,
+                  hintStyle: TextStyle(
+                    color: MuxisColors.textMuted(isDark),
+                    fontSize: 12,
+                  ),
+                  filled: true,
+                  fillColor: MuxisColors.secondaryBg(isDark),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: MuxisColors.border(isDark)),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.folder_rounded,
+                    color: MuxisColors.accent(isDark),
+                    size: 20,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -278,8 +320,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
           ),
           MuxisButton(
-            label: 'Start Scan',
-            variant: MuxisButtonVariant.primary,
+            label: 'Scan Custom Path',
+            variant: MuxisButtonVariant.secondary,
             height: 38,
             onPressed: () {
               Navigator.of(ctx).pop();
@@ -294,10 +336,95 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  Future<void> _scanWholeDeviceStorage() async {
+    if (_isScanning) return;
+    setState(() => _isScanning = true);
+    _scanProgressText.value = Platform.isIOS
+        ? 'Scanning iPhone MUXIS Files & saved audio folders...'
+        : 'Scanning device storage for music files...';
+
+    try {
+      final prefs = ref.read(preferencesServiceProvider);
+      final extraRoots = await prefs.getExtraScanRoots();
+      final scanner = ref.read(localLibraryScannerProvider);
+
+      final result = await scanner.scanWholeDeviceStorage(
+        extraSavedRoots: extraRoots,
+        onProgress: (filesScanned, tracksFound, currentPath) {
+          final folderName =
+              currentPath
+                  .split(RegExp(r'[/\\]'))
+                  .where((e) => e.isNotEmpty)
+                  .lastOrNull ??
+              '';
+          _scanProgressText.value =
+              'Scanned $filesScanned files • Found $tracksFound songs'
+              '${folderName.isNotEmpty ? ' ($folderName)' : ''}';
+        },
+      );
+
+      if (!mounted) return;
+
+      if (result.permissionDenied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Storage permission denied. Allow "Music and audio" access for MUXIS in system settings to scan whole phone storage.',
+            ),
+            backgroundColor: MuxisColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      if (result.validAudioFilesFound > 0) {
+        await _saveAndApplyImportedTracks(
+          result.tracks,
+          'Found ${result.validAudioFilesFound} tracks across ${result.scannedRoots.length} storage location(s) in ${result.scanDuration.inMilliseconds}ms!',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              Platform.isIOS
+                  ? 'No audio files found yet in On My iPhone -> MUXIS or saved folders. Pick tracks directly from iPhone Files / iCloud Drive.'
+                  : 'Scanned ${result.totalFilesScanned} files across storage, but found no supported audio files (.mp3, .flac, .m4a, .wav, .aac, .ogg, .opus).',
+            ),
+            backgroundColor: MuxisColors.warning,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: Platform.isIOS ? 'Open Files' : 'Pick Files',
+              textColor: Colors.white,
+              onPressed: _pickAndScanFiles,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Whole storage scan failed: $e'),
+            backgroundColor: MuxisColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      _scanProgressText.value = null;
+      if (mounted) setState(() => _isScanning = false);
+    }
+  }
+
   Future<void> _pickAndScanDirectory() async {
     try {
       final selectedPath = await FilePicker.platform.getDirectoryPath();
       if (selectedPath != null && selectedPath.isNotEmpty) {
+        await ref
+            .read(preferencesServiceProvider)
+            .addExtraScanRoot(selectedPath);
         await _scanDirectory(selectedPath);
       }
     } catch (e) {
@@ -314,21 +441,40 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Future<void> _pickAndScanFiles() async {
     try {
+      // On iOS, custom UTIs can gray out .flac/.opus in Apple Files picker, so allow any file
+      // and filter by supported audio extensions right after selection.
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['mp3', 'flac', 'wav', 'aac', 'm4a', 'ogg', 'opus'],
+        type: Platform.isIOS ? FileType.any : FileType.custom,
+        allowedExtensions: Platform.isIOS
+            ? null
+            : const ['mp3', 'flac', 'wav', 'aac', 'm4a', 'ogg', 'opus'],
         allowMultiple: true,
       );
 
       if (result != null && result.paths.isNotEmpty) {
         final files = result.paths
             .where((p) => p != null && p.isNotEmpty)
+            .where((p) => StorageScannerHelper.isSupportedAudioFile(p!))
             .map((p) => File(p!))
             .toList();
 
-        if (files.isEmpty) return;
+        if (files.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Selected file(s) are not supported audio formats (.mp3, .flac, .m4a, .wav, .aac, .ogg, .opus).',
+                ),
+                backgroundColor: MuxisColors.warning,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
 
         setState(() => _isScanning = true);
+        _scanProgressText.value = 'Importing ${files.length} audio file(s)...';
         final scanner = ref.read(localLibraryScannerProvider);
         final scanResult = await scanner.scanFiles(files);
 
@@ -347,6 +493,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         );
       }
     } finally {
+      _scanProgressText.value = null;
       if (mounted) setState(() => _isScanning = false);
     }
   }
@@ -369,8 +516,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     await ref.read(preferencesServiceProvider).saveLastScannedDir(dirPath);
 
     setState(() => _isScanning = true);
+    _scanProgressText.value = 'Scanning $dirPath...';
     final scanner = ref.read(localLibraryScannerProvider);
     final result = await scanner.scanDirectory(dir);
+    _scanProgressText.value = null;
 
     if (mounted) {
       setState(() => _isScanning = false);
@@ -437,9 +586,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     await db.saveTracks(tracks);
 
     final audioService = ref.read(playbackServiceProvider.notifier);
-    for (final t in tracks) {
-      audioService.addToQueue(t);
-    }
+    audioService.addTracksToQueue(tracks);
 
     if (mounted) {
       setState(() {});
@@ -653,6 +800,58 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   ],
                                 ),
                               ],
+                            ),
+                            ValueListenableBuilder<String?>(
+                              valueListenable: _scanProgressText,
+                              builder: (context, progressMsg, _) {
+                                if (progressMsg == null ||
+                                    progressMsg.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Container(
+                                  margin: const EdgeInsets.only(top: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: MuxisColors.accent(isDark)
+                                        .withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: MuxisColors.accent(isDark)
+                                          .withOpacity(0.35),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: MuxisColors.accent(isDark),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          progressMsg,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: MuxisColors.textPrimary(
+                                              isDark,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 24),
 
@@ -1251,9 +1450,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   Text(
                     hasAnySourceTracks
                         ? 'Try choosing another keyword chip or reset your library filters.'
-                        : (MediaQuery.sizeOf(context).width < 768
-                              ? 'Tap "Import Music" to scan audio folders or files on your device.'
-                              : 'Drag and drop audio files anywhere, or click "Import Music" to scan folders.'),
+                        : (Platform.isAndroid || Platform.isIOS
+                              ? 'Tap below to scan your entire phone storage & files for music, or import individual tracks.'
+                              : (MediaQuery.sizeOf(context).width < 768
+                                    ? 'Tap "Import Music" to scan audio folders or files on your device.'
+                                    : 'Drag and drop audio files anywhere, or click "Import Music" to scan folders.')),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: MuxisColors.textSecondary(isDark),
@@ -1261,29 +1462,56 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  MuxisButton(
-                    label: hasAnySourceTracks
-                        ? 'Reset Filters'
-                        : 'Import Music Folder',
-                    icon: Icon(
-                      hasAnySourceTracks
-                          ? Icons.clear_all_rounded
-                          : Icons.folder_open_rounded,
-                      size: 18,
-                    ),
-                    variant: MuxisButtonVariant.primary,
-                    height: 38,
-                    onPressed: hasAnySourceTracks
-                        ? () {
-                            _searchDebounce?.cancel();
-                            _filterCtrl.clear();
-                            setState(() {
-                              _searchFilter = '';
-                              _presetFilter = LibraryKeywordPreset.all;
-                              _sortOption = LibrarySortOption.recentlyAdded;
-                            });
-                          }
-                        : _showImportDialog,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      MuxisButton(
+                        label: hasAnySourceTracks
+                            ? 'Reset Filters'
+                            : (Platform.isIOS
+                                  ? 'Scan iPhone Storage'
+                                  : (Platform.isAndroid
+                                        ? 'Scan Whole Phone Storage'
+                                        : 'Import Music Folder')),
+                        icon: Icon(
+                          hasAnySourceTracks
+                              ? Icons.clear_all_rounded
+                              : ((Platform.isAndroid || Platform.isIOS)
+                                    ? Icons.radar_rounded
+                                    : Icons.folder_open_rounded),
+                          size: 18,
+                          color: isDark ? Colors.black : Colors.white,
+                        ),
+                        variant: MuxisButtonVariant.primary,
+                        height: 38,
+                        onPressed: hasAnySourceTracks
+                            ? () {
+                                _searchDebounce?.cancel();
+                                _filterCtrl.clear();
+                                setState(() {
+                                  _searchFilter = '';
+                                  _presetFilter = LibraryKeywordPreset.all;
+                                  _sortOption = LibrarySortOption.recentlyAdded;
+                                });
+                              }
+                            : ((Platform.isAndroid || Platform.isIOS)
+                                  ? _scanWholeDeviceStorage
+                                  : _showImportDialog),
+                      ),
+                      if (!hasAnySourceTracks &&
+                          (Platform.isAndroid || Platform.isIOS))
+                        MuxisButton(
+                          label: Platform.isIOS
+                              ? 'Pick iPhone Files'
+                              : 'Browse / Files',
+                          icon: const Icon(Icons.audio_file_rounded, size: 17),
+                          variant: MuxisButtonVariant.liquidGlass,
+                          height: 38,
+                          onPressed: _showImportDialog,
+                        ),
+                    ],
                   ),
                 ],
               ),

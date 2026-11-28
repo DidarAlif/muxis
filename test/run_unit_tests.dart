@@ -14,6 +14,7 @@ import '../lib/shared/utils/cloud_auth_utils.dart';
 import '../lib/shared/utils/library_filter.dart';
 import '../lib/shared/utils/media_notification_utils.dart';
 import '../lib/shared/utils/soundcloud_auth_utils.dart';
+import '../lib/shared/utils/storage_scanner_utils.dart';
 import '../lib/shared/utils/theme_catalog.dart';
 
 void main() {
@@ -949,6 +950,90 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
       );
     },
   );
+
+  // Suite 19: Whole-Device Storage Music Discovery & iOS Asset Helpers
+  print('\nSuite 19: Mobile & iOS Whole-Storage Discovery Helpers');
+  test('StorageScannerHelper skips restricted OS folders and deduplicates Android/iOS roots cleanly', () {
+    expectTrue(
+      StorageScannerHelper.shouldSkipDirectory(
+        '/storage/emulated/0/Android/data/com.example/files',
+      ),
+    );
+    expectTrue(
+      StorageScannerHelper.shouldSkipDirectory(
+        '/storage/emulated/0/Music/.thumbnails',
+      ),
+    );
+    expectFalse(
+      StorageScannerHelper.shouldSkipDirectory('/storage/emulated/0/Music'),
+    );
+    expectFalse(
+      StorageScannerHelper.shouldSkipDirectory(
+        '/var/mobile/Containers/Data/Application/ABC-123/Documents/MUXIS_Music',
+      ),
+    );
+
+    final androidRoots = StorageScannerHelper.discoverAndroidStorageRoots(
+      storageVolumeDirs: [
+        '/storage/self',
+        '/storage/emulated',
+        '/storage/9A1B-2C3D',
+        '/sdcard',
+      ],
+      hasEmulatedZero: true,
+      hasSdcardAlias: true,
+    );
+    expect(androidRoots.length, 2);
+    expect(androidRoots[0], '/storage/emulated/0');
+    expect(androidRoots[1], '/storage/9A1B-2C3D');
+
+    final iosRoots = StorageScannerHelper.discoverIosStorageRoots(
+      candidateDirs: [
+        '/var/mobile/Containers/Data/Application/UUID1/Documents',
+        '/var/mobile/Containers/Data/Application/UUID1/Documents/Inbox',
+        '/var/mobile/Containers/Data/Application/UUID1/Documents/MUXIS_Music',
+        '/private/var/mobile/Containers/Shared/AppGroup/SharedMusic',
+      ],
+    );
+    expect(iosRoots.length, 2);
+    expect(
+      iosRoots[0],
+      '/var/mobile/Containers/Data/Application/UUID1/Documents',
+    );
+
+    final rebound = StorageScannerHelper.resolveSandboxRelativeMusicPath(
+      '/var/mobile/Containers/Data/Application/OLD-UUID/Documents/MUXIS_Music/Track.flac',
+      currentDocumentsDir:
+          '/var/mobile/Containers/Data/Application/NEW-UUID/Documents',
+    );
+    expect(
+      rebound,
+      '/var/mobile/Containers/Data/Application/NEW-UUID/Documents/MUXIS_Music/Track.flac',
+    );
+
+    final key1 = StorageScannerHelper.computeStableLocalTrackId(
+      '/sdcard/Music/Starlight.flac',
+    );
+    final key2 = StorageScannerHelper.computeStableLocalTrackId(
+      '/storage/emulated/0/Music/Starlight.flac',
+    );
+    expect(key1, key2);
+    expectTrue(key1.startsWith('local-'));
+
+    final iosAsset = MuxisUpdateSelector.selectAssetForOperatingSystem(const [
+      AppReleaseAsset(
+        name: 'Muxis-iOS-Unsigned.zip',
+        downloadUrl: 'https://example.com/app.zip',
+        sizeBytes: 1000,
+      ),
+      AppReleaseAsset(
+        name: 'Muxis-iOS.ipa',
+        downloadUrl: 'https://example.com/Muxis-iOS.ipa',
+        sizeBytes: 2000,
+      ),
+    ], 'ios');
+    expect(iosAsset?.name, 'Muxis-iOS.ipa');
+  });
 
   print('\n======================================================');
   print('  RESULTS: $passed PASSED, $failed FAILED');

@@ -127,7 +127,12 @@ class MobileAudioStudioSheet extends ConsumerWidget {
           Expanded(
             child: ListView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                14,
+                16,
+                28 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 // 1. Preset strip
                 Text(

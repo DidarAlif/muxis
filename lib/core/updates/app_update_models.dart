@@ -160,6 +160,15 @@ class MuxisUpdateSelector {
       case 'android':
         return firstMatch((a) => a.name == 'Muxis-Android.apk') ??
             firstMatch((a) => a.name.toLowerCase().endsWith('.apk'));
+      case 'ios':
+        return firstMatch((a) => a.name == 'Muxis-iOS.ipa') ??
+            firstMatch((a) => a.name.toLowerCase().endsWith('.ipa')) ??
+            firstMatch((a) => a.name == 'Muxis-iOS-Unsigned.zip') ??
+            firstMatch(
+              (a) =>
+                  a.name.toLowerCase().contains('ios') &&
+                  a.name.toLowerCase().endsWith('.zip'),
+            );
       case 'macos':
         return firstMatch((a) => a.name == 'Muxis-macOS-Universal.zip') ??
             firstMatch(

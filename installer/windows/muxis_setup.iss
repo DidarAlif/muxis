@@ -8,7 +8,7 @@
 #define MyAppExeName "muxis.exe"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.2.8"
+  #define MyAppVersion "1.2.9"
 #endif
 
 #ifndef ReleaseDir
