@@ -54,6 +54,25 @@
       else showToast('Failed to save OAuth Client IDs');
     });
 
+    document.getElementById('save-adsense-btn').addEventListener('click', async () => {
+      const adsense_enabled = document.getElementById('adsense-enabled-toggle').checked;
+      const adsense_client_id = document.getElementById('admin-adsense-cid').value.trim();
+      const adsense_slot_home = document.getElementById('admin-adsense-slot-home').value.trim();
+      const adsense_slot_download = document.getElementById('admin-adsense-slot-dl').value.trim();
+      const adsense_slot_docs = document.getElementById('admin-adsense-slot-docs').value.trim();
+      const res = await apiFetch('/api/admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({ adsense_enabled, adsense_client_id, adsense_slot_home, adsense_slot_download, adsense_slot_docs })
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        updateAdsTxtHint(adsense_client_id);
+        showToast('Google AdSense settings saved');
+      } else {
+        showToast(d.error || 'Failed to save AdSense settings');
+      }
+    });
+
     if (token) await loadAdminOverview();
     else showLogin();
   });
@@ -191,6 +210,12 @@
       document.getElementById('require-approval-toggle').checked = data.require_pwa_approval !== false;
       document.getElementById('admin-sp-cid').value = data.spotify_client_id || '';
       document.getElementById('admin-sc-cid').value = data.soundcloud_client_id || '';
+      document.getElementById('adsense-enabled-toggle').checked = Boolean(data.adsense_enabled);
+      document.getElementById('admin-adsense-cid').value = data.adsense_client_id || '';
+      document.getElementById('admin-adsense-slot-home').value = data.adsense_slot_home || '';
+      document.getElementById('admin-adsense-slot-dl').value = data.adsense_slot_download || '';
+      document.getElementById('admin-adsense-slot-docs').value = data.adsense_slot_docs || '';
+      updateAdsTxtHint(data.adsense_client_id || '');
       showDashboard();
       renderUsers();
     } catch (_) {
@@ -321,6 +346,16 @@
     localStorage.removeItem('muxis_cloud_token');
     localStorage.removeItem('muxis_cloud_user');
     showLogin();
+  }
+
+  function updateAdsTxtHint(clientId) {
+    const el = document.getElementById('admin-ads-txt-hint');
+    if (!el) return;
+    if (/^ca-pub-\d{10,20}$/.test(clientId)) {
+      el.textContent = `ads.txt: google.com, ${clientId.replace(/^ca-/, '')}, DIRECT, f08c47fec0942fa0`;
+    } else {
+      el.textContent = 'Enter ca-pub-XXXXXXXXXXXXXXXX above and mirror in website/ads.txt for verification.';
+    }
   }
 
   function showToast(msg) {

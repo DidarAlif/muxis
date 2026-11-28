@@ -1499,3 +1499,22 @@ kbd {
     display: none;
   }
 }
+
+/* Public Website AdSense Container (Strictly excluded from /app/ and /admin/) */
+.muxis-ad-shell {
+  display: none;
+  margin: 22px 0;
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+  text-align: center;
+  min-height: 90px;
+}
+.muxis-ad-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}

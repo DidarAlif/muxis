@@ -93,6 +93,30 @@ export default {
         return handleVersionCheck(env);
       }
 
+      // 2a. Public AdSense monetization config (for public https://muxis.pages.dev/ pages only)
+      if (path === '/api/public/monetization' && request.method === 'GET') {
+        if (!env.DB) return jsonResponse({ enabled: false, clientId: '', slots: {} });
+        const flags = await env.DB
+          .prepare(
+            `SELECT key, value FROM app_config_flags
+             WHERE key IN ('adsense_enabled', 'adsense_client_id', 'adsense_slot_home', 'adsense_slot_download', 'adsense_slot_docs')`
+          )
+          .all<{ key: string; value: string }>();
+        const map: Record<string, string> = {};
+        for (const row of flags.results ?? []) map[row.key] = row.value;
+        const clientId = (map.adsense_client_id || '').trim();
+        const enabled = map.adsense_enabled === 'true' && /^ca-pub-\d{10,20}$/.test(clientId);
+        return jsonResponse({
+          enabled,
+          clientId: enabled ? clientId : '',
+          slots: {
+            home: map.adsense_slot_home || '',
+            download: map.adsense_slot_download || '',
+            docs: map.adsense_slot_docs || '',
+          },
+        });
+      }
+
       // 2b. MUXIS Cloud Auth & D1 Sync routes
       const cloudResp = await handleCloudRoute(request, env, jsonResponse, errorResponse);
       if (cloudResp) {

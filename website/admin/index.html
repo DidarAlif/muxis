@@ -122,6 +122,30 @@
         </div>
       </section>
 
+      <!-- Google AdSense Monetization (Public Site https://muxis.pages.dev/ Only — Excludes /app/) -->
+      <section class="policy-card glass-panel" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <h3>Google AdSense Monetization (Public Website Only)</h3>
+            <p class="muted-copy">Renders responsive AdSense ads solely on <code>muxis.pages.dev/</code>, <code>/download</code> &amp; <code>/documentation</code> — strictly excluded from <code>/app/</code>.</p>
+          </div>
+          <label class="toggle-switch">
+            <input id="adsense-enabled-toggle" type="checkbox">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px;">
+          <input id="admin-adsense-cid" class="search-field" style="min-width: 0;" type="text" placeholder="Publisher ID (ca-pub-...)">
+          <input id="admin-adsense-slot-home" class="search-field" style="min-width: 0;" type="text" placeholder="Home Ad Slot ID (optional)">
+          <input id="admin-adsense-slot-dl" class="search-field" style="min-width: 0;" type="text" placeholder="Download Ad Slot ID (optional)">
+          <input id="admin-adsense-slot-docs" class="search-field" style="min-width: 0;" type="text" placeholder="Docs Ad Slot ID (optional)">
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <span id="admin-ads-txt-hint" class="muted-copy" style="font-family: var(--font-mono); font-size: 11px;">ads.txt line will appear here once Publisher ID is entered.</span>
+          <button id="save-adsense-btn" type="button" class="primary-btn" style="padding: 9px 16px; font-size: 13px;">Save AdSense Config</button>
+        </div>
+      </section>
+
       <!-- Filter Bar -->
       <section class="toolbar-row">
         <div class="filter-tabs" role="tablist">

@@ -851,7 +851,10 @@ export async function handleCloudRoute(
         admins: users.filter((u) => u.is_admin).length,
       };
       const flagsRes = await db
-        .prepare(`SELECT key, value FROM app_config_flags WHERE key IN ('spotify_client_id', 'soundcloud_client_id')`)
+        .prepare(
+          `SELECT key, value FROM app_config_flags
+           WHERE key IN ('spotify_client_id', 'soundcloud_client_id', 'adsense_enabled', 'adsense_client_id', 'adsense_slot_home', 'adsense_slot_download', 'adsense_slot_docs')`
+        )
         .all<{ key: string; value: string }>();
       const flagsMap: Record<string, string> = {};
       for (const f of flagsRes.results ?? []) flagsMap[f.key] = f.value;
@@ -861,6 +864,11 @@ export async function handleCloudRoute(
           require_pwa_approval: requireApproval,
           spotify_client_id: flagsMap.spotify_client_id || '',
           soundcloud_client_id: flagsMap.soundcloud_client_id || '',
+          adsense_enabled: flagsMap.adsense_enabled === 'true',
+          adsense_client_id: flagsMap.adsense_client_id || '',
+          adsense_slot_home: flagsMap.adsense_slot_home || '',
+          adsense_slot_download: flagsMap.adsense_slot_download || '',
+          adsense_slot_docs: flagsMap.adsense_slot_docs || '',
           stats,
           users,
           admin: serializedAdmin,
@@ -870,7 +878,16 @@ export async function handleCloudRoute(
     }
 
     if (path === '/api/admin/settings' && request.method === 'POST') {
-      let body: { require_pwa_approval?: boolean; spotify_client_id?: string; soundcloud_client_id?: string };
+      let body: {
+        require_pwa_approval?: boolean;
+        spotify_client_id?: string;
+        soundcloud_client_id?: string;
+        adsense_enabled?: boolean;
+        adsense_client_id?: string;
+        adsense_slot_home?: string;
+        adsense_slot_download?: string;
+        adsense_slot_docs?: string;
+      };
       try {
         body = await request.json();
       } catch {
@@ -879,38 +896,34 @@ export async function handleCloudRoute(
       const now = new Date().toISOString();
       const upserts: D1PreparedStatement[] = [];
       let nextRequire = true;
+      const pushFlag = (key: string, val: string) => {
+        upserts.push(
+          db
+            .prepare(
+              `INSERT INTO app_config_flags (key, value, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+            )
+            .bind(key, val, now)
+        );
+      };
       if (typeof body.require_pwa_approval === 'boolean') {
-        const val = body.require_pwa_approval ? 'true' : 'false';
         nextRequire = body.require_pwa_approval;
-        upserts.push(
-          db
-            .prepare(
-              `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('require_pwa_approval', ?, ?)
-               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-            )
-            .bind(val, now)
-        );
+        pushFlag('require_pwa_approval', body.require_pwa_approval ? 'true' : 'false');
       }
-      if (typeof body.spotify_client_id === 'string') {
-        upserts.push(
-          db
-            .prepare(
-              `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('spotify_client_id', ?, ?)
-               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-            )
-            .bind(body.spotify_client_id.trim(), now)
-        );
+      if (typeof body.spotify_client_id === 'string') pushFlag('spotify_client_id', body.spotify_client_id.trim());
+      if (typeof body.soundcloud_client_id === 'string') pushFlag('soundcloud_client_id', body.soundcloud_client_id.trim());
+      if (typeof body.adsense_enabled === 'boolean') pushFlag('adsense_enabled', body.adsense_enabled ? 'true' : 'false');
+      if (typeof body.adsense_client_id === 'string') {
+        const cid = body.adsense_client_id.trim();
+        if (cid && !/^ca-pub-\d{10,20}$/.test(cid)) {
+          return err('AdSense Publisher ID must look like ca-pub-1234567890123456.', 400);
+        }
+        pushFlag('adsense_client_id', cid);
       }
-      if (typeof body.soundcloud_client_id === 'string') {
-        upserts.push(
-          db
-            .prepare(
-              `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('soundcloud_client_id', ?, ?)
-               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-            )
-            .bind(body.soundcloud_client_id.trim(), now)
-        );
-      }
+      if (typeof body.adsense_slot_home === 'string') pushFlag('adsense_slot_home', body.adsense_slot_home.trim().replace(/\D+/g, ''));
+      if (typeof body.adsense_slot_download === 'string') pushFlag('adsense_slot_download', body.adsense_slot_download.trim().replace(/\D+/g, ''));
+      if (typeof body.adsense_slot_docs === 'string') pushFlag('adsense_slot_docs', body.adsense_slot_docs.trim().replace(/\D+/g, ''));
+
       if (upserts.length) await db.batch(upserts);
       return json(
         {
@@ -918,6 +931,8 @@ export async function handleCloudRoute(
           require_pwa_approval: nextRequire,
           spotify_client_id: body.spotify_client_id?.trim(),
           soundcloud_client_id: body.soundcloud_client_id?.trim(),
+          adsense_enabled: body.adsense_enabled,
+          adsense_client_id: body.adsense_client_id?.trim(),
           updated_at: now,
         },
         200

@@ -99,6 +99,7 @@
     initAudioVisualizers();
     initPlatformDetection();
     initLiveReleaseSync();
+    initPublicAdSense();
   });
 
   // =========================================================================
@@ -797,5 +798,52 @@
     }
 
     applyPrimaryPlatformCTA(detectOS());
+  }
+
+  // =========================================================================
+  // 8. Scoped Google AdSense Loader (Public https://muxis.pages.dev/ ONLY)
+  //    Strictly excluded from /app/, /admin/, and /auth-confirmed routes.
+  // =========================================================================
+  async function initPublicAdSense() {
+    const p = (window.location.pathname || '/').toLowerCase();
+    if (/^\/(app|admin|auth-confirmed)/.test(p)) return;
+
+    const metaCid = document.querySelector('meta[name="google-adsense-account"]')?.getAttribute('content')?.trim() || '';
+    let cfg = { enabled: false, clientId: '', slots: {} };
+
+    try {
+      const res = await fetch('https://muxis-api-worker.a-leaf-org.workers.dev/api/public/monetization');
+      if (res.ok) {
+        const d = await res.json();
+        if (d && d.clientId) cfg = d;
+      }
+    } catch (_) {}
+
+    const clientId = /^ca-pub-\d{10,20}$/.test(cfg.clientId || '')
+      ? cfg.clientId
+      : (/^ca-pub-\d{10,20}$/.test(metaCid) ? metaCid : '');
+    if (!clientId) return;
+
+    if (!document.querySelector('script[data-muxis-adsense="1"]')) {
+      const s = document.createElement('script');
+      s.async = true;
+      s.crossOrigin = 'anonymous';
+      s.dataset.muxisAdsense = '1';
+      s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(clientId)}`;
+      document.head.appendChild(s);
+    }
+
+    const containers = document.querySelectorAll('[data-ad-placement]');
+    containers.forEach((box) => {
+      const placement = box.dataset.adPlacement || '';
+      const slotId = (cfg.slots && cfg.slots[placement]) || box.dataset.adSlot || '';
+      if (!/^\d{6,20}$/.test(slotId)) return;
+
+      box.innerHTML = `<span class="muxis-ad-label">Advertisement &middot; Supports Free Open-Source MUXIS</span><ins class="adsbygoogle" style="display:block" data-ad-client="${clientId}" data-ad-slot="${slotId}" data-ad-format="auto" data-full-width-responsive="true"></ins>`;
+      box.style.display = 'block';
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (_) {}
+    });
   }
 })();
