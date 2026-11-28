@@ -43,9 +43,12 @@ jobs:
           force_orphan: true
 
       - name: Deploy to Cloudflare Pages (muxis.pages.dev)
-        if: secrets.CLOUDFLARE_API_TOKEN != ''
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy website --project-name=muxis --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            npx -y wrangler pages deploy website --project-name=muxis --branch=main --commit-dirty=true
+          else
+            echo "CLOUDFLARE_API_TOKEN not set; skipping automated Cloudflare Pages step (manual deploy active at muxis.pages.dev)."
+          fi
