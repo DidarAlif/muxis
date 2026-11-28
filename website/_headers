@@ -10,6 +10,9 @@
 /admin/*
   X-Robots-Tag: noindex, nofollow, noarchive
 
+/auth-confirmed
+  X-Robots-Tag: noindex, nofollow, noarchive
+
 /auth-confirmed.html
   X-Robots-Tag: noindex, nofollow, noarchive
 
