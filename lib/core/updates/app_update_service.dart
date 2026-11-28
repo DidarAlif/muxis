@@ -45,7 +45,7 @@ class AppUpdateState {
   const AppUpdateState({
     this.phase = UpdatePhase.idle,
     this.currentVersion = AppUpdateNotifier.fallbackAppVersion,
-    this.currentBuild = '32',
+    this.currentBuild = '33',
     this.availableUpdate,
     this.progress = 0.0,
     this.receivedBytes = 0,
@@ -115,7 +115,7 @@ final appUpdateProvider =
 class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
   static const String githubOwner = 'DidarAlif';
   static const String githubRepo = 'muxis';
-  static const String fallbackAppVersion = '1.2.12';
+  static const String fallbackAppVersion = '1.2.13';
 
   final PreferencesService _prefs;
   final Dio _dio = Dio(
@@ -540,7 +540,7 @@ class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
       if (result.type == ResultType.done) {
         state = state.copyWith(
           phase: UpdatePhase.readyToInstall,
-          statusMessage: 'Android installer opened. Tap Update (or allow "Install unknown apps" once if prompted) to finish.',
+          statusMessage: 'Android installer opened. Tap Update (note: if upgrading once from an older beta signed with a temporary key, uninstall the old app once first — all future updates install in-place automatically).',
         );
       } else if (result.type == ResultType.permissionDenied) {
         state = state.copyWith(

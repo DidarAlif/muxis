@@ -65,6 +65,25 @@ jobs:
       - name: Generate Platform Scaffolding
         run: flutter create --platforms=${{ matrix.platform.target }} --org app.muxis .
 
+      - name: Configure Android Release Signing Keystore
+        if: matrix.platform.target == 'android'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/muxis-release.keystore
+            {
+              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+              echo "keyPassword=$ANDROID_KEY_PASSWORD"
+              echo "keyAlias=$ANDROID_KEY_ALIAS"
+              echo "storeFile=muxis-release.keystore"
+            } > android/key.properties
+            echo "Decoded permanent Android release keystore."
+          fi
+
       - name: Inject MUXIS Brand Icons
         if: matrix.platform.target == 'windows'
         shell: pwsh
@@ -160,6 +179,9 @@ jobs:
             fi
           fi
           flutter build apk --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          if [ -f android/key.properties ]; then
+            keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep -q "6A:AF:2B:69:2B:44:28:8A"
+          fi
           sed -i '/REQUEST_INSTALL_PACKAGES/d' android/app/src/main/AndroidManifest.xml
           flutter build appbundle --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           cp build/app/outputs/flutter-apk/app-release.apk ./Muxis-Android-${{ github.ref_name }}.apk

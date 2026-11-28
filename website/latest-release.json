@@ -1,10 +1,10 @@
 {
-  "tag_name": "v1.2.12",
-  "name": "MUXIS v1.2.12 — Prismatic Aura",
+  "tag_name": "v1.2.13",
+  "name": "MUXIS v1.2.13 — Prismatic Aura",
   "draft": false,
   "prerelease": false,
-  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.12",
-  "body": "### What's New in MUXIS v1.2.12\n- Fixed Android & iOS mobile Google Sign-In `DioException [receive timeout]` during browser handoff: resilient per-poll retries, 25s/30s timeouts, `Connection: close` socket hygiene, instant `AppLifecycleState.resumed` wake-up polling, and same-origin `muxis-cloud.firebaseapp.com` Firebase Hosting OAuth bridge\n- Normalized low-level network timeout/DNS exceptions into clear user-facing retry guidance across all Cloud Auth actions",
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.13",
+  "body": "### What's New in MUXIS v1.2.13\n- Switched Android APK & AAB builds from ephemeral runner debug keys to a permanent deterministic release signing keystore (`SHA256: 6A:AF:2B:69:...:4B:CD:76:8A`), fixing Android \"App not installed as package conflicts with an existing package\" across all future in-app updates\n- Includes mobile Google OAuth timeout/resume fixes, full Cloudflare D1 sync (favorites, playlists, history, themes, EQ), whole-storage music scan, and iPhone IPA",
   "assets": [
     {
       "name": "Muxis-Android.apk",

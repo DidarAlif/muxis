@@ -201,6 +201,69 @@ def configure_notification_icon(repo_root: Path) -> None:
         shutil.copy2(src_mark, drawable_dir / "ic_muxis_notification.png")
 
 
+def configure_release_signing(repo_root: Path) -> None:
+    import re
+
+    app_dir = repo_root / "android" / "app"
+    groovy_gradle = app_dir / "build.gradle"
+    kotlin_gradle = app_dir / "build.gradle.kts"
+
+    if groovy_gradle.exists():
+        text = groovy_gradle.read_text(encoding="utf-8")
+        if not re.search(r"\bsigningConfigs\s*\{", text):
+            signing_block = (
+                "    signingConfigs {\n"
+                "        release {\n"
+                '            if (rootProject.file("key.properties").exists()) {\n'
+                "                def props = new java.util.Properties()\n"
+                '                props.load(new java.io.FileInputStream(rootProject.file("key.properties")))\n'
+                '                keyAlias props.getProperty("keyAlias")\n'
+                '                keyPassword props.getProperty("keyPassword")\n'
+                '                storeFile rootProject.file(props.getProperty("storeFile"))\n'
+                '                storePassword props.getProperty("storePassword")\n'
+                "            }\n"
+                "        }\n"
+                "    }\n\n"
+                "    buildTypes {"
+            )
+            text = re.sub(r"\bbuildTypes\s*\{", signing_block, text, count=1)
+
+        text = re.sub(
+            r'signingConfig\s*=?\s*signingConfigs\.(?:getByName\(["\']debug["\']\)|debug)',
+            'signingConfig = rootProject.file("key.properties").exists() ? signingConfigs.getByName("release") : signingConfigs.getByName("debug")',
+            text,
+        )
+        groovy_gradle.write_text(text, encoding="utf-8")
+
+    elif kotlin_gradle.exists():
+        text = kotlin_gradle.read_text(encoding="utf-8")
+        if not re.search(r"\bsigningConfigs\s*\{", text):
+            signing_block = (
+                "    signingConfigs {\n"
+                '        create("release") {\n'
+                '            val ksPropsFile = rootProject.file("key.properties")\n'
+                "            if (ksPropsFile.exists()) {\n"
+                "                val props = java.util.Properties()\n"
+                "                props.load(java.io.FileInputStream(ksPropsFile))\n"
+                '                keyAlias = props.getProperty("keyAlias")\n'
+                '                keyPassword = props.getProperty("keyPassword")\n'
+                '                storeFile = rootProject.file(props.getProperty("storeFile"))\n'
+                '                storePassword = props.getProperty("storePassword")\n'
+                "            }\n"
+                "        }\n"
+                "    }\n\n"
+                "    buildTypes {"
+            )
+            text = re.sub(r"\bbuildTypes\s*\{", signing_block, text, count=1)
+
+        text = re.sub(
+            r'signingConfig\s*=\s*signingConfigs\.getByName\(["\']debug["\']\)',
+            'signingConfig = if (rootProject.file("key.properties").exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")',
+            text,
+        )
+        kotlin_gradle.write_text(text, encoding="utf-8")
+
+
 def main() -> None:
     repo_root = Path.cwd()
     manifest = repo_root / "android" / "app" / "src" / "main" / "AndroidManifest.xml"
@@ -210,7 +273,8 @@ def main() -> None:
     if src_root.exists():
         configure_main_activity(src_root)
         configure_notification_icon(repo_root)
-    print("Configured Android audio_service manifest, MainActivity, and notification icon.")
+    configure_release_signing(repo_root)
+    print("Configured Android audio_service manifest, MainActivity, notification icon, and release signing.")
 
 
 if __name__ == "__main__":

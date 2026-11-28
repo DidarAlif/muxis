@@ -211,7 +211,7 @@ export async function handleCloudRoute(
       google_auth_mode: directGoogle ? 'google_direct' : firebaseGoogle ? 'firebase_client' : 'disabled',
       firebase_bridge_url: firebaseGoogle ? env.FIREBASE_AUTH_BRIDGE_URL : null,
       google_callback_url: `${url.origin}/api/auth/google/callback`,
-      worker_version: '1.2.12',
+      worker_version: '1.2.13',
     });
   }
 
