@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "MUXIS — Liquid Audio Engine",
+  "short_name": "MUXIS",
+  "description": "Offline-first hi-fi music player with 10-band DSP Audio Studio, IndexedDB local library, live FM radio, and Cloudflare D1 + Google Cloud Sync by A Leaf ORG.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#060910",
+  "theme_color": "#060910",
+  "categories": ["music", "entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

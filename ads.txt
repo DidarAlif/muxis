@@ -1,0 +1,4 @@
+# Authorized Digital Sellers (ads.txt) for https://muxis.pages.dev/
+# Scope: Public informational pages only (excludes https://muxis.pages.dev/app/).
+# Once your Google AdSense Publisher ID is issued, uncomment the line below with your publisher ID:
+# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0

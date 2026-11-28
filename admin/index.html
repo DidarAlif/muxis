@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MUXIS Admin Approval Console — A Leaf ORG</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#060910">
+  <link rel="icon" type="image/png" href="../assets/muxis_app_icon.png">
+  <link rel="apple-touch-icon" href="../assets/muxis_app_icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+  <script defer src="admin.js"></script>
+</head>
+<body>
+  <div class="ambient-bg" aria-hidden="true"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div class="admin-container">
+    <header class="admin-topbar glass-panel">
+      <div class="brand-row">
+        <img src="../assets/muxis_app_icon.png" alt="MUXIS" class="app-tile">
+        <div>
+          <div class="title-line">
+            <strong>MUXIS ADMIN</strong>
+            <span class="badge-chip">APPROVAL CONSOLE</span>
+          </div>
+          <div class="sub-line">
+            <img src="../assets/a_leaf_mark.svg" alt="A Leaf ORG" style="height: 12px; width: auto;">
+            <span>A Leaf ORG &middot; Cloudflare D1 Gate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <a href="../app/" class="action-pill">Open PWA App</a>
+        <a href="../index.html" class="action-pill">Website</a>
+        <button id="refresh-btn" type="button" class="action-pill" style="display: none;">Refresh</button>
+        <button id="signout-btn" type="button" class="action-pill danger" style="display: none;">Sign Out</button>
+      </div>
+    </header>
+
+    <!-- Gate / Login Screen -->
+    <section id="login-view" class="gate-card glass-panel">
+      <div style="display: flex; justify-content: center; gap: 12px; align-items: center; margin-bottom: 16px;">
+        <img src="../assets/muxis_app_icon.png" alt="MUXIS" style="width: 52px; height: 52px; border-radius: 14px; background: #fff; padding: 3px;">
+        <img src="../assets/a_leaf_org_logo.svg" alt="A Leaf ORG" style="height: 22px; width: auto;">
+      </div>
+      <h1>Owner Sign-In Required</h1>
+      <p class="muted-copy">Sign in with your authorized administrator account (<code>fbalif123@gmail.com</code>) to approve or revoke iPhone PWA users.</p>
+
+      <button id="google-admin-btn" type="button" class="google-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/><path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.8-.4-2.8s.2-2 .4-2.8L1.6 6.4C.6 8.3 0 10.6 0 12s.6 3.7 1.6 5.6l3.7-2.8z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5L1.6 16.1C3.5 19.9 7.4 23 12 23z"/></svg>
+        Continue with Google (Admin)
+      </button>
+
+      <div id="login-error" class="err-box" style="display: none;"></div>
+
+      <div class="divider">or sign in with email credentials</div>
+      <input id="email-input" class="input-field" type="email" placeholder="Admin Email">
+      <input id="pass-input" class="input-field" type="password" placeholder="Password">
+      <button id="email-login-btn" type="button" class="primary-btn" style="width: 100%;">Sign In to Admin Panel</button>
+    </section>
+
+    <!-- Non-Admin Warning -->
+    <section id="forbidden-view" class="gate-card glass-panel" style="display: none;">
+      <span class="status-pill rejected" style="margin-bottom: 12px;">ACCESS DENIED (403)</span>
+      <h2>Not Authorized as Admin</h2>
+      <p id="forbidden-email-msg" class="muted-copy" style="margin: 10px 0 18px;">This account does not have administrator approval permissions.</p>
+      <button id="switch-account-btn" type="button" class="primary-btn">Switch Account</button>
+    </section>
+
+    <!-- Main Admin Dashboard -->
+    <main id="dashboard-view" style="display: none;">
+      <!-- Stats Row -->
+      <section class="stats-grid">
+        <div class="stat-card glass-panel pending">
+          <span>Pending Approval</span>
+          <strong id="stat-pending">0</strong>
+        </div>
+        <div class="stat-card glass-panel approved">
+          <span>Approved Users</span>
+          <strong id="stat-approved">0</strong>
+        </div>
+        <div class="stat-card glass-panel rejected">
+          <span>Rejected / Revoked</span>
+          <strong id="stat-rejected">0</strong>
+        </div>
+        <div class="stat-card glass-panel">
+          <span>Total Cloud Users</span>
+          <strong id="stat-total">0</strong>
+        </div>
+      </section>
+
+      <!-- Global Approval Gate Policy Card -->
+      <section class="policy-card glass-panel">
+        <div>
+          <h3>PWA Access Approval Requirement</h3>
+          <p id="policy-desc" class="muted-copy">When enabled, new iOS/Web PWA users enter Pending state until you approve them here.</p>
+        </div>
+        <label class="toggle-switch">
+          <input id="require-approval-toggle" type="checkbox" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </section>
+
+      <!-- Streaming OAuth App Keys (Optional 1-Click Sign-In for Spotify & SoundCloud) -->
+      <section class="policy-card glass-panel" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div>
+          <h3>Streaming Platform OAuth Client IDs (Optional)</h3>
+          <p class="muted-copy">Configure shared PKCE Client IDs so all approved PWA users get 1-click Spotify / SoundCloud OAuth sign-in.</p>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+          <input id="admin-sp-cid" class="search-field" style="min-width: 0;" type="text" placeholder="Spotify Client ID">
+          <input id="admin-sc-cid" class="search-field" style="min-width: 0;" type="text" placeholder="SoundCloud Client ID">
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button id="save-oauth-keys-btn" type="button" class="primary-btn" style="padding: 9px 16px; font-size: 13px;">Save OAuth Client IDs</button>
+        </div>
+      </section>
+
+      <!-- Google AdSense Monetization (Public Site https://muxis.pages.dev/ Only — Excludes /app/) -->
+      <section class="policy-card glass-panel" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <h3>Google AdSense Monetization (Public Website Only)</h3>
+            <p class="muted-copy">Renders responsive AdSense ads solely on <code>muxis.pages.dev/</code>, <code>/download</code> &amp; <code>/documentation</code> — strictly excluded from <code>/app/</code>.</p>
+          </div>
+          <label class="toggle-switch">
+            <input id="adsense-enabled-toggle" type="checkbox">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px;">
+          <input id="admin-adsense-cid" class="search-field" style="min-width: 0;" type="text" placeholder="Publisher ID (ca-pub-...)">
+          <input id="admin-adsense-slot-home" class="search-field" style="min-width: 0;" type="text" placeholder="Home Ad Slot ID (optional)">
+          <input id="admin-adsense-slot-dl" class="search-field" style="min-width: 0;" type="text" placeholder="Download Ad Slot ID (optional)">
+          <input id="admin-adsense-slot-docs" class="search-field" style="min-width: 0;" type="text" placeholder="Docs Ad Slot ID (optional)">
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <span id="admin-ads-txt-hint" class="muted-copy" style="font-family: var(--font-mono); font-size: 11px;">ads.txt line will appear here once Publisher ID is entered.</span>
+          <button id="save-adsense-btn" type="button" class="primary-btn" style="padding: 9px 16px; font-size: 13px;">Save AdSense Config</button>
+        </div>
+      </section>
+
+      <!-- Filter Bar -->
+      <section class="toolbar-row">
+        <div class="filter-tabs" role="tablist">
+          <button type="button" class="filter-tab active" data-filter="pending">Pending</button>
+          <button type="button" class="filter-tab" data-filter="approved">Approved</button>
+          <button type="button" class="filter-tab" data-filter="rejected">Rejected</button>
+          <button type="button" class="filter-tab" data-filter="all">All Users</button>
+        </div>
+        <input id="user-search" class="search-field" type="search" placeholder="Filter by email or name...">
+      </section>
+
+      <!-- Users List -->
+      <section id="users-list" class="users-stack"></section>
+    </main>
+  </div>
+</body>
+</html>

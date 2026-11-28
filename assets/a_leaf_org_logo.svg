@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 132" width="560" height="132" fill="none">
+  <defs>
+    <linearGradient id="alLogoBack" x1="16" y1="122" x2="86" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4A44F2"/>
+      <stop offset="52%" stop-color="#7684FF"/>
+      <stop offset="100%" stop-color="#6EEBFF"/>
+    </linearGradient>
+    <linearGradient id="alLogoFront" x1="18" y1="124" x2="100" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#626DF0" stop-opacity="0.88"/>
+      <stop offset="56%" stop-color="#73A8DF" stop-opacity="0.86"/>
+      <stop offset="100%" stop-color="#6FE9D9" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8, 2) scale(0.86)">
+    <path d="M12 136 C21 82, 52 38, 94 10 C83 46, 61 84, 34 118 C25 128, 18 134, 12 136 Z" fill="url(#alLogoBack)"/>
+    <path d="M12 136 C32 134, 62 114, 92 70 C102 55, 108 42, 113 31 C86 58, 52 96, 22 128 C18 132, 14 135, 12 136 Z" fill="url(#alLogoFront)"/>
+  </g>
+  <text x="150" y="88" font-family="'Plus Jakarta Sans', 'Segoe UI', -apple-system, sans-serif" font-size="68" font-weight="800" letter-spacing="-1.5" fill="#F8FAFC">A Leaf</text>
+  <text x="366" y="88" font-family="'Plus Jakarta Sans', 'Segoe UI', -apple-system, sans-serif" font-size="64" font-weight="400" letter-spacing="-1" fill="#94A3B8">ORG</text>
+</svg>
