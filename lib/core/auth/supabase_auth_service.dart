@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -24,28 +25,42 @@ final authServiceProvider =
 /// (`muxis-cloud-db`), providing instant Gmail/Email registration with zero broken
 /// confirmation emails, PBKDF2-SHA256 credentials, backup Recovery Keys, and
 /// browser Google OAuth across Windows, macOS, Linux, Android, and iOS.
-class SupabaseAuthService extends StateNotifier<AuthState> {
+class SupabaseAuthService extends StateNotifier<AuthState>
+    with WidgetsBindingObserver {
   static const String _prefTokenKey = 'muxis_cloud_token';
   static const String _prefUserKey = 'muxis_cloud_user_json';
   static const String _prefRecoveryKey = 'muxis_cloud_recovery_key';
 
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 12),
+      connectTimeout: const Duration(seconds: 25),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 20),
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'MUXIS/1.2.11 (CloudAuth)',
+        'User-Agent': 'MUXIS/1.2.12 (CloudAuth)',
       },
       validateStatus: (s) => s != null && s < 600,
     ),
   );
 
   bool _isGooglePollCancelled = false;
+  Completer<void>? _resumeCompleter;
 
   SupabaseAuthService() : super(const AuthState()) {
+    WidgetsBinding.instance.addObserver(this);
     init();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState appState) {
+    if (appState == AppLifecycleState.resumed) {
+      final completer = _resumeCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.complete();
+      }
+    }
   }
 
   String get _baseUrl => AppConfig.cloudflareWorkerUrl;
@@ -260,7 +275,10 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Connection error while creating account: $e',
+        errorMessage: CloudAuthHelper.formatNetworkError(
+          e,
+          fallback: 'Connection error while creating account.',
+        ),
       );
       return false;
     }
@@ -332,7 +350,10 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Network error during sign-in: $e',
+        errorMessage: CloudAuthHelper.formatNetworkError(
+          e,
+          fallback: 'Network error during sign-in.',
+        ),
       );
       return false;
     }
@@ -409,7 +430,10 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Network error resetting password: $e',
+        errorMessage: CloudAuthHelper.formatNetworkError(
+          e,
+          fallback: 'Network error resetting password.',
+        ),
       );
       return false;
     }
@@ -455,7 +479,6 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
 
   /// Launches Google OAuth via Worker server flow OR custom user Google OAuth Client ID.
   Future<bool> signInWithGoogle() async {
-    final providerState = await refreshProviderSettings();
     final prefs = PreferencesService();
     final customClientId = (await prefs.getGoogleClientId())?.trim() ?? '';
     final customClientSecret =
@@ -468,10 +491,15 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       return _signInGoogleViaCustomClient(customClientId, customClientSecret);
     }
 
+    final providerState = await refreshProviderSettings();
+    if (state.isGoogleOAuthEnabled) {
+      return _signInGoogleViaWorker();
+    }
+
     if (!providerState.google) {
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
-        errorMessage: 'Google 1-Click OAuth requires GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET on your Cloudflare Worker (or paste your Google OAuth Client ID below). Use Gmail + Password above for instant signup!',
+        errorMessage: 'Google 1-Click OAuth requires Worker configuration (or paste your Google OAuth Client ID below). Use Gmail + Password above for instant signup!',
       );
       return false;
     }
@@ -484,7 +512,7 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       status: AuthStatus.loading,
       errorMessage: null,
       infoMessage:
-          'Complete Google Sign-In in your browser, then return here...',
+          'Complete Google Sign-In in your browser, then return to MUXIS...',
     );
 
     try {
@@ -493,14 +521,43 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
         List<int>.generate(24, (_) => rnd.nextInt(256)),
       ).replaceAll('=', '');
 
-      final startRes = await _dio.get<dynamic>(
-        '$_baseUrl/api/auth/google/start',
-        queryParameters: {
-          'poll_secret': pollSecret,
-          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-            'app_redirect': 'muxis://auth-callback',
-        },
-      );
+      Response<dynamic>? startRes;
+      Object? lastStartErr;
+      for (int tryIdx = 0; tryIdx < 2; tryIdx++) {
+        try {
+          startRes = await _dio.get<dynamic>(
+            '$_baseUrl/api/auth/google/start',
+            queryParameters: {
+              'poll_secret': pollSecret,
+              if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                'app_redirect': 'muxis://auth-callback',
+            },
+            options: Options(
+              headers: const {'Connection': 'close'},
+              receiveTimeout: const Duration(seconds: 25),
+            ),
+          );
+          if (startRes.statusCode == 200) break;
+        } catch (e) {
+          lastStartErr = e;
+          if (tryIdx == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+          }
+        }
+      }
+
+      if (startRes == null) {
+        state = state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: CloudAuthHelper.formatNetworkError(
+            lastStartErr ?? 'Connection timed out.',
+            fallback:
+                'Could not start Google Sign-In. Check internet and retry.',
+          ),
+        );
+        return false;
+      }
+
       if (startRes.statusCode != 200 ||
           startRes.data is! Map ||
           startRes.data['auth_url'] is! String) {
@@ -530,57 +587,78 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
         return false;
       }
 
-      // Poll secure D1 handoff up to 2 minutes (works across Android & Desktop cleanly)
-      for (int attempt = 0; attempt < 90; attempt++) {
-        if (!mounted || _isGooglePollCancelled) return false;
-        await Future<void>.delayed(const Duration(milliseconds: 1300));
+      // Resilient wall-clock poll across Android/iOS background suspension & resume.
+      final deadline = DateTime.now().add(const Duration(minutes: 3));
+      while (mounted &&
+          !_isGooglePollCancelled &&
+          DateTime.now().isBefore(deadline)) {
+        _resumeCompleter = Completer<void>();
+        await Future.any([
+          Future<void>.delayed(const Duration(milliseconds: 1400)),
+          _resumeCompleter!.future,
+        ]);
         if (!mounted || _isGooglePollCancelled) return false;
 
-        final pollRes = await _dio.post<dynamic>(
-          '$_baseUrl/api/auth/google/poll',
-          data: {'state': oauthState, 'poll_secret': pollSecret},
-        );
-        if (pollRes.statusCode == 200 && pollRes.data is Map) {
-          final status = pollRes.data['status'] as String?;
-          if (status == 'complete' &&
-              pollRes.data['access_token'] is String &&
-              pollRes.data['user'] is Map) {
-            final token = pollRes.data['access_token'] as String;
-            final user = MuxisUser.fromJson(
-              Map<String, dynamic>.from(pollRes.data['user'] as Map),
-            );
-            await _saveSession(token: token, user: user);
-            state = state.copyWith(
-              status: AuthStatus.authenticated,
-              user: user,
-              accessToken: token,
-              isCloudAvailable: true,
-              errorMessage: null,
-              infoMessage: null,
-            );
-            return true;
+        try {
+          final pollRes = await _dio.post<dynamic>(
+            '$_baseUrl/api/auth/google/poll',
+            data: {'state': oauthState, 'poll_secret': pollSecret},
+            options: Options(
+              headers: const {'Connection': 'close'},
+              receiveTimeout: const Duration(seconds: 20),
+              sendTimeout: const Duration(seconds: 15),
+            ),
+          );
+          if (pollRes.statusCode == 200 && pollRes.data is Map) {
+            final status = pollRes.data['status'] as String?;
+            if (status == 'complete' &&
+                pollRes.data['access_token'] is String &&
+                pollRes.data['user'] is Map) {
+              final token = pollRes.data['access_token'] as String;
+              final user = MuxisUser.fromJson(
+                Map<String, dynamic>.from(pollRes.data['user'] as Map),
+              );
+              await _saveSession(token: token, user: user);
+              state = state.copyWith(
+                status: AuthStatus.authenticated,
+                user: user,
+                accessToken: token,
+                isCloudAvailable: true,
+                errorMessage: null,
+                infoMessage: null,
+              );
+              return true;
+            }
+            if (status == 'error' || status == 'expired') {
+              state = state.copyWith(
+                status: AuthStatus.error,
+                errorMessage:
+                    (pollRes.data['error'] as String?) ??
+                    'Google sign-in was cancelled or timed out.',
+              );
+              return false;
+            }
           }
-          if (status == 'error' || status == 'expired') {
-            state = state.copyWith(
-              status: AuthStatus.error,
-              errorMessage:
-                  (pollRes.data['error'] as String?) ??
-                  'Google sign-in was cancelled or timed out.',
-            );
-            return false;
-          }
+        } catch (_) {
+          // Transient timeout / background socket pause while Chrome or Safari is open;
+          // continue polling cleanly until completion or deadline.
         }
       }
 
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: 'Google sign-in timed out. Please try again.',
-      );
+      if (!_isGooglePollCancelled && mounted) {
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          errorMessage: 'Google sign-in timed out. Please try again.',
+        );
+      }
       return false;
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Google Sign-In failed: $e',
+        errorMessage: CloudAuthHelper.formatNetworkError(
+          e,
+          fallback: 'Google Sign-In encountered a network error.',
+        ),
       );
       return false;
     }
@@ -817,14 +895,24 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       );
       return false;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Account deletion failed: $e');
+      state = state.copyWith(
+        errorMessage: CloudAuthHelper.formatNetworkError(
+          e,
+          fallback: 'Account deletion failed.',
+        ),
+      );
       return false;
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _isGooglePollCancelled = true;
+    final c = _resumeCompleter;
+    if (c != null && !c.isCompleted) {
+      c.complete();
+    }
     super.dispose();
   }
 }

@@ -108,4 +108,34 @@ class CloudAuthHelper {
     if (err.isNotEmpty) return err;
     return 'Email verification link was invalid or expired.';
   }
+
+  /// Normalizes low-level Dio / Socket exceptions into concise, user-safe guidance.
+  static String formatNetworkError(
+    Object error, {
+    String fallback =
+        'Could not reach MUXIS Cloud. Check your connection and retry.',
+  }) {
+    final raw = error.toString().trim();
+    final lower = raw.toLowerCase();
+    if (lower.contains('receive timeout') ||
+        lower.contains('connection timeout') ||
+        lower.contains('send timeout') ||
+        lower.contains('timed out')) {
+      return 'Connection timed out while contacting MUXIS Cloud. Check your internet connection and tap Retry.';
+    }
+    if (lower.contains('failed host lookup') ||
+        lower.contains('socketexception') ||
+        lower.contains('connection errored') ||
+        lower.contains('connection reset') ||
+        lower.contains('no address associated')) {
+      return 'Unable to reach MUXIS Cloud right now. Check your mobile data/Wi-Fi connection and retry.';
+    }
+    if (raw.startsWith('Exception: ')) {
+      return raw.substring(11).trim();
+    }
+    if (raw.startsWith('DioException')) {
+      return fallback;
+    }
+    return raw.isNotEmpty ? raw : fallback;
+  }
 }

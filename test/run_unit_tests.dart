@@ -948,6 +948,14 @@ fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 *Muxis-Windows-
       expectTrue(
         CloudAuthHelper.extractApiErrorMessage('not json', 503).contains('503'),
       );
+      final timeoutMsg = CloudAuthHelper.formatNetworkError(
+        Exception(
+          'DioException [receive timeout]: The request took longer than 0:00:12.000000 to receive data.',
+        ),
+      );
+      expectTrue(timeoutMsg.contains('timed out'));
+      expectFalse(timeoutMsg.contains('RequestOptions.receiveTimeout'));
+      expectFalse(timeoutMsg.contains('DioException'));
     },
   );
 

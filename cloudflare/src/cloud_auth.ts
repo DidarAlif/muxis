@@ -211,7 +211,7 @@ export async function handleCloudRoute(
       google_auth_mode: directGoogle ? 'google_direct' : firebaseGoogle ? 'firebase_client' : 'disabled',
       firebase_bridge_url: firebaseGoogle ? env.FIREBASE_AUTH_BRIDGE_URL : null,
       google_callback_url: `${url.origin}/api/auth/google/callback`,
-      worker_version: '1.2.11',
+      worker_version: '1.2.12',
     });
   }
 
@@ -393,7 +393,7 @@ export async function handleCloudRoute(
       return json({ auth_url: authUrl.toString(), state, callback_url: callbackUrl, mode: 'google_direct' });
     }
 
-    const bridgeBase = (env.FIREBASE_AUTH_BRIDGE_URL ?? 'https://muxis-cloud.web.app').replace(/\/+$/, '');
+    const bridgeBase = (env.FIREBASE_AUTH_BRIDGE_URL ?? 'https://muxis-cloud.firebaseapp.com').replace(/\/+$/, '');
     const firebaseAuthUrl = `${bridgeBase}/?state=${encodeURIComponent(state)}&worker=${encodeURIComponent(url.origin)}`;
     return json({ auth_url: firebaseAuthUrl, state, mode: 'firebase_client' });
   }

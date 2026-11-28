@@ -1,10 +1,10 @@
 {
-  "tag_name": "v1.2.11",
-  "name": "MUXIS v1.2.11 — Prismatic Aura",
+  "tag_name": "v1.2.12",
+  "name": "MUXIS v1.2.12 — Prismatic Aura",
   "draft": false,
   "prerelease": false,
-  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.11",
-  "body": "### What's New in MUXIS v1.2.11\n- 1-Click Google Sign-In / Sign-Up enabled out-of-the-box via dedicated Firebase Auth client (`muxis-cloud` -> `https://muxis-cloud.web.app`), verifying Google identity tokens and storing all account profiles, devices, favorites, playlists, listening history, theme presets, and EQ DSP presets inside Cloudflare D1 (`muxis-cloud-db`)\n- Full bidirectional Cloudflare D1 pull + push sync including Recently Played listening history, theme/accent presets, Audio Studio EQ preset, and synced track metadata across Windows, macOS, Linux, Android, and iPhone",
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.12",
+  "body": "### What's New in MUXIS v1.2.12\n- Fixed Android & iOS mobile Google Sign-In `DioException [receive timeout]` during browser handoff: resilient per-poll retries, 25s/30s timeouts, `Connection: close` socket hygiene, instant `AppLifecycleState.resumed` wake-up polling, and same-origin `muxis-cloud.firebaseapp.com` Firebase Hosting OAuth bridge\n- Normalized low-level network timeout/DNS exceptions into clear user-facing retry guidance across all Cloud Auth actions",
   "assets": [
     {
       "name": "Muxis-Android.apk",

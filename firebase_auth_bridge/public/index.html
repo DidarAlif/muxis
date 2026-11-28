@@ -180,7 +180,7 @@
       appId: '1:557787295098:web:9b68ff0a30164ff96a3ac3',
       storageBucket: 'muxis-cloud.firebasestorage.app',
       apiKey: 'AIzaSyD2LtscFC3xX8TlC1jdpOk7DoPLSbTxFcg',
-      authDomain: 'muxis-cloud.firebaseapp.com',
+      authDomain: window.location.hostname || 'muxis-cloud.firebaseapp.com',
       messagingSenderId: '557787295098'
     };
 
@@ -268,17 +268,10 @@
       }
     }
 
-    const isMobileBrowser = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
     googleBtn.addEventListener('click', async () => {
       googleBtn.disabled = true;
       btnLabel.textContent = 'Connecting to Google...';
       statusBox.className = 'status';
-
-      if (isMobileBrowser) {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
 
       try {
         const res = await signInWithPopup(auth, provider);
