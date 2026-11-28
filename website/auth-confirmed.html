@@ -3,60 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MUXIS Cloud — Email Verification | by A Leaf</title>
+  <title>MUXIS Cloud Verification — by A Leaf ORG</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="assets/muxis_app_icon.png">
-  <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
   <script defer src="js/main.js"></script>
 </head>
 <body>
   <div class="ambient-canvas" aria-hidden="true">
-    <div class="ambient-grid"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
+    <div class="aurora-orb orb-mint"></div>
+    <div class="aurora-orb orb-teal"></div>
+    <div class="aurora-orb orb-violet"></div>
+    <div class="aurora-orb orb-coral"></div>
   </div>
+  <div class="global-pointer-caustic" aria-hidden="true"></div>
 
-  <header class="navbar">
-    <div class="container nav-container">
-      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
-        <span class="brand-icon-wrap"><img src="assets/muxis_app_icon.png" alt="MUXIS Logo"></span>
-        <span class="brand-text-group">
-          <span class="brand-title-row"><span class="brand-name">MUXIS</span></span>
-          <span class="brand-byline">by A Leaf</span>
-        </span>
-      </a>
-      <nav class="nav-links" aria-label="Main navigation">
-        <a href="index.html">Home</a>
-        <a href="download.html">Download</a>
-        <a href="documentation.html">Docs</a>
-      </nav>
-      <div class="nav-actions">
-        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-        </button>
+  <main style="min-height: 100vh; display: grid; place-items: center; padding: 32px 20px;">
+    <div id="status-card" class="hero-spotlight liquid-surface" style="max-width: 580px; width: 100%; text-align: center; padding: 38px 30px;" data-tilt>
+      <div style="display: flex; justify-content: center; gap: 14px; align-items: center; margin-bottom: 18px;">
+        <img src="assets/muxis_app_icon.png" alt="MUXIS" style="width: 54px; height: 54px; border-radius: 14px; background: #fff; padding: 3px;">
+        <img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG" style="height: 22px; width: auto;">
       </div>
-    </div>
-    <div id="mobile-nav-drawer" class="mobile-drawer">
-      <a href="index.html">Home</a>
-      <a href="download.html">Download</a>
-      <a href="documentation.html">Documentation</a>
-    </div>
-  </header>
-
-  <main class="container" style="padding: 84px 24px; max-width: 640px; text-align: center;">
-    <div id="status-card" class="release-panel" style="padding: 36px 28px;">
-      <img src="assets/muxis_app_icon.png" alt="MUXIS" style="width: 58px; height: 58px; border-radius: 15px; margin: 0 auto 18px; display: block; box-shadow: 0 12px 28px rgba(0, 229, 255, 0.25);">
-      <span id="status-badge" class="status-chip" style="margin-bottom: 14px;">MUXIS CLOUD AUTH</span>
-      <h1 id="status-title" style="font-size: 30px; font-weight: 800; margin-bottom: 12px;">Email Verified</h1>
-      <p id="status-message" style="color: var(--text-secondary); font-size: 15px; line-height: 1.65; margin-bottom: 24px;">
-        Your email address has been verified for MUXIS Cloud. Return to the MUXIS app and sign in with your Google account or email credentials.
+      <span id="status-badge" class="chip-tag" style="margin-bottom: 14px;">MUXIS CLOUD AUTH</span>
+      <h1 id="status-title" style="font-size: 30px; margin-bottom: 12px;">Email Verified</h1>
+      <p id="status-message" class="hero-lead" style="margin: 0 auto 24px;">
+        Your email address has been verified for MUXIS Cloud. Return to the MUXIS app and sign in with your Google or email account.
       </p>
-      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-        <a id="open-app-btn" href="muxis://auth-callback" class="btn btn-primary">Open MUXIS App</a>
-        <a href="index.html" class="btn btn-secondary">Back to MUXIS Home</a>
+      <div class="hero-actions" style="justify-content: center;">
+        <a id="open-app-btn" href="muxis://auth-callback" class="btn btn-primary liquid-surface">Open MUXIS App</a>
+        <a href="index.html" class="btn btn-glass liquid-surface">Explore Website</a>
       </div>
     </div>
   </main>
@@ -72,43 +49,23 @@
       var msg = document.getElementById('status-message');
       var card = document.getElementById('status-card');
       var openBtn = document.getElementById('open-app-btn');
-
       if (window.location.search || window.location.hash) {
         openBtn.href = 'muxis://auth-callback' + window.location.search + window.location.hash;
       }
-
       if (errCode) {
         card.style.borderColor = 'rgba(239, 68, 68, 0.45)';
         badge.textContent = 'LINK EXPIRED OR USED';
         badge.style.color = '#fca5a5';
         title.textContent = 'Confirmation Link Expired';
         msg.textContent = errCode === 'otp_expired'
-          ? 'This confirmation link has expired (links last 1 hour) or was already opened. Open MUXIS, click "Cloud Sign In", and request a fresh link.'
-          : (errDesc || 'Verification could not complete. Open MUXIS and try signing in again.');
+          ? 'This confirmation link has expired or was already used. Open MUXIS and request a fresh link.'
+          : (errDesc || 'Verification could not complete. Open MUXIS and try again.');
       } else {
         badge.textContent = 'VERIFIED READY TO SYNC';
         title.textContent = 'Email Confirmed!';
-        msg.textContent = 'Your MUXIS Cloud account is verified. Return to MUXIS and sign in with your account (or tap Open MUXIS App on mobile).';
+        msg.textContent = 'Your MUXIS Cloud account is verified. Return to MUXIS and sign in to sync across devices.';
       }
     })();
   </script>
-
-  <footer class="footer">
-    <div class="container footer-content">
-      <div class="footer-brand">
-        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
-        <div class="footer-meta">
-          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
-          <span>&copy; 2026 MUXIS Project &middot; GNU GPL-3.0</span>
-        </div>
-      </div>
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="download.html">Download</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
-      </div>
-    </div>
-  </footer>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Documentation — MUXIS by A Leaf</title>
+  <title>Documentation — MUXIS by A Leaf ORG</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,109 +14,130 @@
 </head>
 <body>
   <div class="ambient-canvas" aria-hidden="true">
-    <div class="ambient-grid"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
+    <div class="aurora-orb orb-mint"></div>
+    <div class="aurora-orb orb-teal"></div>
+    <div class="aurora-orb orb-violet"></div>
+    <div class="aurora-orb orb-coral"></div>
   </div>
+  <div class="global-pointer-caustic" aria-hidden="true"></div>
 
-  <header class="navbar">
-    <div class="container nav-container">
-      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
-        <span class="brand-icon-wrap"><img src="assets/muxis_app_icon.png" alt="MUXIS Logo"></span>
-        <span class="brand-text-group">
-          <span class="brand-title-row"><span class="brand-name">MUXIS</span></span>
-          <span class="brand-byline">by A Leaf</span>
-        </span>
-      </a>
-
-      <nav class="nav-links" aria-label="Main navigation">
-        <a href="index.html">Home</a>
-        <a href="download.html">Download</a>
-        <a href="documentation.html" class="active">Docs</a>
-        <a href="privacy.html">Privacy</a>
-      </nav>
-
-      <div class="nav-actions">
-        <a href="download.html" class="nav-version-pill">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span data-release-tag>v1.2.13</span>
-        </a>
-        <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener" class="nav-github-btn">GitHub</a>
-        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div id="mobile-nav-drawer" class="mobile-drawer">
-      <a href="index.html">Home</a>
-      <a href="download.html">Download</a>
-      <a href="documentation.html" class="active">Documentation</a>
-      <a href="privacy.html">Privacy Policy</a>
-      <a href="terms.html">Terms of Service</a>
-    </div>
+  <header class="mobile-topbar">
+    <a href="index.html" class="sidebar-brand">
+      <span class="sidebar-brand-icon"><img src="assets/muxis_app_icon.png" alt="MUXIS"></span>
+      <span class="sidebar-brand-copy"><span class="sidebar-brand-title">MUXIS</span><span class="sidebar-brand-sub">BY A LEAF ORG</span></span>
+    </a>
+    <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
   </header>
 
-  <main class="container doc-shell">
-    <div class="doc-header reveal is-visible">
-      <span class="section-kicker">User Guide &amp; Architecture</span>
-      <h1>MUXIS <span class="text-prism">Documentation</span></h1>
-      <p>Complete reference for whole-storage indexing, 10-band Audio Studio DSP, MUXIS Cloud synchronization, and keyboard ergonomics.</p>
-    </div>
+  <nav id="mobile-nav-drawer" class="mobile-drawer">
+    <a href="index.html" class="nav-pill liquid-surface"><span class="nav-item-text">Explore &amp; Stage</span></a>
+    <a href="download.html" class="nav-pill liquid-surface"><span class="nav-item-text">Download Center</span></a>
+    <a href="documentation.html" class="nav-pill liquid-surface active"><span class="nav-item-text">Documentation</span></a>
+    <a href="privacy.html" class="nav-pill liquid-surface"><span class="nav-item-text">Privacy Policy</span></a>
+    <a href="terms.html" class="nav-pill liquid-surface"><span class="nav-item-text">Terms of Service</span></a>
+  </nav>
 
-    <article class="doc-card reveal is-visible">
-      <h3>1. Importing Local Music &amp; Full-Storage Scan</h3>
-      <p>Click <strong>Import Music</strong> in the Library view to select individual folders or run a full-device storage sweep across supported formats (<code>.mp3</code>, <code>.flac</code>, <code>.wav</code>, <code>.aac</code>, <code>.m4a</code>, <code>.ogg</code>, <code>.opus</code>).</p>
-      <p><strong>Android:</strong> Grant media audio storage access when prompted so MUXIS recursively indexes internal memory and mounted SD card music directories automatically.</p>
-      <p><strong>iPhone / iPad:</strong> Copy offline audio folders into <em>Files &rarr; On My iPhone &rarr; MUXIS &rarr; Music</em> or pick any shared cloud/local iOS directory via the native document picker.</p>
-    </article>
-
-    <article class="doc-card reveal">
-      <h3>2. Audio Studio &amp; 10-Band Parametric DSP</h3>
-      <p>Open <strong>Audio Studio</strong> from the sidebar or player dock to sculpt frequency gain across 10 bands (<code>32Hz</code>, <code>64Hz</code>, <code>125Hz</code>, <code>250Hz</code>, <code>500Hz</code>, <code>1k</code>, <code>2k</code>, <code>4k</code>, <code>8k</code>, <code>16kHz</code>).</p>
-      <p>Select instant Studio Presets (<em>Prismatic Neon</em>, <em>Sub Bass Thump</em>, <em>Vocal Clarity</em>, <em>Electronic &amp; EDM</em>, <em>Rock &amp; Metal</em>, <em>Jazz &amp; Acoustic</em>, <em>Lo-Fi Warmth</em>, or <em>Flat</em>), balance <strong>Sub-Bass Drive</strong>, <strong>Treble Air</strong>, and <strong>Pre-Amp Gain</strong>, or toggle <strong>Master Bypass</strong> for A/B comparison.</p>
-    </article>
-
-    <article class="doc-card reveal">
-      <h3>3. MUXIS Cloud (Firebase Auth + Cloudflare D1 Sync)</h3>
-      <p>Open <strong>Cloud Sign In</strong> in the bottom left (or Settings) to authenticate with 1-Click Google Sign-In powered by Firebase Authentication or create an email/password account.</p>
-      <p>Your playlists, favorite tracks, listening history, 10-band EQ profile, and custom theme preferences synchronize across Desktop, Android, and iPhone through encrypted <strong>Cloudflare Workers &amp; Cloudflare D1</strong> edge storage. Audio files themselves never leave your device.</p>
-    </article>
-
-    <article class="doc-card reveal">
-      <h3>4. Synchronized Lyrics &amp; Stream Bridges</h3>
-      <p>Place matching <code>.lrc</code> files beside local tracks or stream connected YouTube Music, Spotify Hi-Fi Bridge, SoundCloud, and live FM Radio channels straight inside one unified player queue.</p>
-    </article>
-
-    <article class="doc-card reveal">
-      <h3>5. Desktop Keyboard Shortcuts</h3>
-      <div class="kbd-grid">
-        <div class="kbd-item"><span>Play / Pause</span> <kbd>Space</kbd></div>
-        <div class="kbd-item"><span>Next Track</span> <kbd>Right / N</kbd></div>
-        <div class="kbd-item"><span>Previous Track</span> <kbd>Left / P</kbd></div>
-        <div class="kbd-item"><span>Volume Up / Down</span> <kbd>Up / Down</kbd></div>
-        <div class="kbd-item"><span>Mute / Unmute</span> <kbd>M</kbd></div>
-        <div class="kbd-item"><span>Global Search</span> <kbd>Ctrl + K</kbd></div>
+  <div class="app-shell">
+    <aside id="app-sidebar" class="app-sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-brand">
+          <span class="sidebar-brand-icon"><img src="assets/muxis_app_icon.png" alt="MUXIS"></span>
+          <span class="sidebar-brand-copy"><span class="sidebar-brand-title">MUXIS</span><span class="sidebar-brand-sub">LIQUID AUDIO</span></span>
+        </a>
+        <button id="sidebar-collapse-btn" class="collapse-btn" type="button" aria-label="Collapse sidebar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg></button>
       </div>
-    </article>
-  </main>
-
-  <footer class="footer">
-    <div class="container footer-content">
-      <div class="footer-brand">
-        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
-        <div class="footer-meta">
-          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
-          <span>&copy; 2026 MUXIS Project &middot; GNU GPL-3.0</span>
+      <div class="nav-section-label">Navigate</div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-pill liquid-surface"><span class="nav-item-text">Explore</span></a>
+        <a href="download.html" class="nav-pill liquid-surface"><span class="nav-item-text">Download</span><span class="nav-badge" data-release-tag>v1.2.13</span></a>
+        <a href="documentation.html" class="nav-pill liquid-surface active"><span class="nav-item-text">Documentation</span></a>
+        <a href="privacy.html" class="nav-pill liquid-surface"><span class="nav-item-text">Privacy</span></a>
+        <a href="terms.html" class="nav-pill liquid-surface"><span class="nav-item-text">Terms</span></a>
+      </nav>
+      <div class="theme-studio-card liquid-surface">
+        <div class="theme-studio-title"><span>Theme Studio</span><span id="active-theme-name" style="color: var(--secondary);">Prismatic Obsidian</span></div>
+        <div class="theme-swatches">
+          <button type="button" class="theme-dot active" data-theme-pick="obsidian_aurora" style="background: linear-gradient(135deg,#00ff88,#00e5ff);"></button>
+          <button type="button" class="theme-dot" data-theme-pick="midnight_sapphire" style="background: linear-gradient(135deg,#38bdf8,#818cf8);"></button>
+          <button type="button" class="theme-dot" data-theme-pick="botanical_jade" style="background: linear-gradient(135deg,#10b981,#2dd4bf);"></button>
+          <button type="button" class="theme-dot" data-theme-pick="ultraviolet_synth" style="background: linear-gradient(135deg,#c084fc,#22d3ee);"></button>
+          <button type="button" class="theme-dot" data-theme-pick="crimson_velvet" style="background: linear-gradient(135deg,#ff4d8d,#c084fc);"></button>
         </div>
       </div>
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="download.html">Download</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
+      <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener" class="aleaf-org-card liquid-surface">
+        <img src="assets/a_leaf_mark.svg" alt="A Leaf ORG">
+        <div class="aleaf-org-card-text"><strong>A Leaf ORG</strong><span>MUXIS Documentation</span></div>
+      </a>
+    </aside>
+
+    <main class="app-main">
+      <div class="page-wrap" style="max-width: 920px;">
+        <div class="stage-top-bar">
+          <div class="aleaf-org-pill liquid-surface"><img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG"><span>&middot; Technical Guide</span></div>
+          <a href="download.html" class="live-release-pill liquid-surface"><span class="live-dot"></span><span data-release-tag>v1.2.13</span></a>
+        </div>
+
+        <section class="hero-spotlight liquid-surface" style="padding: 28px 30px;">
+          <h1>MUXIS <span class="prism-text">Documentation</span></h1>
+          <p class="hero-lead" style="margin-bottom: 0;">Guide to whole-storage music discovery, 10-band DSP, Firebase + Cloudflare D1 cloud sync, and desktop keyboard shortcuts.</p>
+        </section>
+
+        <article class="doc-card liquid-surface reveal is-visible">
+          <h3>1. Importing Local Music &amp; Full-Storage Scan</h3>
+          <p>Tap <strong>Import Music</strong> in Library to scan local folders across <code>.mp3</code>, <code>.flac</code>, <code>.wav</code>, <code>.aac</code>, <code>.m4a</code>, <code>.ogg</code>, and <code>.opus</code>.</p>
+          <p><strong>Android &amp; iPhone:</strong> Android scans internal storage and SD cards recursively; iPhone scans <em>Files &rarr; On My iPhone &rarr; MUXIS &rarr; Music</em> or any user-picked iOS directory.</p>
+        </article>
+
+        <article class="doc-card liquid-surface reveal">
+          <h3>2. Audio Studio &amp; 10-Band Parametric DSP</h3>
+          <p>Adjust gain across <code>32Hz – 16kHz</code> bands alongside Studio Presets (<em>Prismatic Neon</em>, <em>Sub Bass Thump</em>, <em>Vocal Clarity</em>, <em>Electronic EDM</em>, <em>Flat</em>), Sub-Bass Drive, Treble Air, Pre-Amp Gain, and Master Bypass.</p>
+        </article>
+
+        <article class="doc-card liquid-surface reveal">
+          <h3>3. MUXIS Cloud (Firebase Auth + Cloudflare D1)</h3>
+          <p>Authenticate with 1-Click Google Sign-In powered by Firebase Authentication or email credentials. Playlists, favorites, listening history, 10-band EQ curves, and studio themes sync over encrypted Cloudflare Workers + D1 storage while audio files remain local.</p>
+        </article>
+
+        <article class="doc-card liquid-surface reveal">
+          <h3>4. Desktop Keyboard Shortcuts</h3>
+          <div class="kbd-grid">
+            <div class="kbd-item"><span>Play / Pause</span><kbd>Space</kbd></div>
+            <div class="kbd-item"><span>Next Track</span><kbd>Right / N</kbd></div>
+            <div class="kbd-item"><span>Previous Track</span><kbd>Left / P</kbd></div>
+            <div class="kbd-item"><span>Volume</span><kbd>Up / Down</kbd></div>
+            <div class="kbd-item"><span>Mute</span><kbd>M</kbd></div>
+            <div class="kbd-item"><span>Command Search</span><kbd>Ctrl + K</kbd></div>
+          </div>
+        </article>
+
+        <footer class="site-footer">
+          <div class="footer-aleaf-lockup">
+            <img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG">
+            <span style="font-size: 12px; color: var(--text-muted);">&copy; 2026 MUXIS by A Leaf ORG</span>
+          </div>
+          <div class="footer-links">
+            <a href="index.html">Home</a>
+            <a href="download.html">Download</a>
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Terms</a>
+          </div>
+        </footer>
       </div>
+    </main>
+  </div>
+
+  <div class="bottom-dock">
+    <div class="dock-left">
+      <div class="dock-thumb"><img src="assets/muxis_app_icon.png" alt="MUXIS"></div>
+      <div class="dock-meta"><strong>MUXIS Documentation</strong><span>Reference Guide &middot; <span data-release-tag>v1.2.13</span></span></div>
     </div>
-  </footer>
+    <div class="dock-center" aria-hidden="true"><canvas id="dock-eq-canvas"></canvas></div>
+    <div class="dock-right">
+      <a class="dock-aleaf" href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener"><img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG"></a>
+      <a id="dock-download-btn" href="download.html" class="dock-cta liquid-surface">Download (v1.2.13)</a>
+    </div>
+  </div>
 </body>
 </html>

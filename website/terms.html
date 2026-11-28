@@ -3,93 +3,91 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terms of Service — MUXIS by A Leaf</title>
+  <title>Terms of Service — MUXIS by A Leaf ORG</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="assets/muxis_app_icon.png">
-  <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
   <script defer src="js/main.js"></script>
 </head>
 <body>
   <div class="ambient-canvas" aria-hidden="true">
-    <div class="ambient-grid"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
+    <div class="aurora-orb orb-mint"></div>
+    <div class="aurora-orb orb-teal"></div>
+    <div class="aurora-orb orb-violet"></div>
+    <div class="aurora-orb orb-coral"></div>
   </div>
+  <div class="global-pointer-caustic" aria-hidden="true"></div>
 
-  <header class="navbar">
-    <div class="container nav-container">
-      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
-        <span class="brand-icon-wrap"><img src="assets/muxis_app_icon.png" alt="MUXIS Logo"></span>
-        <span class="brand-text-group">
-          <span class="brand-title-row"><span class="brand-name">MUXIS</span></span>
-          <span class="brand-byline">by A Leaf</span>
-        </span>
-      </a>
-
-      <nav class="nav-links" aria-label="Main navigation">
-        <a href="index.html">Home</a>
-        <a href="download.html">Download</a>
-        <a href="documentation.html">Docs</a>
-        <a href="privacy.html">Privacy</a>
-      </nav>
-
-      <div class="nav-actions">
-        <a href="download.html" class="nav-version-pill">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span data-release-tag>v1.2.13</span>
-        </a>
-        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div id="mobile-nav-drawer" class="mobile-drawer">
-      <a href="index.html">Home</a>
-      <a href="download.html">Download</a>
-      <a href="documentation.html">Documentation</a>
-      <a href="privacy.html">Privacy Policy</a>
-      <a href="terms.html" class="active">Terms of Service</a>
-    </div>
+  <header class="mobile-topbar">
+    <a href="index.html" class="sidebar-brand"><span class="sidebar-brand-icon"><img src="assets/muxis_app_icon.png" alt="MUXIS"></span><span class="sidebar-brand-copy"><span class="sidebar-brand-title">MUXIS</span><span class="sidebar-brand-sub">BY A LEAF ORG</span></span></a>
+    <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
   </header>
 
-  <main class="container doc-shell" style="max-width: 820px;">
-    <div class="doc-header reveal is-visible">
-      <span class="section-kicker">Open Source Licensing</span>
-      <h1>Terms of <span class="text-prism">Service</span></h1>
-      <p>Last Updated: November 28, 2026</p>
-    </div>
+  <nav id="mobile-nav-drawer" class="mobile-drawer">
+    <a href="index.html" class="nav-pill liquid-surface"><span class="nav-item-text">Explore</span></a>
+    <a href="download.html" class="nav-pill liquid-surface"><span class="nav-item-text">Download</span></a>
+    <a href="documentation.html" class="nav-pill liquid-surface"><span class="nav-item-text">Documentation</span></a>
+    <a href="privacy.html" class="nav-pill liquid-surface"><span class="nav-item-text">Privacy Policy</span></a>
+    <a href="terms.html" class="nav-pill liquid-surface active"><span class="nav-item-text">Terms of Service</span></a>
+  </nav>
 
-    <article class="doc-card reveal is-visible">
-      <h3>1. GNU GPL-3.0 Open Source License</h3>
-      <p>MUXIS by A Leaf is free and open-source software distributed under the GNU General Public License v3.0 (GPL-3.0). You may run, inspect, modify, and redistribute the software in accordance with GPL-3.0 terms.</p>
-    </article>
+  <div class="app-shell">
+    <aside id="app-sidebar" class="app-sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-brand"><span class="sidebar-brand-icon"><img src="assets/muxis_app_icon.png" alt="MUXIS"></span><span class="sidebar-brand-copy"><span class="sidebar-brand-title">MUXIS</span><span class="sidebar-brand-sub">LIQUID AUDIO</span></span></a>
+        <button id="sidebar-collapse-btn" class="collapse-btn" type="button" aria-label="Collapse sidebar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg></button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-pill liquid-surface"><span class="nav-item-text">Explore</span></a>
+        <a href="download.html" class="nav-pill liquid-surface"><span class="nav-item-text">Download</span><span class="nav-badge" data-release-tag>v1.2.13</span></a>
+        <a href="documentation.html" class="nav-pill liquid-surface"><span class="nav-item-text">Documentation</span></a>
+        <a href="privacy.html" class="nav-pill liquid-surface"><span class="nav-item-text">Privacy Policy</span></a>
+        <a href="terms.html" class="nav-pill liquid-surface active"><span class="nav-item-text">Terms of Service</span></a>
+      </nav>
+      <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener" class="aleaf-org-card liquid-surface">
+        <img src="assets/a_leaf_mark.svg" alt="A Leaf ORG">
+        <div class="aleaf-org-card-text"><strong>A Leaf ORG</strong><span>Open Source GPL-3.0</span></div>
+      </a>
+    </aside>
 
-    <article class="doc-card reveal">
-      <h3>2. Permitted Use &amp; Audio Sources</h3>
-      <p>You agree to use MUXIS solely with lawfully obtained audio files, authorized open broadcasts (Creative Commons / Public Domain), and authorized connected account services. MUXIS does not support DRM circumvention or unauthorized media extraction.</p>
-    </article>
-  </main>
-
-  <footer class="footer">
-    <div class="container footer-content">
-      <div class="footer-brand">
-        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
-        <div class="footer-meta">
-          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
-          <span>&copy; 2026 MUXIS Project &middot; GNU GPL-3.0</span>
+    <main class="app-main">
+      <div class="page-wrap" style="max-width: 860px;">
+        <div class="stage-top-bar">
+          <div class="aleaf-org-pill liquid-surface"><img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG"></div>
+          <span class="live-release-pill liquid-surface"><span class="live-dot"></span>GNU GPL-3.0</span>
         </div>
+
+        <section class="hero-spotlight liquid-surface" style="padding: 28px 30px;">
+          <h1>Terms of <span class="prism-text">Service</span></h1>
+          <p class="hero-lead" style="margin-bottom: 0;">Licensing and fair usage terms for MUXIS by A Leaf ORG.</p>
+        </section>
+
+        <article class="doc-card liquid-surface reveal is-visible">
+          <h3>1. Open Source GNU GPL-3.0 License</h3>
+          <p>MUXIS by A Leaf ORG is distributed under the GNU General Public License v3.0. You are free to run, study, modify, and redistribute source contributions in compliance with GPL-3.0.</p>
+        </article>
+
+        <article class="doc-card liquid-surface reveal is-visible">
+          <h3>2. Permitted Audio Sources</h3>
+          <p>You agree to use MUXIS solely with lawfully obtained audio files, open broadcasts, and authorized connected accounts.</p>
+        </article>
+
+        <footer class="site-footer">
+          <div class="footer-aleaf-lockup"><img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG"><span style="font-size: 12px; color: var(--text-muted);">&copy; 2026 MUXIS by A Leaf ORG</span></div>
+          <div class="footer-links"><a href="index.html">Home</a><a href="download.html">Download</a><a href="privacy.html">Privacy</a></div>
+        </footer>
       </div>
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="download.html">Download</a>
-        <a href="documentation.html">Docs</a>
-        <a href="privacy.html">Privacy</a>
-      </div>
-    </div>
-  </footer>
+    </main>
+  </div>
+
+  <div class="bottom-dock">
+    <div class="dock-left"><div class="dock-thumb"><img src="assets/muxis_app_icon.png" alt="MUXIS"></div><div class="dock-meta"><strong>Terms of Service</strong><span>GNU GPL-3.0 License</span></div></div>
+    <div class="dock-center" aria-hidden="true"><canvas id="dock-eq-canvas"></canvas></div>
+    <div class="dock-right"><a class="dock-aleaf" href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener"><img src="assets/a_leaf_org_logo.svg" alt="A Leaf ORG"></a><a id="dock-download-btn" href="download.html" class="dock-cta liquid-surface">Download (v1.2.13)</a></div>
+  </div>
 </body>
 </html>
