@@ -4,6 +4,8 @@
  * byte-range streaming proxy for iOS Safari, and LRCLIB synced lyrics lookup.
  */
 
+import { resolveSoundCloudStreamUrl, searchSoundCloudTracks } from './platform_links';
+
 export interface StreamTrackDTO {
   id: string;
   title: string;
@@ -11,7 +13,7 @@ export interface StreamTrackDTO {
   album: string;
   durationSec: number;
   artworkUrl: string | null;
-  source: 'youtube' | 'audius' | 'publicDomain';
+  source: 'youtube' | 'audius' | 'soundcloud' | 'spotify' | 'publicDomain';
   audioFormat: string;
   streamUrl?: string;
 }
@@ -51,7 +53,7 @@ function extractThumb(thumbObj: unknown): string | null {
   return typeof last?.url === 'string' ? last.url : null;
 }
 
-function extractResponsiveItems(data: unknown): StreamTrackDTO[] {
+export function extractResponsiveItems(data: unknown): StreamTrackDTO[] {
   const results: StreamTrackDTO[] = [];
   const seen = new Set<string>();
 
@@ -368,7 +370,91 @@ export async function handleStreamRoute(
     });
   }
 
-  // 4. Synced Lyrics Lookup via LRCLIB
+  // 4. SoundCloud Search & Audio Stream Relay (handles iOS Safari Range & CORS)
+  if (path === '/api/stream/soundcloud/search' && request.method === 'GET') {
+    const q = (url.searchParams.get('q') ?? '').trim();
+    if (!q) return json({ tracks: [] }, 200);
+    const tracks = await searchSoundCloudTracks(q);
+    return json({ tracks }, 200);
+  }
+
+  if (path === '/api/stream/soundcloud/stream' && request.method === 'GET') {
+    const trackId = (url.searchParams.get('trackId') ?? '').trim();
+    if (!trackId) return err('Missing trackId parameter.', 400);
+    const directUrl = await resolveSoundCloudStreamUrl(trackId);
+    if (!directUrl) return err('SoundCloud stream unavailable for this track.', 502);
+    if (url.searchParams.get('mode') === 'url') {
+      return json({ streamUrl: directUrl }, 200);
+    }
+    const reqHeaders = new Headers();
+    const range = request.headers.get('Range');
+    if (range) reqHeaders.set('Range', range);
+    const upstream = await fetch(directUrl, {
+      headers: reqHeaders,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!upstream.ok && upstream.status !== 206) {
+      return err(`Upstream SoundCloud stream failed (${upstream.status}).`, 502);
+    }
+    const resHeaders = new Headers(corsHeaders);
+    resHeaders.set('Content-Type', upstream.headers.get('Content-Type') || 'audio/mpeg');
+    resHeaders.set('Accept-Ranges', 'bytes');
+    const cl = upstream.headers.get('Content-Length');
+    if (cl) resHeaders.set('Content-Length', cl);
+    const cr = upstream.headers.get('Content-Range');
+    if (cr) resHeaders.set('Content-Range', cr);
+    return new Response(upstream.body, { status: upstream.status, headers: resHeaders });
+  }
+
+  // 5. Spotify Audio Bridge Search & Stream Resolver (matches title/artist to open playable streams)
+  if (path === '/api/stream/spotify/bridge' && request.method === 'GET') {
+    const title = (url.searchParams.get('title') ?? '').trim();
+    const artist = (url.searchParams.get('artist') ?? '').trim();
+    const q = `${artist} ${title}`.trim() || (url.searchParams.get('q') ?? '').trim();
+    if (!q) return json({ tracks: [], streamUrl: null }, 200);
+
+    const [audRes, scTracks] = await Promise.all([
+      fetch(`https://discoveryprovider.audius.co/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=MUXIS&limit=8`, {
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null),
+      searchSoundCloudTracks(q),
+    ]);
+
+    const tracks: StreamTrackDTO[] = [...scTracks];
+    if (audRes?.ok) {
+      const ad = (await audRes.json()) as {
+        data?: Array<{
+          id?: string;
+          title?: string;
+          duration?: number;
+          user?: { name?: string };
+          artwork?: { '480x480'?: string };
+        }>;
+      };
+      for (const x of ad.data ?? []) {
+        if (!x.id || !x.title) continue;
+        tracks.unshift({
+          id: `aud-${x.id}`,
+          title: x.title,
+          artist: x.user?.name || 'Audius',
+          album: 'Spotify Audio Bridge',
+          durationSec: Number(x.duration || 180),
+          artworkUrl: x.artwork?.['480x480'] || null,
+          source: 'audius',
+          audioFormat: 'Audio Bridge 320kbps',
+          streamUrl: `https://discoveryprovider.audius.co/v1/tracks/${encodeURIComponent(x.id)}/stream?app_name=MUXIS`,
+        });
+      }
+    }
+
+    let playableUrl: string | null = tracks.find((t) => t.streamUrl)?.streamUrl ?? null;
+    if (!playableUrl && scTracks.length) {
+      playableUrl = `${url.origin}/api/stream/soundcloud/stream?trackId=${encodeURIComponent(scTracks[0].id)}`;
+    }
+    return json({ streamUrl: playableUrl, tracks: tracks.slice(0, 16) }, 200);
+  }
+
+  // 6. Synced Lyrics Lookup via LRCLIB
   if (path === '/api/stream/lyrics' && request.method === 'GET') {
     const rawTitle = (url.searchParams.get('title') ?? '').trim();
     const rawArtist = (url.searchParams.get('artist') ?? '').trim();

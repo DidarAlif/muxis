@@ -16,7 +16,7 @@ export interface CloudEnv {
   ADMIN_EMAILS?: string;
 }
 
-interface UserRow {
+export interface UserRow {
   id: string;
   email: string;
   display_name: string;
@@ -50,7 +50,7 @@ function isOwnerAdmin(email: string, env: CloudEnv): boolean {
   return getOwnerAdminSet(env).has(email.trim().toLowerCase());
 }
 
-async function isApprovalRequired(db: D1Database): Promise<boolean> {
+export async function isApprovalRequired(db: D1Database): Promise<boolean> {
   try {
     const row = await db
       .prepare(`SELECT value FROM app_config_flags WHERE key = 'require_pwa_approval'`)
@@ -158,7 +158,7 @@ async function signJwt(
   return `${signingInput}.${base64UrlEncode(sig)}`;
 }
 
-async function verifyJwt(token: string, secret: string): Promise<Record<string, unknown> | null> {
+export async function verifyJwt(token: string, secret: string): Promise<Record<string, unknown> | null> {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   try {
@@ -182,7 +182,7 @@ async function verifyJwt(token: string, secret: string): Promise<Record<string, 
   }
 }
 
-function serializeUser(u: UserRow, env?: CloudEnv) {
+export function serializeUser(u: UserRow, env?: CloudEnv) {
   const owner = env ? isOwnerAdmin(u.email, env) : false;
   const isAdmin = owner || Number(u.is_admin ?? 0) === 1;
   const approval = isAdmin ? 'approved' : (u.pwa_approval_status || 'pending');

@@ -98,6 +98,35 @@
   let openGroupFilter = null; // { type: 'album'|'artist', value: string }
   let pendingAddTrack = null;
 
+  const PLATFORM_META = {
+    youtube: {
+      key: 'youtube', cls: 'yt', shortLabel: 'YT', name: 'YouTube Music', badge: 'YT',
+      desc: 'Sync playlists, channels, mixes & stream audio directly',
+      liveLabel: 'YT MUSIC LIVE'
+    },
+    spotify: {
+      key: 'spotify', cls: 'sp', shortLabel: 'Spotify', name: 'Spotify', badge: 'S',
+      desc: 'Import playlists, catalog & stream via audio bridge',
+      liveLabel: 'SPOTIFY BRIDGE LIVE'
+    },
+    soundcloud: {
+      key: 'soundcloud', cls: 'sc', shortLabel: 'SC', name: 'SoundCloud', badge: 'SC',
+      desc: 'Stream sets, likes, user uploads & SoundCloud charts',
+      liveLabel: 'SOUNDCLOUD LIVE'
+    }
+  };
+  let platformLinks = loadJson('muxis_pwa_platform_links', {
+    youtube: { isConnected: false },
+    spotify: { isConnected: false },
+    soundcloud: { isConnected: false }
+  });
+  let activePlatformKey = 'youtube';
+  let activePlatformSubTab = 'picks';
+  let activeConnectPlatform = null;
+  let activeConnectMode = 'profile_url';
+  let openHubPlaylistId = null;
+  let platformSearchResults = null;
+
   let syncedLyrics = []; // { timeSec, text }
   let activeLyricIdx = -1;
   let sleepInterval = null;
@@ -110,6 +139,7 @@
   let deferredInstallPrompt = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
+    captureSpotifyOAuthReturn();
     registerServiceWorker();
     initInstallBanner();
     initTheme(activeThemeId);
@@ -119,6 +149,7 @@
     initEqStudio();
     initAudioControls();
     initSpectrumLoop();
+    renderStreamingPlatformUI();
 
     if (authToken) await verifyApprovalAndRoute();
     else showGateAuth();
@@ -296,7 +327,9 @@
 
   function signOutAll() {
     authToken = ''; authUser = null;
+    platformLinks = { youtube: { isConnected: false }, spotify: { isConnected: false }, soundcloud: { isConnected: false } };
     localStorage.removeItem('muxis_cloud_token'); localStorage.removeItem('muxis_cloud_user');
+    localStorage.removeItem('muxis_pwa_platform_links');
     showGateAuth();
   }
 
@@ -306,6 +339,7 @@
   function switchTab(name) {
     document.querySelectorAll('.tab-view').forEach((v) => v.classList.toggle('active', v.id === `tab-${name}`));
     document.querySelectorAll('.bnav-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    renderTopPlatformPills();
   }
 
   function initShellHandlers() {
@@ -383,10 +417,16 @@
     });
 
     document.getElementById('sleep-timer-select').addEventListener('change', (e) => setSleepTimer(Number(e.target.value)));
-    document.getElementById('settings-sync-btn').addEventListener('click', async () => { await pullCloudSync(); await pushAllStateToCloud(); showToast('Cloudflare D1 synced!'); });
+    document.getElementById('settings-sync-btn').addEventListener('click', async () => { await pullCloudSync(); await pushAllStateToCloud(); await loadPlatformLinks(); showToast('Cloudflare D1 synced!'); });
     document.getElementById('settings-regen-key-btn').addEventListener('click', regenerateRecoveryKey);
     document.getElementById('settings-signout-btn').addEventListener('click', signOutAll);
     document.getElementById('settings-delete-btn').addEventListener('click', deleteCloudAccount);
+
+    const pcSheet = document.getElementById('platform-connect-backdrop');
+    document.getElementById('close-pc-btn').addEventListener('click', () => pcSheet.classList.remove('open'));
+    pcSheet.addEventListener('click', (e) => { if (e.target === pcSheet) pcSheet.classList.remove('open'); });
+    document.getElementById('pc-submit-btn').addEventListener('click', submitPlatformConnect);
+    document.getElementById('pc-oauth-btn').addEventListener('click', startSpotifyPkceFlow);
   }
 
   async function hydrateAppData() {
@@ -397,8 +437,10 @@
     document.getElementById('settings-admin-link').style.display = isAdm ? 'inline-flex' : 'none';
 
     renderCarousel('home-featured-carousel', FEATURED_TRACKS);
+    await completePendingSpotifyPkce();
     await loadLocalTracksFromDb();
     await pullCloudSync();
+    await loadPlatformLinks();
     await loadTrendingStreams();
     renderHomeRecent();
     renderLibraryArea();
@@ -672,8 +714,23 @@
     }
 
     if (!playUrl && track.id && track.id.startsWith('yt-')) {
-      showToast('Resolving audio stream...');
+      showToast('Resolving YouTube audio stream...');
       playUrl = `${WORKER_URL}/api/stream/yt/audio?videoId=${encodeURIComponent(track.id.replace(/^yt-/, ''))}`;
+    } else if (!playUrl && track.id && track.id.startsWith('sc-')) {
+      showToast('Resolving SoundCloud audio...');
+      playUrl = `${WORKER_URL}/api/stream/soundcloud/stream?trackId=${encodeURIComponent(track.id)}`;
+    } else if (!playUrl && (track.source === 'spotify' || (track.id && track.id.startsWith('sp-')))) {
+      showToast('Resolving Spotify Audio Bridge...');
+      try {
+        const bRes = await fetch(`${WORKER_URL}/api/stream/spotify/bridge?title=${encodeURIComponent(track.title || '')}&artist=${encodeURIComponent(track.artist || '')}`);
+        if (bRes.ok) {
+          const bData = await bRes.json();
+          if (bData.streamUrl) {
+            playUrl = bData.streamUrl;
+            track.url = playUrl;
+          }
+        }
+      } catch (_) {}
     }
 
     activeAudio.src = playUrl;
@@ -1378,6 +1435,452 @@
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
         body: JSON.stringify(Object.assign({ device: { name: /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone PWA' : 'Web PWA', platform: 'pwa', client_version: '1.2.13' } }, payload))
       });
+    } catch (_) {}
+  }
+
+  // =========================================================================
+  // STREAMING PLATFORM CONNECTIONS & PLATFORM STREAM HUBS (YT / SPOTIFY / SC)
+  // =========================================================================
+  function captureSpotifyOAuthReturn() {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const code = qs.get('code');
+      const state = qs.get('state');
+      if (code && state && state.startsWith('sp_pkce_')) {
+        sessionStorage.setItem('muxis_sp_oauth_code', code);
+        qs.delete('code'); qs.delete('state');
+        const cleanQs = qs.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${cleanQs ? '?' + cleanQs : ''}${window.location.hash}`);
+      }
+    } catch (_) {}
+  }
+
+  async function completePendingSpotifyPkce() {
+    const code = sessionStorage.getItem('muxis_sp_oauth_code');
+    const verifier = sessionStorage.getItem('muxis_sp_pkce_verifier');
+    const clientId = sessionStorage.getItem('muxis_sp_pkce_cid');
+    const redirectUri = sessionStorage.getItem('muxis_sp_pkce_redir');
+    if (!code || !verifier || !clientId || !authToken) return;
+    sessionStorage.removeItem('muxis_sp_oauth_code');
+    sessionStorage.removeItem('muxis_sp_pkce_verifier');
+    sessionStorage.removeItem('muxis_sp_pkce_cid');
+    sessionStorage.removeItem('muxis_sp_pkce_redir');
+    try {
+      const res = await fetch(`${WORKER_URL}/api/stream/links/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
+        body: JSON.stringify({ platform: 'spotify', mode: 'oauth_pkce', clientId, oauthCode: code, codeVerifier: verifier, redirectUri })
+      });
+      if (res.ok) showToast('Spotify OAuth account linked!');
+    } catch (_) {}
+  }
+
+  async function loadPlatformLinks() {
+    if (!authToken) { renderStreamingPlatformUI(); return; }
+    try {
+      const res = await fetch(`${WORKER_URL}/api/stream/links`, {
+        headers: { Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' }
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.links) {
+          platformLinks = d.links;
+          saveJson('muxis_pwa_platform_links', platformLinks);
+        }
+      }
+    } catch (_) {}
+    renderStreamingPlatformUI();
+  }
+
+  function renderStreamingPlatformUI() {
+    renderTopPlatformPills();
+    renderHeroPlatformChips();
+    renderHomePlatformSections();
+    renderSettingsStreamingList();
+    if (document.getElementById('tab-platform').classList.contains('active')) renderPlatformHub();
+  }
+
+  function renderTopPlatformPills() {
+    const wrap = document.getElementById('top-platform-pills');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const isHubOpen = document.getElementById('tab-platform')?.classList.contains('active');
+    ['youtube', 'spotify', 'soundcloud'].forEach((key) => {
+      const meta = PLATFORM_META[key];
+      const conn = platformLinks[key] || { isConnected: false };
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `platform-pill ${meta.cls}${conn.isConnected ? ' linked' : ''}${isHubOpen && activePlatformKey === key ? ' active' : ''}`;
+      btn.innerHTML = `<span class="platform-pill-dot"></span><span>${meta.shortLabel}</span>`;
+      btn.title = conn.isConnected ? `${meta.name} (${conn.displayName || 'Connected'})` : `Connect ${meta.name}`;
+      btn.addEventListener('click', () => openPlatformHub(key));
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderHeroPlatformChips() {
+    const wrap = document.getElementById('hero-platform-chips');
+    if (!wrap) return;
+    const connected = ['youtube', 'spotify', 'soundcloud'].filter((k) => platformLinks[k]?.isConnected);
+    let html = `<span class="hero-chip">${connected.length ? `${connected.length} STREAM PLATFORM${connected.length === 1 ? '' : 'S'} LINKED` : 'CLOUD D1 SYNCED'}</span>`;
+    html += `<span class="hero-chip cyan">LYRICS &middot; 10-BAND DSP</span>`;
+    connected.forEach((k) => {
+      const m = PLATFORM_META[k];
+      html += `<span class="hero-chip ${m.cls}">${m.liveLabel}</span>`;
+    });
+    wrap.innerHTML = html;
+  }
+
+  function renderHomePlatformSections() {
+    const section = document.getElementById('home-connect-section');
+    const heading = document.getElementById('home-connect-heading');
+    const grid = document.getElementById('home-connect-grid');
+    const hubsWrap = document.getElementById('home-linked-hubs');
+    if (!section || !grid || !hubsWrap) return;
+
+    const unlinked = ['youtube', 'spotify', 'soundcloud'].filter((k) => !platformLinks[k]?.isConnected);
+    if (!unlinked.length) {
+      section.style.display = 'none';
+    } else {
+      section.style.display = 'block';
+      heading.textContent = unlinked.length < 3 ? 'Link Another Platform' : 'Connect Streaming Platforms';
+      grid.innerHTML = '';
+      unlinked.forEach((k) => {
+        const m = PLATFORM_META[k];
+        const card = document.createElement('div');
+        card.className = `platform-card liquid-card ${m.cls}`;
+        card.innerHTML = `<div class="platform-badge-circle ${m.cls}">${m.badge}</div><div class="platform-card-info"><strong>${m.name}</strong><span>${m.desc}</span></div><button type="button" class="prism-btn-sm">Connect</button>`;
+        card.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); openPlatformConnectModal(k); });
+        card.addEventListener('click', () => openPlatformConnectModal(k));
+        grid.appendChild(card);
+      });
+    }
+
+    hubsWrap.innerHTML = '';
+    ['youtube', 'spotify', 'soundcloud'].forEach((k) => {
+      const data = platformLinks[k];
+      if (!data?.isConnected) return;
+      const m = PLATFORM_META[k];
+      const hubTracks = (data.recommendedTracks?.length ? data.recommendedTracks : data.likedTracks) || [];
+      const block = document.createElement('div');
+      block.className = 'platform-home-block';
+      const cid = `home-hub-carousel-${k}`;
+      block.innerHTML = `<div class="sec-head"><div><h2>${m.name} &mdash; Stream Hub</h2><span class="sec-sub"></span></div><button type="button" class="link-action">Open Hub &rarr;</button></div><div id="${cid}" class="cards-carousel"></div>`;
+      block.querySelector('.sec-sub').textContent = `${data.displayName || 'Connected'} • ${(data.playlists || []).length} Playlists • ${(data.likedTracks || []).length} Tracks`;
+      block.querySelector('.link-action').addEventListener('click', () => openPlatformHub(k));
+      hubsWrap.appendChild(block);
+      renderCarousel(cid, hubTracks.slice(0, 12));
+    });
+  }
+
+  function renderSettingsStreamingList() {
+    const wrap = document.getElementById('settings-streaming-list');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    ['youtube', 'spotify', 'soundcloud'].forEach((k) => {
+      const m = PLATFORM_META[k];
+      const conn = platformLinks[k] || { isConnected: false };
+      const row = document.createElement('div');
+      row.className = `platform-card liquid-card ${m.cls}`;
+      row.innerHTML = `<div class="platform-badge-circle ${m.cls}">${m.badge}</div><div class="platform-card-info"><strong>${m.name}</strong><span></span></div><div class="platform-hub-actions"></div>`;
+      row.querySelector('.platform-card-info span').textContent = conn.isConnected
+        ? `${conn.displayName || 'Connected'} · ${(conn.playlists || []).length} sets · ${conn.planBadge || 'Synced'}`
+        : 'Not connected yet';
+      const acts = row.querySelector('.platform-hub-actions');
+      if (conn.isConnected) {
+        const openB = document.createElement('button'); openB.type = 'button'; openB.className = 'ghost-btn-sm'; openB.textContent = 'Hub';
+        openB.addEventListener('click', () => openPlatformHub(k));
+        const syncB = document.createElement('button'); syncB.type = 'button'; syncB.className = 'prism-btn-sm'; syncB.textContent = 'Sync';
+        syncB.addEventListener('click', () => syncPlatformHub(k));
+        const dcB = document.createElement('button'); dcB.type = 'button'; dcB.className = 'ghost-btn-sm'; dcB.textContent = 'Unlink';
+        dcB.addEventListener('click', () => disconnectPlatformHub(k));
+        acts.append(openB, syncB, dcB);
+      } else {
+        const connB = document.createElement('button'); connB.type = 'button'; connB.className = 'prism-btn-sm'; connB.textContent = 'Connect';
+        connB.addEventListener('click', () => openPlatformConnectModal(k));
+        acts.appendChild(connB);
+      }
+      wrap.appendChild(row);
+    });
+  }
+
+  function openPlatformHub(key) {
+    activePlatformKey = key;
+    openHubPlaylistId = null;
+    platformSearchResults = null;
+    switchTab('platform');
+    renderPlatformHub();
+  }
+
+  function renderPlatformHub() {
+    const hero = document.getElementById('platform-hub-hero');
+    const body = document.getElementById('platform-hub-body');
+    if (!hero || !body) return;
+    const m = PLATFORM_META[activePlatformKey];
+    const data = platformLinks[activePlatformKey] || { isConnected: false };
+
+    hero.className = `platform-hub-hero liquid-card ${m.cls}`;
+    if (!data.isConnected) {
+      hero.innerHTML = `<div class="platform-hub-top"><button id="hub-back-home" type="button" class="pb-icon-btn">&larr;</button><div class="platform-badge-circle ${m.cls}">${m.badge}</div><div class="platform-card-info"><strong>${m.name} Stream Hub</strong><span>Link your ${m.name} account or public playlists inside MUXIS.</span></div></div>`;
+      hero.querySelector('#hub-back-home').addEventListener('click', () => switchTab('home'));
+      body.innerHTML = `<div class="settings-card liquid-card" style="text-align:center;padding:28px 18px;"><div class="platform-badge-circle ${m.cls}" style="width:58px;height:58px;font-size:20px;margin:0 auto 14px;">${m.badge}</div><h2 style="font-size:20px;font-weight:900;margin-bottom:8px;">Connect ${m.name}</h2><p class="sec-sub" style="margin-bottom:18px;line-height:1.5;">${m.desc}. Playlists, liked tracks &amp; hub picks sync automatically to Cloudflare D1.</p><button id="hub-connect-cta" type="button" class="prism-cta-btn" style="max-width:280px;">Connect ${m.name}</button></div>`;
+      body.querySelector('#hub-connect-cta').addEventListener('click', () => openPlatformConnectModal(activePlatformKey));
+      return;
+    }
+
+    const avatarHtml = data.avatarUrl ? `<img src="${data.avatarUrl}" alt="">` : m.badge;
+    hero.innerHTML = `<div class="platform-hub-top"><button id="hub-back-home" type="button" class="pb-icon-btn">&larr;</button><div class="platform-hub-avatar">${avatarHtml}</div><div class="platform-card-info"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><strong></strong><span class="fmt-pill">${data.planBadge || 'CONNECTED'}</span></div><span>${m.name} &bull; ${(data.playlists || []).length} Playlists &bull; ${(data.likedTracks || []).length} Liked</span></div></div><div class="platform-hub-actions"><button id="hub-sync-btn" type="button" class="prism-btn-sm">&#8635; Sync Now</button><button id="hub-relink-btn" type="button" class="ghost-btn-sm">Update Link</button><button id="hub-dc-btn" type="button" class="ghost-btn-sm" style="color:#fca5a5;">Disconnect</button></div>`;
+    hero.querySelector('.platform-card-info strong').textContent = data.displayName || m.name;
+    hero.querySelector('#hub-back-home').addEventListener('click', () => switchTab('home'));
+    hero.querySelector('#hub-sync-btn').addEventListener('click', () => syncPlatformHub(activePlatformKey));
+    hero.querySelector('#hub-relink-btn').addEventListener('click', () => openPlatformConnectModal(activePlatformKey));
+    hero.querySelector('#hub-dc-btn').addEventListener('click', () => disconnectPlatformHub(activePlatformKey));
+
+    body.innerHTML = `<div class="search-box"><input id="hub-search-input" type="search" class="search-input" placeholder="Search ${m.name}..."><button id="hub-search-btn" type="button" class="prism-btn-sm">Find</button></div><div class="segmented-tabs platform-subtabs"><button type="button" class="seg-btn${activePlatformSubTab === 'picks' ? ' active' : ''}" data-hub-tab="picks">Featured &amp; Picks</button><button type="button" class="seg-btn${activePlatformSubTab === 'playlists' ? ' active' : ''}" data-hub-tab="playlists">Playlists</button><button type="button" class="seg-btn${activePlatformSubTab === 'liked' ? ' active' : ''}" data-hub-tab="liked">Liked Songs</button></div><div id="hub-tab-content" class="track-stack"></div>`;
+
+    const inp = body.querySelector('#hub-search-input');
+    body.querySelector('#hub-search-btn').addEventListener('click', () => runPlatformSearch(activePlatformKey, inp.value));
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') runPlatformSearch(activePlatformKey, inp.value); });
+    body.querySelectorAll('[data-hub-tab]').forEach((b) => {
+      b.addEventListener('click', () => {
+        activePlatformSubTab = b.dataset.hubTab;
+        openHubPlaylistId = null;
+        platformSearchResults = null;
+        renderPlatformHub();
+      });
+    });
+
+    const content = body.querySelector('#hub-tab-content');
+    if (Array.isArray(platformSearchResults)) {
+      const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ghost-btn-sm'; clr.style.alignSelf = 'flex-start'; clr.textContent = 'Clear Search';
+      clr.addEventListener('click', () => { platformSearchResults = null; renderPlatformHub(); });
+      content.appendChild(clr);
+      const resBox = document.createElement('div'); resBox.className = 'track-stack';
+      renderTrackRows(resBox, platformSearchResults);
+      content.appendChild(resBox);
+      return;
+    }
+
+    if (activePlatformSubTab === 'playlists') {
+      const pls = data.playlists || [];
+      if (openHubPlaylistId) {
+        const pl = pls.find((p) => p.id === openHubPlaylistId);
+        if (pl) {
+          const bar = document.createElement('div'); bar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;';
+          bar.innerHTML = `<button type="button" class="ghost-btn-sm">&larr; Back</button><strong style="flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></strong><button type="button" class="prism-btn-sm">&#9654; Play All</button>`;
+          bar.querySelector('strong').textContent = pl.title;
+          bar.querySelectorAll('button')[0].addEventListener('click', () => { openHubPlaylistId = null; renderPlatformHub(); });
+          bar.querySelectorAll('button')[1].addEventListener('click', () => { if (pl.tracks?.length) playTrack(pl.tracks[0], pl.tracks); });
+          content.appendChild(bar);
+          const listWrap = document.createElement('div'); listWrap.className = 'track-stack';
+          renderTrackRows(listWrap, pl.tracks || []);
+          content.appendChild(listWrap);
+          return;
+        }
+      }
+      if (!pls.length) {
+        content.innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);border-radius:14px;">No playlists synced for this account/link yet.</div>';
+        return;
+      }
+      pls.forEach((pl) => {
+        const row = document.createElement('div'); row.className = 'track-row liquid-card';
+        const art = pl.artworkUrl ? `<img src="${pl.artworkUrl}" alt="">` : `<span>${m.badge}</span>`;
+        row.innerHTML = `<div class="track-art">${art}</div><div class="track-info"><strong></strong><span></span></div><span class="fmt-pill">${pl.trackCount || (pl.tracks || []).length} TRACKS</span>`;
+        row.querySelector('strong').textContent = pl.title;
+        row.querySelector('span').textContent = pl.description || m.name;
+        row.addEventListener('click', () => {
+          if (pl.tracks?.length) { openHubPlaylistId = pl.id; renderPlatformHub(); }
+          else { showToast('Tap Update Link with a direct playlist URL to expand its tracklist.'); }
+        });
+        content.appendChild(row);
+      });
+      return;
+    }
+
+    const trackList = activePlatformSubTab === 'liked' ? (data.likedTracks || []) : ((data.recommendedTracks?.length ? data.recommendedTracks : data.likedTracks) || []);
+    renderTrackRows(content, trackList);
+  }
+
+  async function runPlatformSearch(key, rawQ) {
+    const q = (rawQ || '').trim();
+    if (!q) { platformSearchResults = null; renderPlatformHub(); return; }
+    showToast(`Searching ${PLATFORM_META[key].name}...`);
+    try {
+      const ep = key === 'soundcloud'
+        ? `${WORKER_URL}/api/stream/soundcloud/search?q=${encodeURIComponent(q)}`
+        : key === 'spotify'
+          ? `${WORKER_URL}/api/stream/spotify/bridge?q=${encodeURIComponent(q)}`
+          : `${WORKER_URL}/api/stream/yt/search?q=${encodeURIComponent(q)}`;
+      const res = await fetch(ep);
+      if (res.ok) {
+        const d = await res.json();
+        platformSearchResults = d.tracks || [];
+        renderPlatformHub();
+      }
+    } catch (_) { showToast('Platform search failed.'); }
+  }
+
+  function openPlatformConnectModal(key) {
+    activeConnectPlatform = key;
+    activeConnectMode = 'profile_url';
+    const sheet = document.getElementById('platform-connect-backdrop');
+    const m = PLATFORM_META[key];
+    const icon = document.getElementById('pc-badge-icon');
+    icon.className = `platform-badge-circle ${m.cls}`;
+    icon.textContent = m.badge;
+    document.getElementById('pc-modal-title').textContent = `Connect ${m.name}`;
+    document.getElementById('pc-modal-subtitle').textContent = m.desc;
+    document.getElementById('pc-error-box').style.display = 'none';
+    renderPlatformConnectModeForm();
+    sheet.classList.add('open');
+  }
+
+  function renderPlatformConnectModeForm() {
+    const key = activeConnectPlatform;
+    const tabsWrap = document.getElementById('pc-mode-tabs');
+    const helper = document.getElementById('pc-helper-text');
+    const fields = document.getElementById('pc-form-fields');
+    const oauthBtn = document.getElementById('pc-oauth-btn');
+    const errEl = document.getElementById('pc-error-box');
+    errEl.style.display = 'none';
+
+    const modes = key === 'soundcloud'
+      ? [{ id: 'profile_url', label: 'Profile / Set Link' }, { id: 'oauth_token', label: 'OAuth Token' }]
+      : key === 'youtube'
+        ? [{ id: 'profile_url', label: 'Playlist / Channel' }, { id: 'cookie', label: 'Session Cookie' }]
+        : [{ id: 'profile_url', label: 'Public Playlist URL' }, { id: 'credentials', label: 'App Key / Token' }];
+
+    tabsWrap.innerHTML = '';
+    modes.forEach((mode) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `seg-btn${activeConnectMode === mode.id ? ' active' : ''}`;
+      b.textContent = mode.label;
+      b.addEventListener('click', () => { activeConnectMode = mode.id; renderPlatformConnectModeForm(); });
+      tabsWrap.appendChild(b);
+    });
+
+    oauthBtn.style.display = 'none';
+    if (key === 'soundcloud' && activeConnectMode === 'profile_url') {
+      helper.textContent = 'Paste any SoundCloud profile URL, @username, or public set/playlist URL to sync your tracks, likes & charts.';
+      fields.innerHTML = `<input id="pc-url-input" class="auth-input" type="url" placeholder="https://soundcloud.com/monstercat or username">`;
+    } else if (key === 'soundcloud') {
+      helper.textContent = 'Paste your SoundCloud oauth_token cookie/token to pull your private library sets & liked tracks.';
+      fields.innerHTML = `<input id="pc-token-input" class="auth-input" type="password" placeholder="SoundCloud oauth_token">`;
+    } else if (key === 'youtube' && activeConnectMode === 'profile_url') {
+      helper.textContent = 'Paste a YouTube Music playlist link (list=...), channel URL, or @artist handle to sync playlists & picks.';
+      fields.innerHTML = `<input id="pc-url-input" class="auth-input" type="text" placeholder="https://music.youtube.com/playlist?list=... or @artist">`;
+    } else if (key === 'youtube') {
+      helper.textContent = 'Advanced: paste your music.youtube.com browser Cookie header (must include SAPISID or __Secure-3PAPISID).';
+      fields.innerHTML = `<textarea id="pc-cookie-input" class="auth-input" rows="3" placeholder="Cookie: SAPISID=...; __Secure-3PAPISID=...;" style="resize:vertical;"></textarea>`;
+    } else if (key === 'spotify' && activeConnectMode === 'profile_url') {
+      helper.textContent = 'Zero-key import: paste any public Spotify Playlist, Album, Artist, or Track link (open.spotify.com/...).';
+      fields.innerHTML = `<input id="pc-url-input" class="auth-input" type="url" placeholder="https://open.spotify.com/playlist/...">`;
+    } else {
+      helper.textContent = 'Use your Spotify Developer Client ID + Client Secret, an Access Token, or launch 1-Click OAuth PKCE with your Client ID.';
+      fields.innerHTML = `<input id="pc-cid-input" class="auth-input" type="text" placeholder="Spotify Client ID (optional)"><input id="pc-csec-input" class="auth-input" type="password" placeholder="Spotify Client Secret (optional)"><input id="pc-token-input" class="auth-input" type="password" placeholder="Or paste Spotify Access Token (optional)">`;
+      oauthBtn.style.display = 'inline-flex';
+    }
+  }
+
+  async function submitPlatformConnect() {
+    const key = activeConnectPlatform;
+    if (!key) return;
+    const errEl = document.getElementById('pc-error-box');
+    const btn = document.getElementById('pc-submit-btn');
+    errEl.style.display = 'none';
+
+    const payload = { platform: key, mode: activeConnectMode };
+    const urlInp = document.getElementById('pc-url-input');
+    const tokInp = document.getElementById('pc-token-input');
+    const ckInp = document.getElementById('pc-cookie-input');
+    const cidInp = document.getElementById('pc-cid-input');
+    const csecInp = document.getElementById('pc-csec-input');
+    if (urlInp) payload.profileUrl = urlInp.value.trim();
+    if (tokInp) payload.accessToken = tokInp.value.trim();
+    if (ckInp) payload.cookie = ckInp.value.trim();
+    if (cidInp) payload.clientId = cidInp.value.trim();
+    if (csecInp) payload.clientSecret = csecInp.value.trim();
+
+    btn.disabled = true; btn.textContent = 'Connecting & Syncing...';
+    try {
+      const res = await fetch(`${WORKER_URL}/api/stream/links/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.connection) {
+        errEl.textContent = data.error || `Could not connect ${PLATFORM_META[key].name}.`;
+        errEl.style.display = 'block';
+        return;
+      }
+      platformLinks[key] = data.connection;
+      saveJson('muxis_pwa_platform_links', platformLinks);
+      document.getElementById('platform-connect-backdrop').classList.remove('open');
+      renderStreamingPlatformUI();
+      openPlatformHub(key);
+      showToast(`Connected ${PLATFORM_META[key].name}!`);
+    } catch (_) {
+      errEl.textContent = 'Network timeout contacting MUXIS Cloud Worker.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Connect & Sync Hub';
+    }
+  }
+
+  async function startSpotifyPkceFlow() {
+    const cid = (document.getElementById('pc-cid-input')?.value || '').trim();
+    const errEl = document.getElementById('pc-error-box');
+    if (!cid) { errEl.textContent = 'Enter your Spotify Developer Client ID first.'; errEl.style.display = 'block'; return; }
+    const bytes = new Uint8Array(48); crypto.getRandomValues(bytes);
+    const verifier = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const redirectUri = window.location.href.split('?')[0].split('#')[0];
+    const state = `sp_pkce_${Math.random().toString(36).slice(2, 12)}`;
+    sessionStorage.setItem('muxis_sp_pkce_verifier', verifier);
+    sessionStorage.setItem('muxis_sp_pkce_cid', cid);
+    sessionStorage.setItem('muxis_sp_pkce_redir', redirectUri);
+    const authUrl = `https://accounts.spotify.com/authorize?client_id=${encodeURIComponent(cid)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${encodeURIComponent(challenge)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent('user-read-private user-library-read playlist-read-private playlist-read-collaborative')}`;
+    window.location.href = authUrl;
+  }
+
+  async function syncPlatformHub(key) {
+    if (!authToken) return;
+    showToast(`Syncing ${PLATFORM_META[key].name}...`);
+    try {
+      const res = await fetch(`${WORKER_URL}/api/stream/links/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
+        body: JSON.stringify({ platform: key })
+      });
+      const d = await res.json();
+      if (res.ok && d.connection) {
+        platformLinks[key] = d.connection;
+        saveJson('muxis_pwa_platform_links', platformLinks);
+        renderStreamingPlatformUI();
+        showToast(`${PLATFORM_META[key].name} hub synced!`);
+      } else {
+        showToast(d.error || 'Sync failed.');
+      }
+    } catch (_) { showToast('Network error during sync.'); }
+  }
+
+  async function disconnectPlatformHub(key) {
+    if (!authToken || !window.confirm(`Disconnect ${PLATFORM_META[key].name} from MUXIS Cloud?`)) return;
+    try {
+      const res = await fetch(`${WORKER_URL}/api/stream/links/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
+        body: JSON.stringify({ platform: key })
+      });
+      if (res.ok) {
+        platformLinks[key] = { isConnected: false };
+        saveJson('muxis_pwa_platform_links', platformLinks);
+        renderStreamingPlatformUI();
+        showToast(`${PLATFORM_META[key].name} disconnected`);
+      }
     } catch (_) {}
   }
 

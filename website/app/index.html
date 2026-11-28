@@ -110,6 +110,7 @@
       </button>
 
       <div class="top-actions-scroll">
+        <div id="top-platform-pills" class="top-platform-pills"></div>
         <a id="top-admin-pill" href="../admin/" class="admin-pill" style="display: none;">&#128737; Admin</a>
         <button id="top-cloud-pill" type="button" class="cloud-pill">
           <span class="cloud-dot"></span>
@@ -134,7 +135,7 @@
           <div class="aurora-hero-inner">
             <div class="hero-inner-row">
               <div class="hero-copy-col">
-                <div class="hero-chips">
+                <div class="hero-chips" id="hero-platform-chips">
                   <span class="hero-chip">CLOUD D1 SYNCED</span>
                   <span class="hero-chip cyan">LYRICS &middot; 10-BAND DSP</span>
                 </div>
@@ -149,6 +150,17 @@
             </div>
           </div>
         </div>
+
+        <!-- Connect Streaming Platforms / Linked Stream Hubs (Matches Android HomeScreen) -->
+        <div id="home-connect-section" class="platform-home-block">
+          <div class="sec-head">
+            <h2 id="home-connect-heading">Connect Streaming Platforms</h2>
+            <button type="button" class="link-action" data-go-tab="settings">Manage &rarr;</button>
+          </div>
+          <div id="home-connect-grid" class="platform-connect-grid"></div>
+        </div>
+
+        <div id="home-linked-hubs"></div>
 
         <div class="sec-head">
           <h2>Trending Audio Streams</h2>
@@ -234,9 +246,21 @@
         <div id="library-content-area" class="track-stack"></div>
       </section>
 
+      <!-- DEDICATED STREAMING PLATFORM HUB (Matches Android PlatformStreamScreen) -->
+      <section id="tab-platform" class="tab-view">
+        <div id="platform-hub-hero" class="platform-hub-hero liquid-card"></div>
+        <div id="platform-hub-body"></div>
+      </section>
+
       <!-- TAB 4: SETTINGS -->
       <section id="tab-settings" class="tab-view">
         <div class="sec-head"><h2>Settings &amp; Studio</h2></div>
+
+        <div class="settings-card liquid-card">
+          <h3>Streaming Platforms</h3>
+          <p class="sec-sub">Link YouTube Music, Spotify, or SoundCloud hubs synced to your MUXIS Cloud account.</p>
+          <div id="settings-streaming-list" class="track-stack" style="margin-top: 10px;"></div>
+        </div>
 
         <div class="settings-card liquid-card">
           <h3>Theme Studio</h3>
@@ -397,6 +421,35 @@
         <button id="picker-create-playlist-btn" type="button" class="prism-btn-sm">Create &amp; Add</button>
       </div>
       <div id="picker-playlists-list" class="track-stack"></div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       STREAMING PLATFORM CONNECT MODAL SHEET (YouTube Music / Spotify / SoundCloud)
+       ======================================================================= -->
+  <div id="platform-connect-backdrop" class="sheet-backdrop">
+    <div class="bottom-sheet" role="dialog" aria-label="Connect Streaming Platform">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="pc-badge-icon" class="platform-badge-circle">M</div>
+          <div>
+            <strong id="pc-modal-title" style="font-size: 16px;">Connect Platform</strong>
+            <span id="pc-modal-subtitle" style="display: block; font-size: 11px; color: var(--text-muted);">Synced to MUXIS Cloud D1</span>
+          </div>
+        </div>
+        <button id="close-pc-btn" type="button" class="pb-icon-btn">&times;</button>
+      </div>
+
+      <div id="pc-mode-tabs" class="segmented-tabs" style="margin-bottom: 12px;"></div>
+      <p id="pc-helper-text" class="sec-sub" style="margin-bottom: 10px; line-height: 1.45;"></p>
+      <div id="pc-error-box" class="error-banner" style="display: none;"></div>
+      <div id="pc-form-fields"></div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+        <button id="pc-submit-btn" type="button" class="prism-cta-btn">Connect &amp; Sync Hub</button>
+        <button id="pc-oauth-btn" type="button" class="ghost-btn-sm" style="display: none; justify-content: center; padding: 11px;">Authorize via Spotify OAuth</button>
+      </div>
     </div>
   </div>
 

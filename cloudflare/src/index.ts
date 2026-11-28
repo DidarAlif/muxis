@@ -10,6 +10,7 @@
  */
 
 import { CloudEnv, handleCloudRoute } from './cloud_auth';
+import { handlePlatformLinksRoute } from './platform_links';
 import { handleStreamRoute } from './stream_api';
 
 export interface Env extends CloudEnv {
@@ -96,6 +97,12 @@ export default {
       const cloudResp = await handleCloudRoute(request, env, jsonResponse, errorResponse);
       if (cloudResp) {
         return cloudResp;
+      }
+
+      // 2b2. Streaming Platform Connections & D1 Sync (YT Music, Spotify, SoundCloud)
+      const linksResp = await handlePlatformLinksRoute(request, env, jsonResponse, errorResponse);
+      if (linksResp) {
+        return linksResp;
       }
 
       // 2c. Streaming Search, Audio Relay & Synced Lyrics routes
