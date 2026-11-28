@@ -1738,8 +1738,19 @@
           return;
         }
       }
+
+      const importRow = document.createElement('div');
+      importRow.className = 'search-box';
+      importRow.style.marginBottom = '10px';
+      importRow.innerHTML = `<input id="hub-import-pl-input" type="url" class="search-input" placeholder="+ Import ${m.name} playlist URL..."><button id="hub-import-pl-btn" type="button" class="ghost-btn-sm">Import</button>`;
+      importRow.querySelector('#hub-import-pl-btn').addEventListener('click', () => importHubPlaylistUrl(activePlatformKey, importRow.querySelector('#hub-import-pl-input').value));
+      content.appendChild(importRow);
+
       if (!pls.length) {
-        content.innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);border-radius:14px;">No playlists synced for this account/link yet.</div>';
+        const emp = document.createElement('div');
+        emp.style.cssText = 'padding:18px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);border-radius:14px;';
+        emp.textContent = `No playlists synced yet — paste a public ${m.name} playlist link above.`;
+        content.appendChild(emp);
         return;
       }
       pls.forEach((pl) => {
@@ -1765,6 +1776,28 @@
     const stackEl = document.createElement('div'); stackEl.className = 'track-stack';
     renderTrackRows(stackEl, trackList);
     content.appendChild(stackEl);
+  }
+
+  async function importHubPlaylistUrl(key, rawUrl) {
+    const u = (rawUrl || '').trim();
+    if (!u) { showToast(`Paste a ${PLATFORM_META[key].name} playlist URL first.`); return; }
+    showToast(`Importing ${PLATFORM_META[key].name} playlist...`);
+    try {
+      const res = await fetch(`${WORKER_URL}/api/stream/links/add-playlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
+        body: JSON.stringify({ platform: key, url: u })
+      });
+      const d = await res.json();
+      if (res.ok && d.connection) {
+        platformLinks[key] = d.connection;
+        saveJson('muxis_pwa_platform_links', platformLinks);
+        renderStreamingPlatformUI();
+        showToast(d.addedCount ? 'Playlist added to Hub!' : 'Playlist already synced.');
+      } else {
+        showToast(d.error || 'Could not import playlist URL.');
+      }
+    } catch (_) { showToast('Network error importing playlist.'); }
   }
 
   async function openAndHydrateHubPlaylist(pl) {
@@ -1820,7 +1853,7 @@
 
   function openPlatformConnectModal(key) {
     activeConnectPlatform = key;
-    activeConnectMode = 'profile_url';
+    activeConnectMode = key === 'youtube' ? 'oauth_google' : (key === 'spotify' ? 'bridge' : 'profile_url');
     const sheet = document.getElementById('platform-connect-backdrop');
     const m = PLATFORM_META[key];
     const icon = document.getElementById('pc-badge-icon');
@@ -1847,7 +1880,7 @@
       ? [{ id: 'profile_url', label: 'Profile / Handle' }, { id: 'oauth_token', label: 'Sign In / Token' }]
       : key === 'youtube'
         ? [{ id: 'oauth_google', label: 'Google Sign-In' }, { id: 'profile_url', label: 'Playlist / Channel' }, { id: 'cookie', label: 'Cookie' }]
-        : [{ id: 'profile_url', label: 'Spotify Link' }, { id: 'credentials', label: 'Spotify OAuth / Key' }];
+        : [{ id: 'bridge', label: 'Spotify Bridge' }, { id: 'profile_url', label: 'Playlist / Profile' }, { id: 'credentials', label: 'OAuth / Key' }];
 
     if (!modes.some((x) => x.id === activeConnectMode)) activeConnectMode = modes[0].id;
     tabsWrap.style.gridTemplateColumns = `repeat(${modes.length}, 1fr)`;
@@ -1863,10 +1896,11 @@
 
     oauthBtn.style.display = 'none';
     submitBtn.style.display = 'block';
+    submitBtn.textContent = 'Connect & Sync Hub';
 
     if (key === 'youtube' && activeConnectMode === 'oauth_google') {
-      helper.textContent = 'Sign in with your Google / YouTube account to pull your playlists, Liked Music videos, and recommendations directly.';
-      fields.innerHTML = `<p class="sec-sub" style="font-size:12px;margin-bottom:6px;">Tip: If you don't want Google sign-in prompts, switch to <strong>Playlist / Channel</strong> to sync any public YouTube Music link instantly.</p>`;
+      helper.textContent = 'Sign in with your Google / YouTube account to unlock your YouTube Music Hub, charts, and synced playlists.';
+      fields.innerHTML = `<p class="sec-sub" style="font-size:12px;margin-bottom:6px;">After connecting, you can also import any personal playlist link inside the Hub.</p>`;
       submitBtn.style.display = 'none';
       oauthBtn.textContent = 'Continue with Google (YouTube Music)';
       oauthBtn.style.display = 'inline-flex';
@@ -1882,20 +1916,20 @@
     } else if (key === 'soundcloud') {
       helper.textContent = 'Connect private SoundCloud likes/sets via OAuth Sign-In (requires Client ID) or paste your oauth_token.';
       fields.innerHTML = `<input id="pc-cid-input" class="auth-input" type="text" placeholder="SoundCloud Client ID (optional PKCE)" value="${oauthConfig.soundcloudClientId || ''}"><input id="pc-token-input" class="auth-input" type="password" placeholder="Or paste SoundCloud oauth_token">`;
-      if (oauthConfig.soundcloudClientId || true) {
+      if (oauthConfig.soundcloudClientId) {
         oauthBtn.textContent = 'Authorize with SoundCloud OAuth';
         oauthBtn.style.display = 'inline-flex';
       }
+    } else if (key === 'spotify' && activeConnectMode === 'bridge') {
+      helper.textContent = 'Web/iOS browsers block external Spotify cookie scraping, so Spotify Hi-Fi Bridge connects instantly with curated Spotify playlists & full audio bridge streaming (zero keys).';
+      fields.innerHTML = `<input id="pc-url-input" class="auth-input" type="url" placeholder="Optional: add a public open.spotify.com/playlist/... link">`;
+      submitBtn.textContent = 'Activate Spotify Bridge (Instant)';
     } else if (key === 'spotify' && activeConnectMode === 'profile_url') {
-      helper.textContent = 'Zero-key import: paste your Spotify Profile link (open.spotify.com/user/...), Playlist, Album, or Track link.';
-      fields.innerHTML = `<input id="pc-url-input" class="auth-input" type="url" placeholder="https://open.spotify.com/playlist/... or /user/..."><div style="text-align:right;margin-bottom:6px;"><a href="https://open.spotify.com/" target="_blank" rel="noopener" class="link-action" style="font-size:11.5px;">Open Spotify Web Player &#8599;</a></div>`;
-      if (oauthConfig.spotifyClientId) {
-        oauthBtn.textContent = 'Sign In with Spotify OAuth';
-        oauthBtn.style.display = 'inline-flex';
-      }
+      helper.textContent = 'Paste any public Spotify Profile (open.spotify.com/user/...), Playlist, Album, Artist, or Track link copied from Spotify.';
+      fields.innerHTML = `<input id="pc-url-input" class="auth-input" type="url" placeholder="https://open.spotify.com/playlist/... or /user/..."><div style="text-align:right;margin-bottom:6px;"><a href="https://open.spotify.com/" target="_blank" rel="noopener" class="link-action" style="font-size:11.5px;">Open Spotify to Copy Link &#8599;</a></div>`;
     } else {
-      helper.textContent = 'Authorize 1-Click Spotify OAuth PKCE (redirect URI: muxis.pages.dev/app/), or connect using Access Token / Client ID + Secret.';
-      fields.innerHTML = `<input id="pc-cid-input" class="auth-input" type="text" placeholder="Spotify Client ID" value="${oauthConfig.spotifyClientId || ''}"><input id="pc-csec-input" class="auth-input" type="password" placeholder="Spotify Client Secret (only if not using OAuth)"><input id="pc-token-input" class="auth-input" type="password" placeholder="Or paste Spotify Access Token (optional)">`;
+      helper.textContent = 'Use a Spotify Access Token, Client ID + Secret, or enter your Spotify Client ID for OAuth PKCE (redirect URI: muxis.pages.dev/app/).';
+      fields.innerHTML = `<input id="pc-cid-input" class="auth-input" type="text" placeholder="Spotify Client ID (from developer.spotify.com)" value="${oauthConfig.spotifyClientId || ''}"><input id="pc-csec-input" class="auth-input" type="password" placeholder="Spotify Client Secret (optional)"><input id="pc-token-input" class="auth-input" type="password" placeholder="Or paste Spotify Access Token (optional)">`;
       oauthBtn.textContent = 'Sign In with Spotify OAuth';
       oauthBtn.style.display = 'inline-flex';
     }
@@ -1988,15 +2022,18 @@
             clearInterval(timer);
             try { if (popup && !popup.closed) popup.close(); } catch (_) {}
             oauthBtn.disabled = false; oauthBtn.textContent = 'Continue with Google (YouTube Music)';
-            if (!pData.youtube_access_token) {
-              errEl.textContent = 'Google signed in, but YouTube read permission was not granted. Approve YouTube access or paste a Playlist/Channel URL.';
-              errEl.style.display = 'block';
-              return;
-            }
+            const ytPayload = pData.youtube_access_token
+              ? { platform: 'youtube', mode: 'oauth_token', accessToken: pData.youtube_access_token }
+              : {
+                  platform: 'youtube',
+                  mode: 'google_hub',
+                  profileUrl: pData.user?.display_name || pData.user?.email || 'YouTube Music Listener',
+                  sapisid: pData.user?.avatar_url || ''
+                };
             const cRes = await fetch(`${WORKER_URL}/api/stream/links/connect`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
-              body: JSON.stringify({ platform: 'youtube', mode: 'oauth_token', accessToken: pData.youtube_access_token })
+              body: JSON.stringify(ytPayload)
             });
             const cData = await cRes.json();
             if (!cRes.ok || !cData.connection) {

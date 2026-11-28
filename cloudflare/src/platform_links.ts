@@ -519,7 +519,11 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
   if (cred.mode === 'oauth_token' && cred.accessToken) {
     const ytBearer = cred.accessToken.trim().replace(/^Bearer\s+/i, '');
     const gHeaders = { Authorization: `Bearer ${ytBearer}`, Accept: 'application/json' };
-    const [chRes, plRes, likeRes, chartsRes] = await Promise.all([
+    const [uiRes, chRes, plRes, likeRes, chartsRes, homeRes] = await Promise.all([
+      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: gHeaders,
+        signal: AbortSignal.timeout(6000),
+      }).catch(() => null),
       fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
         headers: gHeaders,
         signal: AbortSignal.timeout(7000),
@@ -537,10 +541,19 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
         headers: baseHeaders,
         body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_charts' }),
       }).catch(() => null),
+      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
+        method: 'POST',
+        headers: baseHeaders,
+        body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_explore' }),
+      }).catch(() => null),
     ]);
 
-    if (!chRes?.ok && !plRes?.ok && !likeRes?.ok) {
-      throw new Error('Google YouTube OAuth token expired or missing YouTube Read permission.');
+    const userInfo = uiRes?.ok
+      ? ((await uiRes.json()) as { name?: string; email?: string; picture?: string })
+      : null;
+
+    if (!userInfo && !chRes?.ok && !plRes?.ok && !likeRes?.ok) {
+      throw new Error('Google sign-in token expired or invalid. Please sign in with Google again.');
     }
 
     const chJson = chRes?.ok
@@ -568,7 +581,6 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
         tracks: [],
       }));
 
-    // Hydrate first playlist tracks right away if present
     if (playlists.length) {
       const firstPlRes = await fetch(
         `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${encodeURIComponent(playlists[0].id)}&maxResults=25`,
@@ -622,14 +634,75 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
         audioFormat: 'YouTube Google OAuth',
       }));
 
-    const recommendedTracks = chartsRes?.ok ? extractResponsiveItems(await chartsRes.json()).slice(0, 20) : [];
+    const chartTracks = chartsRes?.ok ? extractResponsiveItems(await chartsRes.json()).slice(0, 20) : [];
+    const exploreRaw = homeRes?.ok ? await homeRes.json() : null;
+    const explorePlaylists = exploreRaw ? extractYtPlaylistsFromBrowse(exploreRaw).slice(0, 12) : [];
+    const exploreTracks = exploreRaw ? extractResponsiveItems(exploreRaw).slice(0, 16) : [];
+
+    // Ensure a rich functional Hub even when YouTube Data API v3 is not enabled yet on Cloud project
+    if (!playlists.length) {
+      if (chartTracks.length) {
+        playlists.push({
+          id: 'FEmusic_charts',
+          title: 'YouTube Music Top Charts',
+          description: 'Live YouTube Music global charts',
+          artworkUrl: chartTracks[0]?.artworkUrl ?? null,
+          trackCount: chartTracks.length,
+          tracks: chartTracks,
+        });
+      }
+      for (const ep of explorePlaylists) playlists.push(ep);
+    }
+
+    const finalLiked = likedTracks.length ? likedTracks : (exploreTracks.length ? exploreTracks : chartTracks.slice(0, 15));
+    const hasPersonalYtApi = Boolean(chRes?.ok || plRes?.ok || likeRes?.ok);
+
     return {
-      displayName: chItem?.title || 'YouTube Music Account',
-      avatarUrl: chItem?.thumbnails?.high?.url || chItem?.thumbnails?.default?.url || null,
-      planBadge: 'Google OAuth Linked',
+      displayName: chItem?.title || userInfo?.name || userInfo?.email || 'YouTube Music Account',
+      avatarUrl: chItem?.thumbnails?.high?.url || chItem?.thumbnails?.default?.url || userInfo?.picture || null,
+      planBadge: hasPersonalYtApi ? 'Google YouTube Linked' : 'Google Account · YT Hub',
       playlists,
-      likedTracks,
-      recommendedTracks: recommendedTracks.length ? recommendedTracks : likedTracks.slice(0, 15),
+      likedTracks: finalLiked,
+      recommendedTracks: chartTracks.length ? chartTracks : finalLiked,
+    };
+  }
+
+  if (cred.mode === 'google_hub') {
+    const [chartsRes, homeRes] = await Promise.all([
+      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
+        method: 'POST',
+        headers: baseHeaders,
+        body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_charts' }),
+      }).catch(() => null),
+      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
+        method: 'POST',
+        headers: baseHeaders,
+        body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_explore' }),
+      }).catch(() => null),
+    ]);
+    const chartTracks = chartsRes?.ok ? extractResponsiveItems(await chartsRes.json()).slice(0, 20) : [];
+    const exploreRaw = homeRes?.ok ? await homeRes.json() : null;
+    const explorePlaylists = exploreRaw ? extractYtPlaylistsFromBrowse(exploreRaw).slice(0, 12) : [];
+    const exploreTracks = exploreRaw ? extractResponsiveItems(exploreRaw).slice(0, 16) : [];
+    const playlists: PlatformPlaylistDTO[] = [];
+    if (chartTracks.length) {
+      playlists.push({
+        id: 'FEmusic_charts',
+        title: 'YouTube Music Top Charts',
+        description: 'Live YouTube Music global charts',
+        artworkUrl: chartTracks[0]?.artworkUrl ?? null,
+        trackCount: chartTracks.length,
+        tracks: chartTracks,
+      });
+    }
+    playlists.push(...explorePlaylists);
+    return {
+      displayName: cred.profileUrl?.trim() || 'YouTube Music Listener',
+      avatarUrl: cred.sapisid?.startsWith('http') ? cred.sapisid : (chartTracks[0]?.artworkUrl ?? null),
+      planBadge: 'Google Account · YT Hub',
+      playlists,
+      likedTracks: exploreTracks.length ? exploreTracks : chartTracks,
+      recommendedTracks: chartTracks.length ? chartTracks : exploreTracks,
     };
   }
 
@@ -970,6 +1043,54 @@ async function connectSpotify(cred: StoredCredential): Promise<{
   likedTracks: StreamTrackDTO[];
   recommendedTracks: StreamTrackDTO[];
 }> {
+  if (cred.mode === 'bridge') {
+    const curatedIds = [
+      '37i9dQZF1DXcBWIGoYBM5M', // Today's Top Hits
+      '37i9dQZF1DX4WYpdgoIcn6', // Chill Hits
+      '37i9dQZF1DWWQRwui0ExPn', // lofi beats
+      '37i9dQZF1DX4dyzvuaRJ0n', // mint
+    ];
+    const settled = await Promise.all(
+      curatedIds.map((id) => scrapeSpotifyPublicUrl(`https://open.spotify.com/playlist/${id}`).catch(() => null))
+    );
+    const playlists: PlatformPlaylistDTO[] = [];
+    const tracks: StreamTrackDTO[] = [];
+    const seen = new Set<string>();
+
+    if (cred.profileUrl) {
+      try {
+        const customPub = await scrapeSpotifyPublicUrl(cred.profileUrl);
+        playlists.push(...customPub.playlists);
+        for (const t of customPub.tracks) {
+          if (seen.add(t.id)) tracks.push(t);
+        }
+      } catch {}
+    }
+
+    for (const res of settled) {
+      if (!res) continue;
+      for (const pl of res.playlists) {
+        if (!playlists.some((p) => p.id === pl.id)) playlists.push(pl);
+      }
+      for (const t of res.tracks) {
+        if (seen.add(t.id) && tracks.length < 40) tracks.push(t);
+      }
+    }
+
+    if (!playlists.length) {
+      throw new Error('Spotify Bridge is temporarily unreachable. Try pasting a specific Spotify playlist link.');
+    }
+
+    return {
+      displayName: 'Spotify Hi-Fi Bridge',
+      avatarUrl: playlists[0]?.artworkUrl ?? null,
+      planBadge: 'SPOTIFY BRIDGE LIVE',
+      playlists,
+      likedTracks: tracks,
+      recommendedTracks: playlists[0]?.tracks?.slice(0, 18) ?? tracks.slice(0, 18),
+    };
+  }
+
   if (cred.mode === 'profile_url' && cred.profileUrl) {
     const pub = await scrapeSpotifyPublicUrl(cred.profileUrl);
     return {
@@ -1510,6 +1631,52 @@ export async function handlePlatformLinksRoute(
     }
 
     return json({ ok: true, tracks: hydrated }, 200);
+  }
+
+  // 6. POST append/import a playlist link into an already-connected Platform Hub
+  if (path === '/api/stream/links/add-playlist' && request.method === 'POST') {
+    let body: { platform?: StreamingPlatform; url?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON payload.', 400);
+    }
+    const platform = body.platform;
+    const rawUrl = (body.url || '').trim();
+    if ((platform !== 'youtube' && platform !== 'spotify' && platform !== 'soundcloud') || !rawUrl) {
+      return err('Enter a valid playlist or profile URL.', 400);
+    }
+    const row = await db
+      .prepare('SELECT * FROM streaming_connections WHERE user_id = ? AND platform = ? AND is_connected = 1')
+      .bind(userId, platform)
+      .first<ConnectionRow>();
+    if (!row) return err(`Connect ${platform} first before importing playlists.`, 404);
+
+    try {
+      const imported =
+        platform === 'spotify'
+          ? await connectSpotify({ mode: 'profile_url', profileUrl: rawUrl })
+          : platform === 'soundcloud'
+            ? await connectSoundCloud({ mode: 'profile_url', profileUrl: rawUrl })
+            : await connectYouTubeMusic({ mode: 'profile_url', profileUrl: rawUrl });
+
+      const existing = safeJsonParse<PlatformPlaylistDTO[]>(row.playlists_json, []);
+      const existingIds = new Set(existing.map((p) => p.id));
+      const added = imported.playlists.filter((p) => !existingIds.has(p.id));
+      const merged = [...added, ...existing];
+      await db
+        .prepare('UPDATE streaming_connections SET playlists_json = ?, updated_at = ? WHERE user_id = ? AND platform = ?')
+        .bind(JSON.stringify(merged), new Date().toISOString(), userId, platform)
+        .run();
+
+      const fresh = await db
+        .prepare('SELECT * FROM streaming_connections WHERE user_id = ? AND platform = ?')
+        .bind(userId, platform)
+        .first<ConnectionRow>();
+      return json({ ok: true, connection: fresh ? rowToHub(fresh) : emptyHub(platform), addedCount: added.length }, 200);
+    } catch (e: unknown) {
+      return err(e instanceof Error ? e.message : 'Failed to import playlist URL.', 400);
+    }
   }
 
   return err('Unsupported streaming link route.', 404);
