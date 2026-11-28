@@ -462,6 +462,8 @@ a { color: inherit; text-decoration: none; }
 }
 .aurora-np-overlay.open { display: flex; }
 .np-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.np-seg-tabs { grid-template-columns: repeat(3, 1fr); margin: 0; width: 226px; }
+.np-seg-tabs .seg-btn { padding: 7px 6px; font-size: 12px; }
 .np-pane { display: none; flex: 1; min-height: 0; align-items: center; justify-content: center; }
 .np-pane.active { display: flex; flex-direction: column; }
 .np-center-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; max-width: 460px; width: 100%; margin: auto; }

@@ -679,10 +679,14 @@
     activeAudio.src = playUrl;
     document.getElementById('pb-title').textContent = track.title;
     document.getElementById('pb-artist').textContent = track.artist || 'MUXIS';
-    document.getElementById('pb-art').src = track.artwork || track.artworkUrl || '../assets/muxis_app_icon.png';
+    const pbImg = document.getElementById('pb-art');
+    pbImg.onerror = () => { pbImg.src = '../assets/muxis_app_icon.png'; };
+    pbImg.src = track.artwork || track.artworkUrl || '../assets/muxis_app_icon.png';
     document.getElementById('np-big-title').textContent = track.title;
     document.getElementById('np-big-artist').textContent = track.artist || 'MUXIS';
-    document.getElementById('np-big-art').src = track.artwork || track.artworkUrl || '../assets/muxis_app_icon.png';
+    const bigImg = document.getElementById('np-big-art');
+    bigImg.onerror = () => { bigImg.src = '../assets/muxis_app_icon.png'; };
+    bigImg.src = track.artwork || track.artworkUrl || '../assets/muxis_app_icon.png';
     updateFavButtonState();
 
     try {
@@ -1041,10 +1045,20 @@
     const wrap = document.getElementById(elId); wrap.innerHTML = '';
     list.forEach((tr) => {
       const c = document.createElement('div'); c.className = 'muxis-sq-card liquid-card';
+      const artDiv = document.createElement('div'); artDiv.className = 'sq-art';
       const artUrl = tr.artwork || tr.artworkUrl;
-      c.innerHTML = `<div class="sq-art">${artUrl ? `<img src="${artUrl}" style="width:100%;height:100%;object-fit:cover;" alt="">` : '<span>&#9835;</span>'}</div><strong></strong><small></small>`;
-      c.querySelector('strong').textContent = tr.title;
-      c.querySelector('small').textContent = tr.artist || '';
+      if (artUrl) {
+        const img = document.createElement('img');
+        img.src = artUrl; img.alt = '';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        img.onerror = () => { artDiv.innerHTML = '<span>&#9835;</span>'; };
+        artDiv.appendChild(img);
+      } else {
+        artDiv.innerHTML = '<span>&#9835;</span>';
+      }
+      const st = document.createElement('strong'); st.textContent = tr.title;
+      const sm = document.createElement('small'); sm.textContent = tr.artist || '';
+      c.append(artDiv, st, sm);
       c.addEventListener('click', () => playTrack(tr, list));
       wrap.appendChild(c);
     });
