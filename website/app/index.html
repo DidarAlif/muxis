@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MUXIS Player — Installable App by A Leaf ORG</title>
+  <meta name="description" content="Installable MUXIS Cloud & Offline Audio Player for iPhone, iPad, Android & Desktop by A Leaf ORG.">
+  <meta name="theme-color" content="#060910">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MUXIS">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="ambient-bg" aria-hidden="true"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div class="pwa-shell">
+    <!-- Desktop Left Navigation Rail -->
+    <aside class="pwa-rail">
+      <div class="brand-lockup" style="margin-bottom: 24px;">
+        <div class="brand-tile"><img src="icons/icon-192.png" alt="MUXIS"></div>
+        <div class="brand-titles">
+          <strong>MUXIS</strong>
+          <span>PWA STUDIO</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+        <button type="button" class="pill-btn" data-nav="home" style="justify-content: flex-start; border-radius: 12px; padding: 11px 14px;">Home &amp; Streams</button>
+        <button type="button" class="pill-btn" data-nav="library" style="justify-content: flex-start; border-radius: 12px; padding: 11px 14px;">Local Library</button>
+        <button type="button" class="pill-btn" data-nav="radio" style="justify-content: flex-start; border-radius: 12px; padding: 11px 14px;">Global FM Radio</button>
+        <button type="button" class="pill-btn" data-nav="studio" style="justify-content: flex-start; border-radius: 12px; padding: 11px 14px;">10-Band DSP</button>
+        <button type="button" class="pill-btn" data-nav="cloud" style="justify-content: flex-start; border-radius: 12px; padding: 11px 14px;">MUXIS Cloud</button>
+      </div>
+
+      <a href="../index.html" style="display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); margin-top: 12px;">
+        <img src="../assets/a_leaf_mark.svg" alt="A Leaf ORG" style="height: 22px; width: auto;">
+        <div style="font-size: 11.5px;"><strong>A Leaf ORG</strong><br><span style="color: var(--text-muted); font-size: 10px;">Back to Website</span></div>
+      </a>
+    </aside>
+
+    <!-- Main Player Canvas -->
+    <main class="pwa-main">
+      <header class="pwa-topbar">
+        <div class="brand-lockup">
+          <div class="brand-tile"><img src="icons/icon-192.png" alt="MUXIS"></div>
+          <div class="brand-titles">
+            <strong>MUXIS</strong>
+            <span><img src="../assets/a_leaf_mark.svg" alt="A Leaf" style="height: 11px; width: auto;"> by A Leaf ORG</span>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="install-pwa-btn" type="button" class="pill-btn accent" style="display: none;">Install App</button>
+          <button id="open-cloud-btn" type="button" class="pill-btn">Cloud Sign In</button>
+        </div>
+      </header>
+
+      <!-- iOS Safari Add-to-Home-Screen Guided Banner / Chrome Install Banner -->
+      <section id="ios-install-banner" class="install-banner liquid-card">
+        <div style="flex: 1; min-width: 220px;">
+          <h4>Install MUXIS on Your iPhone (1-Tap Home Screen App)</h4>
+          <p id="install-instructions">
+            In Safari, tap the <span class="ios-share-chip">Share ⎋</span> button at the bottom and choose <strong>Add to Home Screen</strong>. MUXIS installs directly with your icon — no PC or sideloader needed.
+          </p>
+        </div>
+        <button id="dismiss-install-btn" type="button" class="pill-btn">Got it</button>
+      </section>
+
+      <!-- VIEW 1: HOME -->
+      <section id="view-home" class="pwa-view active">
+        <div class="studio-box liquid-card" style="background: radial-gradient(circle at 85% 20%, rgba(var(--tertiary-rgb), 0.25), transparent 50%), linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), rgba(16, 24, 40, 0.88));">
+          <span class="badge-tag" style="margin-bottom: 8px; display: inline-block;">INSTALLABLE WEB EDITION</span>
+          <h1 style="font-size: 24px; font-weight: 900; margin-bottom: 6px;">Prismatic Liquid Audio</h1>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Stream curated open Hi-Fi tracks, global live FM radio, or import audio directly from iPhone Files with offline IndexedDB persistence &amp; Cloudflare D1 sync.</p>
+          <div style="display: flex; gap: 9px; flex-wrap: wrap;">
+            <button type="button" class="pill-btn accent" id="import-files-cta">+ Import Music from Files</button>
+            <button type="button" class="pill-btn" data-nav="radio">Browse Live FM Radio</button>
+          </div>
+        </div>
+
+        <div class="section-title"><span>Featured Open Hi-Fi Streams</span></div>
+        <div id="featured-list" class="track-list"></div>
+
+        <div class="section-title"><span>Listening History</span></div>
+        <div id="history-list" class="track-list"></div>
+      </section>
+
+      <!-- VIEW 2: OFFLINE LIBRARY -->
+      <section id="view-library" class="pwa-view">
+        <div class="section-title">
+          <span>Your Offline Library</span>
+          <button type="button" id="import-files-btn" class="pill-btn accent">+ Add Audio Files</button>
+        </div>
+        <p class="section-sub">Audio files imported here are stored privately inside on-device IndexedDB so they play offline anytime from your Home Screen app.</p>
+        <input id="local-file-input" type="file" accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.opus" multiple hidden>
+
+        <div class="section-title" style="font-size: 15px; margin-top: 8px;"><span>Imported Tracks (<span id="local-count">0</span>)</span></div>
+        <div id="local-list" class="track-list"></div>
+
+        <div class="section-title" style="font-size: 15px;"><span>Favorites (<span id="fav-count">0</span>)</span></div>
+        <div id="fav-list" class="track-list"></div>
+      </section>
+
+      <!-- VIEW 3: GLOBAL FM RADIO -->
+      <section id="view-radio" class="pwa-view">
+        <div class="section-title"><span>Global Live FM Radio</span></div>
+        <div class="search-bar">
+          <input id="radio-search-input" class="search-input" type="search" placeholder="Search stations, genres, or countries (e.g. lo-fi, jazz, BBC)...">
+          <button id="radio-search-btn" type="button" class="pill-btn accent">Search</button>
+        </div>
+        <div id="radio-list" class="track-list"></div>
+      </section>
+
+      <!-- VIEW 4: 10-BAND DSP STUDIO -->
+      <section id="view-studio" class="pwa-view">
+        <div class="section-title"><span>Audio Studio &amp; 10-Band DSP</span></div>
+        <div class="studio-box liquid-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <strong style="font-size: 14px;">Live Harmonic Spectrum</strong>
+            <span id="eq-status-tag" class="badge-tag">LOCAL DSP ACTIVE</span>
+          </div>
+          <canvas id="pwa-spectrum-canvas"></canvas>
+
+          <div class="preset-row" id="eq-presets-row">
+            <button type="button" class="preset-chip active" data-preset="Prismatic Neon">Prismatic Neon</button>
+            <button type="button" class="preset-chip" data-preset="Sub Bass Thump">Sub Bass Thump</button>
+            <button type="button" class="preset-chip" data-preset="Vocal Clarity">Vocal Clarity</button>
+            <button type="button" class="preset-chip" data-preset="Electronic & EDM">Electronic &amp; EDM</button>
+            <button type="button" class="preset-chip" data-preset="Flat">Flat</button>
+          </div>
+
+          <div id="eq-sliders-container" class="eq-sliders-grid"></div>
+        </div>
+
+        <div class="studio-box liquid-card">
+          <strong style="font-size: 14px;">Theme Studio (Cloud Synced)</strong>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Matches your MUXIS desktop &amp; mobile accent palette.</p>
+          <div class="theme-row">
+            <button type="button" class="theme-dot active" data-theme="obsidian_aurora" style="background: linear-gradient(135deg,#00ff88,#00e5ff);" title="Prismatic Obsidian"></button>
+            <button type="button" class="theme-dot" data-theme="midnight_sapphire" style="background: linear-gradient(135deg,#38bdf8,#818cf8);" title="Midnight Sapphire"></button>
+            <button type="button" class="theme-dot" data-theme="botanical_jade" style="background: linear-gradient(135deg,#10b981,#2dd4bf);" title="Botanical Leaf"></button>
+            <button type="button" class="theme-dot" data-theme="ultraviolet_synth" style="background: linear-gradient(135deg,#c084fc,#22d3ee);" title="Ultraviolet Synth"></button>
+            <button type="button" class="theme-dot" data-theme="crimson_velvet" style="background: linear-gradient(135deg,#ff4d8d,#c084fc);" title="Crimson Velvet"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 5: CLOUD ACCOUNT & SYNC -->
+      <section id="view-cloud" class="pwa-view">
+        <div class="section-title"><span>MUXIS Cloud (Firebase + Cloudflare D1)</span></div>
+        <div id="cloud-account-box" class="studio-box liquid-card">
+          <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 14px;">Sign in to sync your Favorites, Listening History, Theme &amp; EQ preset with Windows, macOS, Linux, Android &amp; iOS.</p>
+          <button type="button" id="cloud-view-signin-btn" class="pill-btn accent">Sign In / Create Account</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Sticky Bottom Mini Player -->
+  <div class="mini-player-dock">
+    <div class="mini-top-row">
+      <div class="track-art" style="width: 40px; height: 40px;"><img id="np-art" src="icons/icon-192.png" alt="Now Playing"></div>
+      <div class="track-info">
+        <strong id="np-title">Select any track or FM station</strong>
+        <span id="np-artist">MUXIS Audio Engine</span>
+      </div>
+      <button id="prev-btn" type="button" class="icon-btn" aria-label="Previous">&#9198;</button>
+      <button id="play-pause-btn" type="button" class="play-fab" aria-label="Play or Pause">&#9654;</button>
+      <button id="next-btn" type="button" class="icon-btn" aria-label="Next">&#9197;</button>
+    </div>
+    <div id="seek-bar" class="mini-progress-track">
+      <div id="seek-fill" class="mini-progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="bottom-tabs" aria-label="App Navigation">
+    <button type="button" class="tab-btn active" data-nav="home"><span>&#127968;</span><span>Home</span></button>
+    <button type="button" class="tab-btn" data-nav="library"><span>&#127925;</span><span>Library</span></button>
+    <button type="button" class="tab-btn" data-nav="radio"><span>&#128251;</span><span>Radio</span></button>
+    <button type="button" class="tab-btn" data-nav="studio"><span>&#127899;</span><span>DSP</span></button>
+    <button type="button" class="tab-btn" data-nav="cloud"><span>&#9729;&#65039;</span><span>Cloud</span></button>
+  </nav>
+
+  <!-- MUXIS Cloud Auth Modal -->
+  <div id="auth-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="icons/icon-192.png" alt="MUXIS" style="width: 34px; height: 34px; border-radius: 9px;">
+          <div>
+            <h2 id="auth-modal-title" style="font-size: 18px; font-weight: 800;">MUXIS Cloud</h2>
+            <span style="font-size: 11px; color: var(--secondary);">1-Click Google + Cloudflare D1 Sync</span>
+          </div>
+        </div>
+        <button id="close-auth-btn" type="button" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+
+      <button id="google-oauth-btn" type="button" class="google-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/><path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.8-.4-2.8s.2-2 .4-2.8L1.6 6.4C.6 8.3 0 10.6 0 12s.6 3.7 1.6 5.6l3.7-2.8z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5L1.6 16.1C3.5 19.9 7.4 23 12 23z"/></svg>
+        Continue with Google
+      </button>
+
+      <div id="auth-error-msg" style="color: #f87171; font-size: 12.5px; margin-bottom: 10px; display: none;"></div>
+
+      <input id="auth-email" class="form-field" type="email" placeholder="Gmail or Email Address">
+      <input id="auth-password" class="form-field" type="password" placeholder="Password (min 6 chars)">
+      <input id="auth-name" class="form-field" type="text" placeholder="Display Name (for new account)" style="display: none;">
+
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <button id="auth-submit-btn" type="button" class="pill-btn accent" style="flex: 1; justify-content: center; padding: 11px;">Sign In</button>
+        <button id="auth-mode-toggle" type="button" class="pill-btn" style="padding: 11px;">Create Account</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

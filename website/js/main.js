@@ -645,7 +645,7 @@
       macos: { label: `Download for macOS (${tag})`, dock: `Get macOS (${tag})`, href: assets['macos-zip'].url, note: 'macOS Universal (Apple Silicon + Intel)' },
       linux: { label: `Download for Linux (${tag})`, dock: `Get Linux (${tag})`, href: assets['linux-tar'].url, note: 'Linux x86_64 App Bundle (.tar.gz)' },
       android: { label: `Download Android APK (${tag})`, dock: `Get APK (${tag})`, href: assets['android-apk'].url, note: 'Signed Universal APK • Android 6.0+' },
-      ios: { label: `Download iPhone IPA (${tag})`, dock: `Get IPA (${tag})`, href: assets['ios-ipa'].url, note: 'iPhone / iPad IPA for AltStore, SideStore & Sideloadly' }
+      ios: { label: 'Install iPhone Web App (1-Tap PWA)', dock: 'Open iOS App', href: 'app/', note: 'Safari -> Add to Home Screen (No PC needed) • .ipa also available on Download page' }
     };
 
     const sel = map[os] || map.windows;

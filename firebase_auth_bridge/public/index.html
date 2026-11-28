@@ -248,7 +248,7 @@
       googleBtn.style.display = 'none';
       setStatus('ok', 'Your profile & sync session are saved in Cloudflare. You can close this browser tab and return to MUXIS.');
 
-      if (data.redirect_url && (data.redirect_url.startsWith('muxis://') || data.redirect_url.startsWith('http://localhost:'))) {
+      if (data.redirect_url && (data.redirect_url.startsWith('muxis://') || data.redirect_url.startsWith('http://localhost:') || data.redirect_url.startsWith('https://muxis.pages.dev') || data.redirect_url.startsWith('https://didaralif.github.io/muxis'))) {
         returnLink.href = data.redirect_url;
         redirectWrap.style.display = 'block';
         setTimeout(() => { window.location.href = data.redirect_url; }, 350);
