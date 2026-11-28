@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>MUXIS — Liquid Audio Player | A Leaf ORG</title>
-  <meta name="description" content="MUXIS Installable Mobile & iPhone PWA mirroring Android Liquid Audio UI with Admin Approval Gate.">
+  <meta name="description" content="MUXIS Installable Mobile & iPhone PWA with full Android feature parity: 10-Band DSP, Vocal Remover, Reverb, Playlists, Synced Lyrics & Cloudflare D1 Sync.">
   <meta name="theme-color" content="#060910">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,7 +23,7 @@
   <div class="ambient-bg" aria-hidden="true"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- iOS Safari Add-to-Home-Screen Guided Banner (Always helpful on gate & home) -->
+  <!-- iOS Safari Add-to-Home-Screen Guided Banner -->
   <div id="ios-install-banner" class="install-banner liquid-card">
     <div style="flex: 1; min-width: 210px;">
       <h4>Add MUXIS to Your iPhone Home Screen</h4>
@@ -76,9 +76,8 @@
       </div>
     </section>
 
-    <!-- Pending / Rejected Owner Approval Card -->
     <section id="gate-approval-card" class="auth-studio-card liquid-card" style="display: none; text-align: center;">
-      <div class="approval-icon-wrap" id="approval-icon-wrap">
+      <div class="approval-icon-wrap">
         <img src="../assets/muxis_app_icon.png" alt="MUXIS" style="width: 58px; height: 58px; border-radius: 15px;">
       </div>
       <span id="approval-badge" class="status-badge pending">PENDING OWNER APPROVAL</span>
@@ -98,10 +97,9 @@
   </main>
 
   <!-- =======================================================================
-       APPROVED APP LAYER: Mirrors Android MUXIS ResponsiveShell + MobileTopBar
+       APPROVED APP LAYER: Android ResponsiveShell + MobileTopBar Parity
        ======================================================================= -->
   <div id="app-shell" class="mobile-app-shell" style="display: none;">
-    <!-- Exact Android MobileTopBar (58px + Safe Area Top) -->
     <header class="mobile-top-bar">
       <button id="brand-home-btn" type="button" class="top-brand-btn" aria-label="MUXIS Home">
         <div class="top-brand-row">
@@ -112,28 +110,25 @@
       </button>
 
       <div class="top-actions-scroll">
-        <a id="top-admin-pill" href="../admin/" class="admin-pill" style="display: none;" title="Open Owner Admin Panel">
-          <span>&#128737; Admin</span>
-        </a>
+        <a id="top-admin-pill" href="../admin/" class="admin-pill" style="display: none;">&#128737; Admin</a>
         <button id="top-cloud-pill" type="button" class="cloud-pill">
           <span class="cloud-dot"></span>
           <span id="top-cloud-name">Cloud</span>
         </button>
-        <button id="top-radio-btn" type="button" class="icon-action-box" title="Global Radio Tuner" aria-label="Radio">
+        <button id="top-radio-btn" type="button" class="icon-action-box" title="Global Radio & Streams" aria-label="Radio">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
         </button>
         <button id="top-dsp-btn" type="button" class="icon-action-box" title="Audio Studio & 10-Band EQ" aria-label="Audio Studio DSP">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
         </button>
-        <button id="top-queue-btn" type="button" class="icon-action-box" title="Now Playing & Queue" aria-label="Now Playing">
+        <button id="top-queue-btn" type="button" class="icon-action-box" title="Now Playing, Lyrics & Queue" aria-label="Now Playing">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         </button>
       </div>
     </header>
 
-    <!-- Main Scrollable Viewport -->
     <div class="mobile-workspace">
-      <!-- TAB 0: HOME (Exact HomeScreen Prismatic Horizons Banner + Mix Cards) -->
+      <!-- TAB 0: HOME -->
       <section id="tab-home" class="tab-view active">
         <div class="aurora-hero-outer">
           <div class="aurora-hero-inner">
@@ -141,88 +136,111 @@
               <div class="hero-copy-col">
                 <div class="hero-chips">
                   <span class="hero-chip">CLOUD D1 SYNCED</span>
-                  <span class="hero-chip cyan">10-BAND DSP</span>
+                  <span class="hero-chip cyan">LYRICS &middot; 10-BAND DSP</span>
                 </div>
                 <h1>Prismatic Horizons</h1>
-                <p>Your offline Files tracks, global FM stations, and synced library ready in liquid precision.</p>
+                <p>Trending streams, global live FM, offline Files library &amp; full 10-band studio DSP with Karaoke vocal cut.</p>
                 <div class="hero-btn-row">
                   <button id="home-spotlight-play" type="button" class="prism-btn-sm">&#9654; Play Spotlight</button>
-                  <button id="home-import-btn" type="button" class="ghost-btn-sm">+ Import Music</button>
+                  <button id="home-import-btn" type="button" class="ghost-btn-sm">+ Import Files</button>
                 </div>
               </div>
-              <div class="hero-tile-right">
-                <img src="../assets/muxis_app_icon.png" alt="MUXIS">
-              </div>
+              <div class="hero-tile-right"><img src="../assets/muxis_app_icon.png" alt="MUXIS"></div>
             </div>
           </div>
         </div>
 
         <div class="sec-head">
-          <h2>Open Hi-Fi Mixes</h2>
-          <span class="sec-sub">Instant Stream</span>
+          <h2>Trending Audio Streams</h2>
+          <span class="sec-sub">Live Mixes</span>
         </div>
-        <div id="home-cards-carousel" class="cards-carousel"></div>
+        <div id="home-trending-carousel" class="cards-carousel"></div>
 
-        <div class="sec-head" style="margin-top: 22px;">
+        <div class="sec-head" style="margin-top: 20px;">
+          <h2>Open Hi-Fi Spotlight</h2>
+          <button type="button" class="link-action" data-go-tab="library">Library &rarr;</button>
+        </div>
+        <div id="home-featured-carousel" class="cards-carousel"></div>
+
+        <div class="sec-head" style="margin-top: 20px;">
           <h2>Recently Played</h2>
-          <button type="button" class="link-action" data-go-tab="library">Open Library &rarr;</button>
+          <span id="sleep-timer-badge" class="sec-sub"></span>
         </div>
         <div id="home-recent-list" class="track-stack"></div>
       </section>
 
-      <!-- TAB 1: EXPLORE (Radio & Curated Genres) -->
+      <!-- TAB 1: EXPLORE (Trending Streams + Global FM Radio) -->
       <section id="tab-explore" class="tab-view">
         <div class="sec-head">
-          <h2>Explore Global Radio</h2>
-          <span class="sec-sub">Live FM Streams</span>
+          <h2>Explore Streams &amp; Radio</h2>
+          <span class="sec-sub">Live Global Audio</span>
         </div>
-        <div class="chips-scroll" id="radio-genre-chips">
-          <button type="button" class="filter-chip active" data-genre="">Top Voted</button>
-          <button type="button" class="filter-chip" data-genre="lofi">Lo-Fi Beats</button>
-          <button type="button" class="filter-chip" data-genre="jazz">Smooth Jazz</button>
-          <button type="button" class="filter-chip" data-genre="electronic">Electronic</button>
-          <button type="button" class="filter-chip" data-genre="pop">Global Pop</button>
-          <button type="button" class="filter-chip" data-genre="classical">Classical</button>
+        <div class="chips-scroll" id="explore-mode-chips">
+          <button type="button" class="filter-chip active" data-explore-mode="radio-top">Top Radio</button>
+          <button type="button" class="filter-chip" data-explore-mode="audius-trending">Trending Tracks</button>
+          <button type="button" class="filter-chip" data-explore-mode="radio-lofi">Lo-Fi</button>
+          <button type="button" class="filter-chip" data-explore-mode="radio-jazz">Jazz</button>
+          <button type="button" class="filter-chip" data-explore-mode="radio-electronic">Electronic</button>
+          <button type="button" class="filter-chip" data-explore-mode="radio-pop">Pop Hits</button>
+          <button type="button" class="filter-chip" data-explore-mode="radio-classical">Classical</button>
         </div>
-        <div id="explore-radio-list" class="track-stack"></div>
+        <div id="explore-list" class="track-stack"></div>
       </section>
 
-      <!-- TAB 2: SEARCH (Local + Open Streams + Live Radio) -->
+      <!-- TAB 2: SEARCH (Local + Trending Streams + Radio) -->
       <section id="tab-search" class="tab-view">
-        <div class="sec-head"><h2>Search Everything</h2></div>
+        <div class="sec-head"><h2>Search All Music</h2></div>
         <div class="search-box">
-          <input id="global-search-input" type="search" class="search-input" placeholder="Search imported songs, artists, or FM stations...">
+          <input id="global-search-input" type="search" class="search-input" placeholder="Search tracks, artists, FM stations or streams...">
           <button id="global-search-btn" type="button" class="prism-btn-sm">Find</button>
         </div>
         <div id="search-results-list" class="track-stack"></div>
       </section>
 
-      <!-- TAB 3: LIBRARY (Exact Android Library Screen Tabs & Import) -->
+      <!-- TAB 3: LIBRARY (All Tracks, Playlists, Albums, Artists, Favorites, History) -->
       <section id="tab-library" class="tab-view">
         <div class="lib-header">
           <div>
             <h2>Your Library</h2>
             <p id="lib-summary-line">0 Saved Tracks &middot; Offline IndexedDB</p>
           </div>
-          <button id="lib-import-btn" type="button" class="prism-btn-sm">+ Import Music</button>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button id="lib-import-btn" type="button" class="prism-btn-sm">+ Files</button>
+            <button id="lib-folder-btn" type="button" class="ghost-btn-sm">Folder</button>
+          </div>
         </div>
         <input id="local-file-input" type="file" accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.opus" multiple hidden>
+        <input id="local-folder-input" type="file" webkitdirectory directory multiple hidden>
+
+        <div class="search-box" style="margin-bottom: 10px;">
+          <input id="lib-filter-input" type="search" class="search-input" placeholder="Filter library...">
+          <select id="lib-sort-select" class="sort-select" aria-label="Sort library">
+            <option value="recent">Recent</option>
+            <option value="title">Title A-Z</option>
+            <option value="artist">Artist A-Z</option>
+          </select>
+        </div>
 
         <div class="chips-scroll" id="lib-filter-chips">
-          <button type="button" class="filter-chip active" data-lib-filter="all">All Imported</button>
+          <button type="button" class="filter-chip active" data-lib-filter="all">All Tracks</button>
+          <button type="button" class="filter-chip" data-lib-filter="playlists">Playlists</button>
+          <button type="button" class="filter-chip" data-lib-filter="albums">Albums</button>
+          <button type="button" class="filter-chip" data-lib-filter="artists">Artists</button>
           <button type="button" class="filter-chip" data-lib-filter="favorites">Favorites</button>
-          <button type="button" class="filter-chip" data-lib-filter="history">Recently Played</button>
+          <button type="button" class="filter-chip" data-lib-filter="history">History</button>
         </div>
-        <div id="library-track-list" class="track-stack"></div>
+
+        <div id="library-sub-actions" style="display: none; margin-bottom: 10px;"></div>
+        <div id="library-content-area" class="track-stack"></div>
       </section>
 
-      <!-- TAB 4: SETTINGS (Theme Catalog + Cloud Sync + Admin + A Leaf ORG) -->
+      <!-- TAB 4: SETTINGS -->
       <section id="tab-settings" class="tab-view">
         <div class="sec-head"><h2>Settings &amp; Studio</h2></div>
 
         <div class="settings-card liquid-card">
           <h3>Theme Studio</h3>
-          <p class="sec-sub">Cloud-synced visual palette matching Android &amp; Desktop.</p>
+          <p class="sec-sub">Cloud-synced across Windows, macOS, Linux, Android &amp; iOS.</p>
           <div class="theme-swatches-row">
             <button type="button" class="theme-dot active" data-theme="obsidian_aurora" style="background: linear-gradient(135deg,#00ff88,#00e5ff);" title="Prismatic Obsidian"></button>
             <button type="button" class="theme-dot" data-theme="midnight_sapphire" style="background: linear-gradient(135deg,#38bdf8,#818cf8);" title="Midnight Sapphire"></button>
@@ -233,24 +251,40 @@
         </div>
 
         <div class="settings-card liquid-card">
-          <h3>Audio Studio &amp; DSP</h3>
-          <p class="sec-sub">10-band parametric EQ (`32Hz–16kHz`) &amp; harmonic spectrum visualizer.</p>
-          <button id="settings-open-dsp" type="button" class="prism-btn-sm">Open Audio Studio DSP</button>
+          <h3>Audio Studio &amp; Sleep Timer</h3>
+          <p class="sec-sub">10-band EQ, Karaoke Vocal Cut, Spatial Reverb, Speed &amp; Sleep countdown.</p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px;">
+            <button id="settings-open-dsp" type="button" class="prism-btn-sm">Open Audio Studio</button>
+            <select id="sleep-timer-select" class="sort-select" aria-label="Sleep Timer">
+              <option value="0">Sleep Timer: Off</option>
+              <option value="15">Sleep in 15 min</option>
+              <option value="30">Sleep in 30 min</option>
+              <option value="60">Sleep in 60 min</option>
+            </select>
+          </div>
         </div>
 
         <div class="settings-card liquid-card">
-          <h3>MUXIS Cloud &amp; Sync</h3>
+          <h3>MUXIS Cloud &amp; Account</h3>
           <p id="settings-user-meta" class="sec-sub">Connected to Cloudflare D1</p>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
             <button id="settings-sync-btn" type="button" class="prism-btn-sm">Sync Cloud Now</button>
-            <a id="settings-admin-link" href="../admin/" class="ghost-btn-sm" style="display: none;">Open Admin Approval Panel</a>
-            <button id="settings-signout-btn" type="button" class="ghost-btn-sm" style="border-color: rgba(239,68,68,0.45); color: #fca5a5;">Sign Out</button>
+            <button id="settings-regen-key-btn" type="button" class="ghost-btn-sm">New Recovery Key</button>
+            <a id="settings-admin-link" href="../admin/" class="ghost-btn-sm" style="display: none;">Admin Panel</a>
+            <button id="settings-signout-btn" type="button" class="ghost-btn-sm">Sign Out</button>
+            <button id="settings-delete-btn" type="button" class="ghost-btn-sm" style="border-color: rgba(239,68,68,0.45); color: #fca5a5;">Delete Account</button>
           </div>
+          <p id="recovery-key-display" style="display: none; margin-top: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--accent);"></p>
+        </div>
+
+        <div class="settings-card liquid-card">
+          <h3>iPhone Local Music Note</h3>
+          <p class="sec-sub" style="margin-bottom: 0;">Due to iOS Safari security sandboxing, web apps use the <strong>+ Files</strong> picker instead of background whole-disk scan. Imported tracks save permanently in offline IndexedDB storage.</p>
         </div>
 
         <div class="settings-card liquid-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
           <div>
-            <strong style="font-size: 14px;">MUXIS Mobile Web App</strong>
+            <strong style="font-size: 14px;">MUXIS Installable Edition</strong>
             <p class="sec-sub" style="margin-bottom: 0;">Crafted by A Leaf ORG &middot; GNU GPL-3.0</p>
           </div>
           <img src="../assets/a_leaf_org_logo.svg" alt="A Leaf ORG" style="height: 22px; width: auto;">
@@ -258,16 +292,14 @@
       </section>
     </div>
 
-    <!-- Exact Android MobilePlaybackBar Floating Above Bottom Navigation -->
+    <!-- Floating Android MobilePlaybackBar -->
     <div id="mobile-playback-bar" class="mobile-playback-bar liquid-card">
-      <div class="playback-hairline-track">
-        <div id="mini-progress-fill" class="playback-hairline-fill"></div>
-      </div>
+      <div class="playback-hairline-track"><div id="mini-progress-fill" class="playback-hairline-fill"></div></div>
       <div class="playback-bar-row">
         <div class="pb-art-box"><img id="pb-art" src="../assets/muxis_mark_square.png" alt="Track"></div>
         <div class="pb-info" id="pb-expand-area">
           <strong id="pb-title">Ready to Stream</strong>
-          <span id="pb-artist">Tap any song or FM radio station</span>
+          <span id="pb-artist">Tap any song or live stream</span>
         </div>
         <button id="pb-fav-btn" type="button" class="pb-icon-btn" aria-label="Favorite">&#9825;</button>
         <button id="pb-play-btn" type="button" class="pb-circle-play" aria-label="Play or Pause">&#9654;</button>
@@ -277,31 +309,16 @@
 
     <!-- Exact Android 5-Destination Bottom NavigationBar -->
     <nav class="android-bottom-nav" aria-label="Main Tabs">
-      <button type="button" class="bnav-btn active" data-tab="home">
-        <span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>
-        <span>Home</span>
-      </button>
-      <button type="button" class="bnav-btn" data-tab="explore">
-        <span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></span>
-        <span>Explore</span>
-      </button>
-      <button type="button" class="bnav-btn" data-tab="search">
-        <span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <span>Search</span>
-      </button>
-      <button type="button" class="bnav-btn" data-tab="library">
-        <span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
-        <span>Library</span>
-      </button>
-      <button type="button" class="bnav-btn" data-tab="settings">
-        <span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-        <span>Settings</span>
-      </button>
+      <button type="button" class="bnav-btn active" data-tab="home"><span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span><span>Home</span></button>
+      <button type="button" class="bnav-btn" data-tab="explore"><span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></span><span>Explore</span></button>
+      <button type="button" class="bnav-btn" data-tab="search"><span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><span>Search</span></button>
+      <button type="button" class="bnav-btn" data-tab="library"><span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><span>Library</span></button>
+      <button type="button" class="bnav-btn" data-tab="settings"><span class="bnav-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span>Settings</span></button>
     </nav>
   </div>
 
   <!-- =======================================================================
-       BOTTOM SHEET 1: MobileAudioStudioSheet (Matches Android Audio Studio)
+       MOBILE AUDIO STUDIO SHEET (EQ + Bass/Treble/Preamp + Karaoke + Reverb)
        ======================================================================= -->
   <div id="studio-sheet-backdrop" class="sheet-backdrop">
     <div class="bottom-sheet" role="dialog" aria-label="Audio Studio DSP">
@@ -311,7 +328,7 @@
           <div class="studio-badge-icon">&#127899;</div>
           <div>
             <strong style="font-size: 16px;">Audio Studio DSP</strong>
-            <span style="display: block; font-size: 11px; color: var(--text-muted);">10-Band EQ &middot; Real Web Audio Filters</span>
+            <span style="display: block; font-size: 11px; color: var(--text-muted);">10-Band EQ &middot; Karaoke Cut &middot; Spatial Reverb &middot; Speed</span>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -331,34 +348,111 @@
         <button type="button" class="filter-chip" data-preset="Flat">Flat</button>
       </div>
 
-      <div id="eq-sliders-container" class="eq-bands-grid"></div>
+      <!-- Horizontal Scrollable 10-Band Vertical Rack -->
+      <div class="dsp-panel-box">
+        <div class="sec-head" style="margin-bottom: 6px;">
+          <strong style="font-size: 13px;">10-Band Parametric EQ</strong>
+          <button id="eq-reset-flat-btn" type="button" class="link-action">Reset Flat</button>
+        </div>
+        <div id="eq-sliders-container" class="eq-rack-scroll"></div>
+      </div>
+
+      <!-- Acoustic Enhancement Drives -->
+      <div class="dsp-panel-box">
+        <strong style="font-size: 13px; display: block; margin-bottom: 10px;">Acoustic Enhancement</strong>
+        <div class="dsp-slider-row"><span>Bass Boost <b id="val-bass">0%</b></span><input id="dsp-bass-range" type="range" min="0" max="100" value="0"></div>
+        <div class="dsp-slider-row"><span>Treble Air <b id="val-treble">0%</b></span><input id="dsp-treble-range" type="range" min="0" max="100" value="0"></div>
+        <div class="dsp-slider-row"><span>Preamp Gain <b id="val-preamp">+0.0 dB</b></span><input id="dsp-preamp-range" type="range" min="-6" max="6" step="0.5" value="0"></div>
+      </div>
+
+      <!-- Creative DSP & Reverb -->
+      <div class="dsp-panel-box">
+        <strong style="font-size: 13px; display: block; margin-bottom: 10px;">Creative DSP &amp; Reverb</strong>
+        <div class="chips-scroll" style="padding-bottom: 8px;">
+          <button id="fx-slowed-btn" type="button" class="filter-chip">Slowed + Reverb</button>
+          <button id="fx-karaoke-btn" type="button" class="filter-chip">Karaoke / Vocal Cut</button>
+          <button id="fx-reverb-btn" type="button" class="filter-chip">Spatial Reverb</button>
+        </div>
+        <div class="dsp-slider-row"><span>Playback Speed <b id="val-speed">1.00x</b></span><input id="dsp-speed-range" type="range" min="0.5" max="2.0" step="0.05" value="1.0"></div>
+        <div id="vocal-cut-row" class="dsp-slider-row" style="display: none;"><span>Vocal Cut Mix <b id="val-vocal">85%</b></span><input id="dsp-vocal-range" type="range" min="0" max="100" value="85"></div>
+        <div style="text-align: right; margin-top: 6px;">
+          <button id="fx-reset-all-btn" type="button" class="ghost-btn-sm">Reset Effects</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- =======================================================================
-       FULL-SCREEN OVERLAY: AuroraNowPlaying (Spectrum Stage + Controls)
+       PLAYLIST ADD PICKER SHEET
+       ======================================================================= -->
+  <div id="playlist-picker-backdrop" class="sheet-backdrop">
+    <div class="bottom-sheet" role="dialog" aria-label="Add to Playlist">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <strong style="font-size: 16px;">Add Track to Playlist</strong>
+        <button id="close-picker-btn" type="button" class="pb-icon-btn">&times;</button>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input id="new-playlist-name-input" type="text" class="search-input" placeholder="New playlist name...">
+        <button id="picker-create-playlist-btn" type="button" class="prism-btn-sm">Create &amp; Add</button>
+      </div>
+      <div id="picker-playlists-list" class="track-stack"></div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       AURORA NOW PLAYING (Stage + Synced LRCLIB Lyrics + Queue)
        ======================================================================= -->
   <div id="aurora-now-playing" class="aurora-np-overlay">
     <div class="np-topbar">
-      <button id="np-close-btn" type="button" class="pb-icon-btn" aria-label="Close Now Playing">&#9662;</button>
-      <span class="hero-chip" style="margin: 0;">STUDIO SPECTRUM STAGE</span>
-      <button id="np-open-dsp" type="button" class="pb-icon-btn" aria-label="Audio Studio">&#127899;</button>
+      <button id="np-close-btn" type="button" class="pb-icon-btn" aria-label="Close">&#9662;</button>
+      <div class="segmented-tabs" style="margin: 0; width: 230px;">
+        <button type="button" class="seg-btn active" data-np-pane="stage">Stage</button>
+        <button type="button" class="seg-btn" data-np-pane="lyrics">Lyrics</button>
+        <button type="button" class="seg-btn" data-np-pane="queue">Queue</button>
+      </div>
+      <button id="np-open-dsp" type="button" class="pb-icon-btn" aria-label="DSP">&#127899;</button>
     </div>
 
-    <div class="np-center-stage">
-      <div class="np-art-frame"><img id="np-big-art" src="../assets/muxis_app_icon.png" alt="Album Art"></div>
-      <canvas id="np-spectrum-canvas"></canvas>
-      <div style="text-align: center; width: 100%; margin: 10px 0;">
-        <h2 id="np-big-title" style="font-size: 21px; font-weight: 900; margin-bottom: 4px;">Ready to Stream</h2>
-        <p id="np-big-artist" style="font-size: 13.5px; color: var(--text-muted);">Select a track or live FM stream</p>
+    <!-- PANE 1: STAGE -->
+    <div id="np-pane-stage" class="np-pane active">
+      <div class="np-center-stage">
+        <div class="np-art-frame"><img id="np-big-art" src="../assets/muxis_app_icon.png" alt="Album Art"></div>
+        <canvas id="np-spectrum-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- PANE 2: SYNCED LYRICS -->
+    <div id="np-pane-lyrics" class="np-pane">
+      <div id="np-lyrics-scroll" class="lyrics-container">
+        <p class="lyrics-empty">Select a track to fetch synchronized lyrics from LRCLIB.</p>
+      </div>
+    </div>
+
+    <!-- PANE 3: UP NEXT QUEUE -->
+    <div id="np-pane-queue" class="np-pane">
+      <div id="np-queue-list" class="track-stack" style="width: 100%; max-width: 520px; margin: 0 auto; overflow-y: auto; max-height: 52vh;"></div>
+    </div>
+
+    <!-- Shared Transport Controls Footer -->
+    <div class="np-footer-controls">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px;">
+        <div style="min-width: 0;">
+          <h2 id="np-big-title" style="font-size: 18px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Ready to Stream</h2>
+          <p id="np-big-artist" style="font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Select a track or station</p>
+        </div>
+        <button id="np-add-pl-btn" type="button" class="ghost-btn-sm">+ Playlist</button>
       </div>
 
       <input id="np-seek-range" type="range" min="0" max="100" value="0" class="np-seek-slider">
+      <div class="np-time-row"><span id="np-cur-time">0:00</span><span id="np-tot-time">0:00</span></div>
 
       <div class="np-controls-row">
+        <button id="np-shuffle-btn" type="button" class="pb-icon-btn" title="Shuffle">&#128256;</button>
         <button id="np-prev-btn" type="button" class="pb-icon-btn" style="font-size: 20px;">&#9198;</button>
-        <button id="np-play-btn" type="button" class="pb-circle-play" style="width: 58px; height: 58px; font-size: 22px;">&#9654;</button>
+        <button id="np-play-btn" type="button" class="pb-circle-play" style="width: 56px; height: 56px; font-size: 21px;">&#9654;</button>
         <button id="np-next-btn" type="button" class="pb-icon-btn" style="font-size: 20px;">&#9197;</button>
+        <button id="np-repeat-btn" type="button" class="pb-icon-btn" title="Repeat">&#128257;</button>
       </div>
     </div>
   </div>

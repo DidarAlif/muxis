@@ -10,6 +10,7 @@
  */
 
 import { CloudEnv, handleCloudRoute } from './cloud_auth';
+import { handleStreamRoute } from './stream_api';
 
 export interface Env extends CloudEnv {
   MUXIS_STORAGE?: R2Bucket;
@@ -95,6 +96,12 @@ export default {
       const cloudResp = await handleCloudRoute(request, env, jsonResponse, errorResponse);
       if (cloudResp) {
         return cloudResp;
+      }
+
+      // 2c. Streaming Search, Audio Relay & Synced Lyrics routes
+      const streamResp = await handleStreamRoute(request, CORS_HEADERS, jsonResponse, errorResponse);
+      if (streamResp) {
+        return streamResp;
       }
 
       // 3. Storage: Request upload authorization / metadata
