@@ -1,0 +1,22 @@
+/app
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/app/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/admin
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/admin/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/auth-confirmed.html
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600

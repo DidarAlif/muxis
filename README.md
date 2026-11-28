@@ -13,7 +13,9 @@
     <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android%20%7C%20iOS-4FACFE?style=for-the-badge" alt="Platforms" />
   </p>
   <p>
-    <a href="https://didaralif.github.io/muxis/download.html">Download Installers</a> •
+    <a href="https://muxis.pages.dev/">Official Website</a> •
+    <a href="https://muxis.pages.dev/download.html">Download Installers</a> •
+    <a href="https://muxis.pages.dev/documentation.html">Documentation</a> •
     <a href="https://github.com/DidarAlif/muxis/releases">All Releases</a> •
     <a href="#2-screenshots">Screenshots</a> •
     <a href="#6-building-and-running">Build from Source</a>
