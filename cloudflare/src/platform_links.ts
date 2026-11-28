@@ -501,6 +501,52 @@ function extractYtPlaylistsFromBrowse(data: unknown): PlatformPlaylistDTO[] {
   return out;
 }
 
+async function fetchYtEdgeMixes(baseHeaders: Record<string, string>): Promise<{
+  playlists: PlatformPlaylistDTO[];
+  tracks: StreamTrackDTO[];
+}> {
+  const queries = [
+    { id: 'yt-mix-top', title: 'YouTube Music Top Hits', q: 'Top Music Hits 2026 official audio', desc: 'Global YouTube Music Trending' },
+    { id: 'yt-mix-chill', title: 'YouTube Music Chill & Lofi Mix', q: 'Lofi Chill Electronic Beats', desc: 'Curated YouTube Music Focus' },
+  ];
+  const results = await Promise.all(
+    queries.map((item) =>
+      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/search`, {
+        method: 'POST',
+        headers: baseHeaders,
+        body: JSON.stringify({
+          context: WEB_REMIX_CTX,
+          query: item.q,
+          params: 'EgWKAQIIAWoKEAMQBBAJEAoQBQ%3D%3D',
+        }),
+        signal: AbortSignal.timeout(7000),
+      })
+        .then(async (r) => (r.ok ? extractResponsiveItems(await r.json()).slice(0, 15) : []))
+        .catch(() => [] as StreamTrackDTO[])
+    )
+  );
+  const playlists: PlatformPlaylistDTO[] = [];
+  const tracks: StreamTrackDTO[] = [];
+  const seen = new Set<string>();
+  queries.forEach((item, idx) => {
+    const list = results[idx] || [];
+    if (list.length) {
+      playlists.push({
+        id: item.id,
+        title: item.title,
+        description: item.desc,
+        artworkUrl: list[0].artworkUrl ?? null,
+        trackCount: list.length,
+        tracks: list,
+      });
+      for (const t of list) {
+        if (seen.add(t.id)) tracks.push(t);
+      }
+    }
+  });
+  return { playlists, tracks };
+}
+
 async function connectYouTubeMusic(cred: StoredCredential): Promise<{
   displayName: string;
   avatarUrl: string | null;
@@ -638,8 +684,8 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
     const exploreRaw = homeRes?.ok ? await homeRes.json() : null;
     const explorePlaylists = exploreRaw ? extractYtPlaylistsFromBrowse(exploreRaw).slice(0, 12) : [];
     const exploreTracks = exploreRaw ? extractResponsiveItems(exploreRaw).slice(0, 16) : [];
+    const edgeMix = !playlists.length || !chartTracks.length ? await fetchYtEdgeMixes(baseHeaders) : { playlists: [], tracks: [] };
 
-    // Ensure a rich functional Hub even when YouTube Data API v3 is not enabled yet on Cloud project
     if (!playlists.length) {
       if (chartTracks.length) {
         playlists.push({
@@ -651,10 +697,13 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
           tracks: chartTracks,
         });
       }
-      for (const ep of explorePlaylists) playlists.push(ep);
+      playlists.push(...edgeMix.playlists, ...explorePlaylists);
     }
 
-    const finalLiked = likedTracks.length ? likedTracks : (exploreTracks.length ? exploreTracks : chartTracks.slice(0, 15));
+    const finalLiked = likedTracks.length
+      ? likedTracks
+      : (exploreTracks.length ? exploreTracks : (chartTracks.length ? chartTracks : edgeMix.tracks));
+    const finalRecommended = chartTracks.length ? chartTracks : (edgeMix.tracks.length ? edgeMix.tracks : finalLiked);
     const hasPersonalYtApi = Boolean(chRes?.ok || plRes?.ok || likeRes?.ok);
 
     return {
@@ -663,46 +712,19 @@ async function connectYouTubeMusic(cred: StoredCredential): Promise<{
       planBadge: hasPersonalYtApi ? 'Google YouTube Linked' : 'Google Account · YT Hub',
       playlists,
       likedTracks: finalLiked,
-      recommendedTracks: chartTracks.length ? chartTracks : finalLiked,
+      recommendedTracks: finalRecommended,
     };
   }
 
   if (cred.mode === 'google_hub') {
-    const [chartsRes, homeRes] = await Promise.all([
-      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
-        method: 'POST',
-        headers: baseHeaders,
-        body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_charts' }),
-      }).catch(() => null),
-      fetch(`${YT_MUSIC_ORIGIN}/youtubei/v1/browse`, {
-        method: 'POST',
-        headers: baseHeaders,
-        body: JSON.stringify({ context: WEB_REMIX_CTX, browseId: 'FEmusic_explore' }),
-      }).catch(() => null),
-    ]);
-    const chartTracks = chartsRes?.ok ? extractResponsiveItems(await chartsRes.json()).slice(0, 20) : [];
-    const exploreRaw = homeRes?.ok ? await homeRes.json() : null;
-    const explorePlaylists = exploreRaw ? extractYtPlaylistsFromBrowse(exploreRaw).slice(0, 12) : [];
-    const exploreTracks = exploreRaw ? extractResponsiveItems(exploreRaw).slice(0, 16) : [];
-    const playlists: PlatformPlaylistDTO[] = [];
-    if (chartTracks.length) {
-      playlists.push({
-        id: 'FEmusic_charts',
-        title: 'YouTube Music Top Charts',
-        description: 'Live YouTube Music global charts',
-        artworkUrl: chartTracks[0]?.artworkUrl ?? null,
-        trackCount: chartTracks.length,
-        tracks: chartTracks,
-      });
-    }
-    playlists.push(...explorePlaylists);
+    const edgeMix = await fetchYtEdgeMixes(baseHeaders);
     return {
       displayName: cred.profileUrl?.trim() || 'YouTube Music Listener',
-      avatarUrl: cred.sapisid?.startsWith('http') ? cred.sapisid : (chartTracks[0]?.artworkUrl ?? null),
+      avatarUrl: cred.sapisid?.startsWith('http') ? cred.sapisid : (edgeMix.tracks[0]?.artworkUrl ?? null),
       planBadge: 'Google Account · YT Hub',
-      playlists,
-      likedTracks: exploreTracks.length ? exploreTracks : chartTracks,
-      recommendedTracks: chartTracks.length ? chartTracks : exploreTracks,
+      playlists: edgeMix.playlists,
+      likedTracks: edgeMix.tracks,
+      recommendedTracks: edgeMix.tracks,
     };
   }
 
