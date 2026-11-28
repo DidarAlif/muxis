@@ -619,7 +619,10 @@
       if (track.artwork) {
         const img = document.createElement('img');
         img.src = track.artwork;
-        img.alt = track.title;
+        img.alt = '';
+        img.onerror = () => {
+          art.innerHTML = '<span style="color:var(--accent);font-weight:900;">&#9835;</span>';
+        };
         art.appendChild(img);
       } else {
         art.innerHTML = '<span style="color:var(--accent);font-weight:900;">&#9835;</span>';
