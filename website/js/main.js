@@ -135,8 +135,9 @@
     document.querySelectorAll('[data-theme-pick]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.themePick === id);
     });
-    const label = document.getElementById('active-theme-name');
-    if (label) label.textContent = theme.name;
+    document.querySelectorAll('[data-active-theme-name]').forEach((label) => {
+      label.textContent = theme.name;
+    });
   }
 
   function safeStorageGet(k) {
