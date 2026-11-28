@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUXIS Cloud — Google Sign-In</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #060910;
+      --surface: #0d1524;
+      --border: #233046;
+      --text: #f8fafc;
+      --muted: #9fb2c9;
+      --accent: #00ff88;
+      --error: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(0, 255, 136, 0.14), transparent 42%),
+        radial-gradient(circle at 85% 85%, rgba(0, 229, 255, 0.10), transparent 44%),
+        var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 430px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 32px 26px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+      text-align: center;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00ff88, #00e5ff);
+      color: #061018;
+      font-weight: 900;
+      font-size: 20px;
+      display: grid;
+      place-items: center;
+    }
+    .brand-title {
+      text-align: left;
+    }
+    .brand-title strong {
+      display: block;
+      font-size: 16px;
+      letter-spacing: 0.6px;
+    }
+    .brand-title span {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+    p {
+      margin: 0 0 22px;
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+    .btn {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      height: 46px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, #00ff88, #00e5ff);
+      color: #061018;
+      border: none;
+    }
+    .status {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      display: none;
+    }
+    .status.ok {
+      display: block;
+      border-color: rgba(0, 255, 136, 0.45);
+      background: rgba(0, 255, 136, 0.10);
+      color: #d1fae5;
+    }
+    .status.err {
+      display: block;
+      border-color: rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.12);
+      color: #fecaca;
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #7b8fa8;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <div class="logo">M</div>
+      <div class="brand-title">
+        <strong>MUXIS CLOUD</strong>
+        <span>by A Leaf • Cloudflare D1 Sync</span>
+      </div>
+    </div>
+
+    <h1 id="heading">Sign in with Google</h1>
+    <p id="subtitle">Authenticate with your Google account to sync your playlists, favorites, listening history, and themes in Cloudflare D1.</p>
+
+    <button id="googleBtn" class="btn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
+        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/>
+        <path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/>
+        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
+      </svg>
+      <span id="btnLabel">Continue with Google</span>
+    </button>
+
+    <div id="statusBox" class="status"></div>
+    <div id="redirectWrap" style="margin-top: 14px; display: none;">
+      <a id="returnLink" class="btn btn-primary" href="#" style="text-decoration: none;">Return to MUXIS App</a>
+    </div>
+
+    <div class="footer">Google identity via Firebase • Account data stored privately in Cloudflare D1</div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult
+    } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+
+    const firebaseConfig = {
+      projectId: 'muxis-cloud',
+      appId: '1:557787295098:web:9b68ff0a30164ff96a3ac3',
+      storageBucket: 'muxis-cloud.firebasestorage.app',
+      apiKey: 'AIzaSyD2LtscFC3xX8TlC1jdpOk7DoPLSbTxFcg',
+      authDomain: 'muxis-cloud.firebaseapp.com',
+      messagingSenderId: '557787295098'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const params = new URLSearchParams(window.location.search);
+    const urlState = (params.get('state') || '').trim();
+    const urlWorker = (params.get('worker') || '').trim();
+
+    if (urlState) {
+      sessionStorage.setItem('muxis_oauth_state', urlState);
+    }
+    if (urlWorker) {
+      sessionStorage.setItem('muxis_worker_url', urlWorker);
+    }
+
+    const oauthState = urlState || sessionStorage.getItem('muxis_oauth_state') || '';
+    const workerUrl = (
+      urlWorker ||
+      sessionStorage.getItem('muxis_worker_url') ||
+      'https://muxis-api-worker.a-leaf-org.workers.dev'
+    ).replace(/\/+$/, '');
+
+    const googleBtn = document.getElementById('googleBtn');
+    const btnLabel = document.getElementById('btnLabel');
+    const heading = document.getElementById('heading');
+    const subtitle = document.getElementById('subtitle');
+    const statusBox = document.getElementById('statusBox');
+    const redirectWrap = document.getElementById('redirectWrap');
+    const returnLink = document.getElementById('returnLink');
+
+    function setStatus(type, msg) {
+      statusBox.className = 'status ' + (type === 'ok' ? 'ok' : 'err');
+      statusBox.textContent = msg;
+    }
+
+    async function completeWorkerHandoff(user) {
+      if (!oauthState) {
+        heading.textContent = 'Google Verified';
+        setStatus('ok', `Signed in as ${user.email}. Return to the MUXIS app to start your login from the Cloud dialog.`);
+        googleBtn.style.display = 'none';
+        return;
+      }
+
+      btnLabel.textContent = 'Syncing with Cloudflare D1...';
+      googleBtn.disabled = true;
+
+      const idToken = await user.getIdToken(true);
+      const res = await fetch(`${workerUrl}/api/auth/firebase/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: oauthState, id_token: idToken })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `Cloudflare handoff failed (${res.status})`);
+      }
+
+      sessionStorage.removeItem('muxis_oauth_state');
+      heading.textContent = 'Signed In with Google!';
+      subtitle.textContent = `Connected ${data.email || user.email} to MUXIS Cloud on Cloudflare D1.`;
+      googleBtn.style.display = 'none';
+      setStatus('ok', 'Your profile & sync session are saved in Cloudflare. You can close this browser tab and return to MUXIS.');
+
+      if (data.redirect_url && (data.redirect_url.startsWith('muxis://') || data.redirect_url.startsWith('http://localhost:'))) {
+        returnLink.href = data.redirect_url;
+        redirectWrap.style.display = 'block';
+        setTimeout(() => { window.location.href = data.redirect_url; }, 350);
+      }
+    }
+
+    async function runRedirectCheck() {
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult && redirectResult.user) {
+          await completeWorkerHandoff(redirectResult.user);
+        }
+      } catch (err) {
+        setStatus('err', err.message || 'Google sign-in redirect failed.');
+        googleBtn.disabled = false;
+        btnLabel.textContent = 'Try Again with Google';
+      }
+    }
+
+    const isMobileBrowser = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    googleBtn.addEventListener('click', async () => {
+      googleBtn.disabled = true;
+      btnLabel.textContent = 'Connecting to Google...';
+      statusBox.className = 'status';
+
+      if (isMobileBrowser) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
+      try {
+        const res = await signInWithPopup(auth, provider);
+        await completeWorkerHandoff(res.user);
+      } catch (err) {
+        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        setStatus('err', err.message || 'Google Sign-In failed. Please try again.');
+        googleBtn.disabled = false;
+        btnLabel.textContent = 'Continue with Google';
+      }
+    });
+
+    runRedirectCheck();
+  </script>
+</body>
+</html>

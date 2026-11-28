@@ -20,7 +20,10 @@
   ],
   "vars": {
     "ENVIRONMENT": "production",
-    "LATEST_VERSION": "1.2.10",
-    "MIN_SUPPORTED_VERSION": "1.0.0"
+    "LATEST_VERSION": "1.2.11",
+    "MIN_SUPPORTED_VERSION": "1.0.0",
+    "FIREBASE_PROJECT_ID": "muxis-cloud",
+    "FIREBASE_WEB_API_KEY": "AIzaSyD2LtscFC3xX8TlC1jdpOk7DoPLSbTxFcg",
+    "FIREBASE_AUTH_BRIDGE_URL": "https://muxis-cloud.web.app"
   }
 }

@@ -10,6 +10,9 @@ export interface CloudEnv {
   MUXIS_JWT_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  FIREBASE_PROJECT_ID?: string;
+  FIREBASE_WEB_API_KEY?: string;
+  FIREBASE_AUTH_BRIDGE_URL?: string;
 }
 
 interface UserRow {
@@ -195,14 +198,20 @@ export async function handleCloudRoute(
 
   // 1. Public capability metadata
   if (path === '/api/auth/config' && request.method === 'GET') {
+    const directGoogle = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+    const firebaseGoogle = Boolean(
+      env.FIREBASE_PROJECT_ID && env.FIREBASE_WEB_API_KEY && env.FIREBASE_AUTH_BRIDGE_URL
+    );
     return json({
       provider: 'muxis-cloud-d1',
       email_autoconfirm: true,
       instant_signup: true,
       recovery_key_reset: true,
-      google_oauth_enabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+      google_oauth_enabled: directGoogle || firebaseGoogle,
+      google_auth_mode: directGoogle ? 'google_direct' : firebaseGoogle ? 'firebase_client' : 'disabled',
+      firebase_bridge_url: firebaseGoogle ? env.FIREBASE_AUTH_BRIDGE_URL : null,
       google_callback_url: `${url.origin}/api/auth/google/callback`,
-      worker_version: '1.2.10',
+      worker_version: '1.2.11',
     });
   }
 
@@ -335,10 +344,14 @@ export async function handleCloudRoute(
     return json({ access_token: token, user: serializeUser(row), recovery_key: nextRecovery }, 200);
   }
 
-  // 5. Google OAuth Browser Start (PKCE + D1 State Ticket for Desktop & Android Polling)
+  // 5. Google OAuth Browser Start (Direct Google OR Firebase Auth Client + Cloudflare D1 State Ticket)
   if (path === '/api/auth/google/start' && request.method === 'GET') {
-    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
-      return err('Google 1-Click OAuth is not configured on Worker secrets yet (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).', 503);
+    const hasDirectGoogle = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+    const hasFirebaseBridge = Boolean(
+      env.FIREBASE_PROJECT_ID && env.FIREBASE_WEB_API_KEY && env.FIREBASE_AUTH_BRIDGE_URL
+    );
+    if (!hasDirectGoogle && !hasFirebaseBridge) {
+      return err('Google 1-Click OAuth is not configured on Worker secrets yet.', 503);
     }
     const pollSecret = url.searchParams.get('poll_secret') ?? '';
     if (pollSecret.length < 16) {
@@ -365,18 +378,122 @@ export async function handleCloudRoute(
       .bind(state, pollSecretHash, codeVerifier, appRedirect, expires, now.toISOString())
       .run();
 
-    const callbackUrl = `${url.origin}/api/auth/google/callback`;
-    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    authUrl.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
-    authUrl.searchParams.set('redirect_uri', callbackUrl);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', 'openid email profile');
-    authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('code_challenge', codeChallenge);
-    authUrl.searchParams.set('code_challenge_method', 'S256');
-    authUrl.searchParams.set('prompt', 'select_account');
+    if (hasDirectGoogle && env.GOOGLE_CLIENT_ID) {
+      const callbackUrl = `${url.origin}/api/auth/google/callback`;
+      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      authUrl.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
+      authUrl.searchParams.set('redirect_uri', callbackUrl);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('scope', 'openid email profile');
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('code_challenge', codeChallenge);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+      authUrl.searchParams.set('prompt', 'select_account');
 
-    return json({ auth_url: authUrl.toString(), state, callback_url: callbackUrl });
+      return json({ auth_url: authUrl.toString(), state, callback_url: callbackUrl, mode: 'google_direct' });
+    }
+
+    const bridgeBase = (env.FIREBASE_AUTH_BRIDGE_URL ?? 'https://muxis-cloud.web.app').replace(/\/+$/, '');
+    const firebaseAuthUrl = `${bridgeBase}/?state=${encodeURIComponent(state)}&worker=${encodeURIComponent(url.origin)}`;
+    return json({ auth_url: firebaseAuthUrl, state, mode: 'firebase_client' });
+  }
+
+  // 5b. Firebase Auth Google Handoff -> Verify Firebase ID Token & Store Account strictly in Cloudflare D1
+  if (path === '/api/auth/firebase/complete' && request.method === 'POST') {
+    if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_WEB_API_KEY) {
+      return err('Firebase client bridge is not configured on Worker.', 503);
+    }
+    let body: { state?: string; id_token?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return err('Invalid JSON request body.', 400);
+    }
+
+    const state = (body.state ?? '').trim();
+    const idToken = (body.id_token ?? '').trim();
+    if (!state || idToken.split('.').length !== 3) {
+      return err('Missing OAuth state or valid Firebase ID token.', 400);
+    }
+
+    const row = await db
+      .prepare('SELECT * FROM oauth_states WHERE state = ?')
+      .bind(state)
+      .first<{ state: string; app_redirect: string | null; status: string; expires_at: string }>();
+
+    if (!row || row.status !== 'pending' || new Date(row.expires_at).getTime() < Date.now()) {
+      return err('Sign-in state expired or already used. Retry from MUXIS app.', 410);
+    }
+
+    // Verify JWT audience/issuer locally first before contacting Google Identity Toolkit
+    try {
+      const claimJson = new TextDecoder().decode(base64UrlDecode(idToken.split('.')[1]));
+      const claims = JSON.parse(claimJson) as { aud?: string; iss?: string; exp?: number };
+      if (
+        claims.aud !== env.FIREBASE_PROJECT_ID ||
+        claims.iss !== `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}` ||
+        (typeof claims.exp === 'number' && claims.exp < Math.floor(Date.now() / 1000))
+      ) {
+        return err('Invalid Firebase token audience or expired token.', 401);
+      }
+    } catch {
+      return err('Malformed Firebase token claims.', 401);
+    }
+
+    // Cryptographically verify Firebase ID Token via Google Identity Toolkit lookup
+    const lookupResp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(env.FIREBASE_WEB_API_KEY)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+    if (!lookupResp.ok) {
+      return err('Failed to verify Firebase ID token with Google Identity Toolkit.', 401);
+    }
+
+    const lookupData = (await lookupResp.json()) as {
+      users?: Array<{
+        localId?: string;
+        email?: string;
+        emailVerified?: boolean;
+        displayName?: string;
+        photoUrl?: string;
+        providerUserInfo?: Array<{
+          providerId?: string;
+          rawId?: string;
+          displayName?: string;
+          photoUrl?: string;
+          email?: string;
+        }>;
+      }>;
+    };
+    const fbUser = lookupData.users?.[0];
+    if (!fbUser || !fbUser.email || !fbUser.emailVerified) {
+      return err('Google account must have a verified email address.', 401);
+    }
+
+    const googleInfo = fbUser.providerUserInfo?.find((p) => p.providerId === 'google.com');
+    const googleSub = googleInfo?.rawId || fbUser.localId;
+    if (!googleSub) {
+      return err('Verified Google identity identifier missing.', 401);
+    }
+
+    const userObj = await upsertGoogleUser(db, {
+      googleSub,
+      email: fbUser.email.toLowerCase(),
+      displayName: googleInfo?.displayName || fbUser.displayName || fbUser.email.split('@')[0],
+      avatarUrl: googleInfo?.photoUrl || fbUser.photoUrl || null,
+    });
+    const jwt = await signJwt({ sub: userObj.id, email: userObj.email }, jwtSecret);
+
+    await db
+      .prepare(`UPDATE oauth_states SET status = 'complete', result_token = ?, result_user_json = ? WHERE state = ?`)
+      .bind(jwt, JSON.stringify(userObj), state)
+      .run();
+
+    return json({ ok: true, email: userObj.email, redirect_url: row.app_redirect }, 200);
   }
 
   // 6. Google OAuth HTTPS Callback
@@ -659,10 +776,22 @@ export async function handleCloudRoute(
       });
     }
 
+    const histRes = await db
+      .prepare('SELECT track_uri, title, artist, album, duration_ms, played_at FROM listening_history WHERE user_id = ? ORDER BY played_at DESC LIMIT 50')
+      .bind(userId)
+      .all();
+
+    const devicesRes = await db
+      .prepare('SELECT device_name, platform, client_version, last_active_at FROM user_devices WHERE user_id = ? ORDER BY last_active_at DESC LIMIT 12')
+      .bind(userId)
+      .all();
+
     const settings = await db.prepare('SELECT * FROM user_settings WHERE user_id = ?').bind(userId).first();
     return json({
       favorites: favRes.results ?? [],
       playlists: playlistsWithTracks,
+      history: histRes.results ?? [],
+      devices: devicesRes.results ?? [],
       settings: settings ?? null,
     });
   }
@@ -673,6 +802,7 @@ export async function handleCloudRoute(
       device?: { name?: string; platform?: string; client_version?: string };
       mutations?: Array<{ entityType?: string; action?: string; data?: Record<string, unknown> }>;
       favorites?: Array<{ track_uri: string; title: string; artist: string; album?: string; duration_ms?: number }>;
+      history?: Array<{ track_uri: string; title: string; artist: string; album?: string; duration_ms?: number; played_at?: string }>;
       playlists?: Array<{
         title: string;
         tracks: Array<{ track_uri: string; title: string; artist: string; album?: string; duration_ms?: number }>;
@@ -683,6 +813,7 @@ export async function handleCloudRoute(
         light_preset?: string;
         accent_taste?: string;
         audio_quality?: string;
+        eq_preset?: string;
       };
     };
     try {
@@ -759,18 +890,46 @@ export async function handleCloudRoute(
       );
     }
 
+    for (const h of (body.history ?? []).slice(0, 50)) {
+      if (!h.track_uri) continue;
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO listening_history (id, user_id, track_uri, title, artist, album, duration_ms, played_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_id, track_uri) DO UPDATE SET
+               title = excluded.title,
+               artist = excluded.artist,
+               album = excluded.album,
+               duration_ms = excluded.duration_ms,
+               played_at = CASE WHEN excluded.played_at > listening_history.played_at THEN excluded.played_at ELSE listening_history.played_at END`
+          )
+          .bind(
+            crypto.randomUUID(),
+            userId,
+            h.track_uri,
+            h.title || 'Unknown Track',
+            h.artist || 'Unknown Artist',
+            h.album ?? '',
+            h.duration_ms ?? 0,
+            h.played_at ?? now
+          )
+      );
+    }
+
     if (body.settings) {
       stmts.push(
         db
           .prepare(
-            `INSERT INTO user_settings (user_id, theme_mode, dark_preset, light_preset, accent_taste, audio_quality, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO user_settings (user_id, theme_mode, dark_preset, light_preset, accent_taste, audio_quality, eq_preset, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(user_id) DO UPDATE SET
                theme_mode = excluded.theme_mode,
                dark_preset = excluded.dark_preset,
                light_preset = excluded.light_preset,
                accent_taste = excluded.accent_taste,
                audio_quality = excluded.audio_quality,
+               eq_preset = excluded.eq_preset,
                updated_at = excluded.updated_at`
           )
           .bind(
@@ -780,6 +939,7 @@ export async function handleCloudRoute(
             body.settings.light_preset ?? 'luminous_aurora',
             body.settings.accent_taste ?? 'preset_default',
             body.settings.audio_quality ?? 'FLAC 24-bit Lossless',
+            body.settings.eq_preset ?? 'Prismatic Neon',
             now
           )
       );

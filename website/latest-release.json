@@ -1,10 +1,10 @@
 {
-  "tag_name": "v1.2.10",
-  "name": "MUXIS v1.2.10 — Prismatic Aura",
+  "tag_name": "v1.2.11",
+  "name": "MUXIS v1.2.11 — Prismatic Aura",
   "draft": false,
   "prerelease": false,
-  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.10",
-  "body": "### What's New in MUXIS v1.2.10\n- Redesigned MUXIS Cloud Sign-In & Create Account modal with split desktop showcase, tactile segmented mode switcher, official vector multi-color 1-Click Google Sign-In button, live password strength meter, Google avatar display in Account dialog, iOS `muxis://auth-callback` OAuth handoff, and interactive Worker Google OAuth setup drawer\n- Includes official iPhone / iOS IPA release (`Muxis-iOS.ipa`), Android/iPhone Whole-Device Storage Music Scan, and Cloudflare D1 Cloud Sync",
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.11",
+  "body": "### What's New in MUXIS v1.2.11\n- 1-Click Google Sign-In / Sign-Up enabled out-of-the-box via dedicated Firebase Auth client (`muxis-cloud` -> `https://muxis-cloud.web.app`), verifying Google identity tokens and storing all account profiles, devices, favorites, playlists, listening history, theme presets, and EQ DSP presets inside Cloudflare D1 (`muxis-cloud-db`)\n- Full bidirectional Cloudflare D1 pull + push sync including Recently Played listening history, theme/accent presets, Audio Studio EQ preset, and synced track metadata across Windows, macOS, Linux, Android, and iPhone",
   "assets": [
     {
       "name": "Muxis-Android.apk",

@@ -36,7 +36,7 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'MUXIS/1.2.10 (CloudAuth)',
+        'User-Agent': 'MUXIS/1.2.11 (CloudAuth)',
       },
       validateStatus: (s) => s != null && s < 600,
     ),

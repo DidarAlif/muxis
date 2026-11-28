@@ -1,64 +1,38 @@
-# Google 1-Click OAuth Setup Guide — MUXIS Cloud (Cloudflare Worker + D1)
+# Google 1-Click OAuth Setup Architecture — MUXIS Cloud (Firebase Client + Cloudflare D1)
 
-MUXIS Cloud authentication is powered by your deployed Cloudflare Worker (`muxis-api-worker`) and D1 SQLite database (`muxis-cloud-db`), which already implement Google OAuth 2.0 + PKCE + single-use session handoff across **Windows, macOS, Linux, Android, and iPhone (iOS)**.
+MUXIS Cloud authentication now supports **1-Click Google Sign-In / Sign-Up out-of-the-box** using:
 
-Right now, `GET https://muxis-api-worker.a-leaf-org.workers.dev/api/auth/config` returns `"google_oauth_enabled": false` solely because `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` have not been stored on the Worker yet.
-
----
-
-## Step 1: Create Google OAuth 2.0 Credentials
-
-1. Open [Google Cloud Console -> APIs & Services -> Credentials](https://console.cloud.google.com/apis/credentials).
-2. Create or select your Google Cloud project (for example, `MUXIS Cloud`).
-3. If prompted, configure **OAuth consent screen** (Google Auth Platform -> Audience):
-   - User Type / Audience: **External**
-   - App name: `MUXIS`
-   - User support email & developer contact email: your Gmail address
-   - Scopes: keep `openid`, `email`, and `profile`
-   - **Publishing status:** Click **Publish App** (or add test Gmail addresses under *Test users* while testing).
-4. Go to **Clients -> Create OAuth client ID**:
-   - **Application type:** `Web application`
-   - **Name:** `MUXIS Cloud Worker`
-   - **Authorized JavaScript origins:**
-     ```text
-     https://muxis-api-worker.a-leaf-org.workers.dev
-     ```
-   - **Authorized redirect URIs:**
-     ```text
-     https://muxis-api-worker.a-leaf-org.workers.dev/api/auth/google/callback
-     ```
-     *(Optional: also add `http://localhost:8888/callback` if you want direct Desktop loopback fallback to work with the same Client ID.)*
-5. Click **Create** and copy your **Client ID** and **Client Secret**.
+1. **Firebase Auth Client (`muxis-cloud` / `https://muxis-cloud.web.app`)** — handles interactive Google Sign-In via official Firebase Auth (`googleSignIn` provider) cleanly across Desktop & Mobile browsers without manual Google Cloud OAuth console steps.
+2. **Cloudflare Worker (`muxis-api-worker`) + Cloudflare D1 (`muxis-cloud-db`)** — cryptographically verifies the Firebase ID token via `identitytoolkit.googleapis.com/v1/accounts:lookup`, and stores **all** user data in Cloudflare D1:
+   - User accounts & Google profile metadata (`users`)
+   - Cross-device sessions (`user_devices`)
+   - Saved favorites (`favorites`)
+   - Cloud playlists & track lists (`playlists`, `playlist_tracks`)
+   - Recently played listening history (`listening_history`)
+   - Theme presets, accent taste, audio quality, and EQ preset (`user_settings`)
 
 ---
 
-## Step 2: Upload Secrets to Cloudflare Worker (`muxis-api-worker`)
-
-### Option A: Terminal (`wrangler`) — Fastest
-Run inside `E:\Desktop\muxis_player\cloudflare`:
-
-```powershell
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-```
-
-Paste each value when prompted. Secrets take effect immediately across all global edge locations.
-
-### Option B: Cloudflare Dashboard UI
-1. Open [Cloudflare Dashboard](https://dash.cloudflare.com) -> **Workers & Pages** -> **`muxis-api-worker`**.
-2. Go to **Settings -> Variables and Secrets -> + Add**:
-   - Type: **Secret** | Name: `GOOGLE_CLIENT_ID` | Value: your Google Client ID
-   - Type: **Secret** | Name: `GOOGLE_CLIENT_SECRET` | Value: your Google Client Secret
-3. Click **Save and Deploy**.
-
----
-
-## Step 3: Verify Activation
-
-Open or curl:
+## Live Architecture
 
 ```text
-https://muxis-api-worker.a-leaf-org.workers.dev/api/auth/config
+MUXIS App (Win/Mac/Linux/Android/iOS)
+  └─> GET /api/auth/google/start           (Cloudflare Worker creates D1 state ticket)
+  └─> https://muxis-cloud.web.app          (Firebase Auth Google Sign-In -> ID Token)
+  └─> POST /api/auth/firebase/complete     (Cloudflare Worker verifies token + upserts D1 user)
+  └─> POST /api/auth/google/poll           (MUXIS receives HS256 JWT + syncs via Cloudflare D1)
 ```
 
-Once both secrets are set, `google_oauth_enabled` turns `true`, and **Continue with Google / Sign up with Google (1-Click)** becomes active automatically inside MUXIS on Windows, macOS, Linux, Android, and iPhone without requiring an app rebuild.
+---
+
+## Optional Direct Google Cloud OAuth Override
+
+If you ever prefer direct Google Cloud OAuth without the Firebase Auth bridge:
+1. Create a **Web application** OAuth Client in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with Authorized Redirect URI `https://muxis-api-worker.a-leaf-org.workers.dev/api/auth/google/callback`.
+2. Set Worker secrets inside `cloudflare/`:
+   ```powershell
+   npx wrangler secret put GOOGLE_CLIENT_ID
+   npx wrangler secret put GOOGLE_CLIENT_SECRET
+   ```
+When both secrets are present, `muxis-api-worker` automatically switches `google_auth_mode` to `google_direct`. Otherwise it uses `firebase_client` (`https://muxis-cloud.web.app`) automatically.
+

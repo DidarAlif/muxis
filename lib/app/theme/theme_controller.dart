@@ -151,6 +151,39 @@ class MuxisThemeController extends StateNotifier<MuxisThemeState> {
       await prefs.setString(_prefAccentTasteKey, validId);
     } catch (_) {}
   }
+
+  /// Applies cloud-synced theme settings from Cloudflare D1 without redundancy.
+  Future<void> applySyncedTheme({
+    required ThemeMode mode,
+    required String darkPresetId,
+    required String lightPresetId,
+    required String accentTasteId,
+  }) async {
+    final validDark = ThemeCatalog.findPreset(darkPresetId, isDark: true).id;
+    final validLight = ThemeCatalog.findPreset(lightPresetId, isDark: false).id;
+    final validTaste = ThemeCatalog.findAccentTaste(accentTasteId).id;
+    if (state.mode == mode &&
+        state.darkPresetId == validDark &&
+        state.lightPresetId == validLight &&
+        state.accentTasteId == validTaste) {
+      return;
+    }
+    final next = MuxisThemeState(
+      mode: mode,
+      darkPresetId: validDark,
+      lightPresetId: validLight,
+      accentTasteId: validTaste,
+    );
+    _applyColors(next);
+    if (mounted) state = next;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_prefModeKey, mode.index);
+      await prefs.setString(_prefDarkPresetKey, validDark);
+      await prefs.setString(_prefLightPresetKey, validLight);
+      await prefs.setString(_prefAccentTasteKey, validTaste);
+    } catch (_) {}
+  }
 }
 
 class ThemeController extends StateNotifier<ThemeMode> {

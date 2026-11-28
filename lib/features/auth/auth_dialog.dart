@@ -281,8 +281,8 @@ class _AuthDialogState extends ConsumerState<AuthDialog> {
           const SizedBox(height: 14),
           _ShowcasePoint(
             icon: Icons.vpn_key_rounded,
-            title: 'Zero-Delay Recovery',
-            detail: 'Instant signup with Backup Recovery Keys — no broken verification emails.',
+            title: '1-Click Google + Instant Email',
+            detail: 'Sign in via Firebase Google auth or email — account & sync data stay in Cloudflare D1.',
             accent: accent,
             isDark: isDark,
           ),
@@ -587,7 +587,7 @@ class _AuthDialogState extends ConsumerState<AuthDialog> {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
-              'Instant Google OAuth active across Desktop & Mobile',
+              '1-Click Google via Firebase • Account data stored in Cloudflare D1',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11,

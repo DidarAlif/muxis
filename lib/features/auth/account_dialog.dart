@@ -6,6 +6,7 @@ import '../../app/theme/muxis_colors.dart';
 import '../../app/theme/muxis_gradients.dart';
 import '../../app/theme/muxis_typography.dart';
 import '../../core/auth/supabase_auth_service.dart';
+import '../../core/database/database_service.dart';
 import '../../core/sync/sync_engine.dart';
 import '../../core/sync/sync_models.dart';
 import '../../shared/widgets/muxis_button.dart';
@@ -26,6 +27,7 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
     final authService = ref.read(authServiceProvider.notifier);
     final syncStatus = ref.watch(syncEngineProvider);
     final syncEngine = ref.read(syncEngineProvider.notifier);
+    final db = ref.watch(databaseServiceProvider);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = authState.user;
@@ -166,44 +168,71 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: MuxisColors.border(isDark)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildSyncIcon(syncStatus, isDark),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
                           children: [
-                            Text(
-                              'Cloud Sync (D1)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: MuxisColors.textPrimary(isDark),
-                              ),
-                            ),
-                            Text(
-                              _syncLabel(syncStatus),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: MuxisColors.textMuted(isDark),
-                              ),
+                            _buildSyncIcon(syncStatus, isDark),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Cloudflare D1 Sync',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: MuxisColors.textPrimary(isDark),
+                                  ),
+                                ),
+                                Text(
+                                  _syncLabel(syncStatus),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: MuxisColors.textMuted(isDark),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+                        MuxisButton(
+                          label: syncStatus == SyncStatus.syncing
+                              ? 'Syncing...'
+                              : 'Sync Now',
+                          variant: MuxisButtonVariant.secondary,
+                          height: 32,
+                          onPressed: syncStatus == SyncStatus.syncing
+                              ? null
+                              : () => syncEngine.syncNow(),
+                        ),
                       ],
                     ),
-                    MuxisButton(
-                      label: syncStatus == SyncStatus.syncing
-                          ? 'Syncing...'
-                          : 'Sync Now',
-                      variant: MuxisButtonVariant.secondary,
-                      height: 32,
-                      onPressed: syncStatus == SyncStatus.syncing
-                          ? null
-                          : () => syncEngine.syncNow(),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _badge(
+                          '${db.favoriteCount} LIKED',
+                          MuxisColors.accent(isDark),
+                          isDark,
+                        ),
+                        _badge(
+                          '${db.playlistCount} PLAYLISTS',
+                          MuxisColors.teal(isDark),
+                          isDark,
+                        ),
+                        _badge(
+                          '${db.historyCount} RECENT PLAYS',
+                          MuxisColors.violet(isDark),
+                          isDark,
+                        ),
+                      ],
                     ),
                   ],
                 ),

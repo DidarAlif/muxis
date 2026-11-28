@@ -193,6 +193,47 @@ class DatabaseService {
     await _persist();
   }
 
+  /// Inserts remote synced track metadata without clobbering existing local files.
+  Future<void> importSyncedTrackMetadata(Track track) async {
+    final existingIdx = _tracks.indexWhere((t) => t.id == track.id);
+    if (existingIdx == -1) {
+      _tracks.add(track);
+      await _persist();
+    }
+  }
+
+  /// Merges remote favorite ID cleanly from Cloudflare D1 pull.
+  Future<void> mergeSyncedFavorite(String trackId) async {
+    if (_favoriteIds.add(trackId)) {
+      final idx = _tracks.indexWhere((t) => t.id == trackId);
+      if (idx >= 0 && !_tracks[idx].isFavorite) {
+        _tracks[idx] = _tracks[idx].copyWith(isFavorite: true);
+      }
+      await _persist();
+    }
+  }
+
+  /// Merges remote recently-played IDs pulled from Cloudflare D1 without losing local ordering.
+  Future<void> mergeSyncedHistory(List<String> trackIds) async {
+    bool changed = false;
+    for (final id in trackIds.reversed) {
+      if (id.isEmpty) continue;
+      if (!_historyIds.contains(id)) {
+        _historyIds.add(id);
+        changed = true;
+      }
+    }
+    if (_historyIds.length > 100) {
+      _historyIds.removeRange(100, _historyIds.length);
+      changed = true;
+    }
+    if (changed) {
+      await _persist();
+    }
+  }
+
+  int get historyCount => _historyIds.length;
+
   List<Track> getRecentlyPlayed() {
     if (_historyIds.isEmpty) return const [];
     final byId = {for (final t in _tracks) t.id: t};
