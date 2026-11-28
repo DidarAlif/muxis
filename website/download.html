@@ -3,125 +3,294 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Get MUXIS — Cross-Platform Pre-Releases & Build Center</title>
+  <title>Download MUXIS by A Leaf — Windows, macOS, Linux, Android &amp; iPhone</title>
+  <meta name="description" content="Download the latest live release of MUXIS by A Leaf for Windows (.exe/.zip), macOS Universal, Linux (.tar.gz), signed Android (.apk), and iPhone (.ipa).">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="assets/muxis_mark_square.png">
+  <link rel="icon" type="image/png" href="assets/muxis_app_icon.png">
   <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
+  <script defer src="js/main.js"></script>
 </head>
 <body>
-
-  <nav class="navbar">
-    <div class="container nav-container">
-      <a href="index.html" class="brand">
-        <img src="assets/muxis_mark.png" alt="MUXIS" style="height: 26px; width: auto; display: block;">
-        <span>MUXIS</span>
-      </a>
-      <div class="nav-links">
-        <a href="index.html">Home</a>
-        <a href="documentation.html">Docs</a>
-        <a href="privacy.html">Privacy</a>
-      </div>
-    </div>
-  </nav>
-
-  <div class="container" style="padding: 80px 24px; text-align: center;">
-    <span class="badge">DEVELOPMENT & PRE-RELEASE BUILDS</span>
-    <h1 style="font-size: 42px; font-weight: 900; margin-bottom: 16px;">Get Muxis</h1>
-    <p style="color: var(--text-secondary); max-width: 680px; margin: 0 auto 36px; line-height: 1.6;">
-      Muxis is currently undergoing multi-platform release candidate verification. Access automated CI build artifacts, inspect verified checksums, or build natively from source.
-    </p>
-
-    <!-- Release Status Banner -->
-    <div style="background: rgba(0, 242, 254, 0.05); border: 1px solid rgba(0, 242, 254, 0.2); border-radius: 14px; padding: 18px 24px; max-width: 1000px; margin: 0 auto 48px; text-align: left; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px;">
-      <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 280px;">
-        <img src="assets/muxis_app_icon.png" alt="MUXIS App Icon" style="width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
-        <div>
-          <strong id="release-version-title" style="color: var(--cyan); display: block; font-size: 15px; margin-bottom: 4px;">MUXIS v1.2.13 — Permanent Android Release Signing, Mobile Google OAuth &amp; iPhone IPA</strong>
-          <span style="color: var(--text-secondary); font-size: 13px;">Direct public binary downloads are available for Windows, macOS, Linux, Android, and iPhone (iOS .ipa). Now featuring 1-tap Whole-Device Storage Music Scanning on phones &amp; iPhone Files, background iOS Lock Screen audio, instant Cloudflare D1 Cloud Sync, SoundCloud/YouTube/Spotify bridges, and global FM radio.</span>
-        </div>
-      </div>
-      <a href="https://github.com/DidarAlif/muxis/releases/latest" class="btn btn-secondary" style="font-size: 13px; white-space: nowrap;">
-        View Latest Release &rarr;
-      </a>
-    </div>
-
-    <div class="grid-3" style="max-width: 1000px; margin: 0 auto; text-align: left;">
-      <!-- Windows -->
-      <div class="feature-card">
-        <div class="feature-icon">🪟</div>
-        <h3>Windows x64</h3>
-        <p style="margin-bottom: 12px;">Windows 10 / 11 (64-bit). Installs properly into Windows Programs, Start Menu, Windows Search &amp; Desktop with Media Foundation hardware audio engine.</p>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">💡 <em>Run <strong>Muxis-Windows-x64-Setup.exe</strong> for full Start Menu &amp; directory installation, or grab the portable archive.</em></p>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64-Setup.exe" class="btn btn-primary" style="width: 100%; text-align: center; margin-bottom: 10px;">
-          Download Windows Installer (.exe)
-        </a>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64.zip" class="btn btn-secondary" style="width: 100%; text-align: center; font-size: 13px;">
-          Download Portable Archive (.zip)
-        </a>
-      </div>
-
-      <!-- macOS -->
-      <div class="feature-card">
-        <div class="feature-icon">🍎</div>
-        <h3>macOS</h3>
-        <p style="margin-bottom: 20px;">macOS 12+ (Monterey or later). Universal binary with native Apple Silicon & Intel optimizations.</p>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-macOS-Universal.zip" class="btn btn-primary" style="width: 100%; text-align: center;">
-          Download for macOS (.zip)
-        </a>
-      </div>
-
-      <!-- Linux -->
-      <div class="feature-card">
-        <div class="feature-icon">🐧</div>
-        <h3>Linux</h3>
-        <p style="margin-bottom: 20px;">Ubuntu, Arch, Fedora, Debian. GTK-3 hardware-accelerated desktop bundle with ALSA/PulseAudio.</p>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Linux-x64.tar.gz" class="btn btn-primary" style="width: 100%; text-align: center;">
-          Download for Linux (.tar.gz)
-        </a>
-      </div>
-
-      <!-- Android -->
-      <div class="feature-card">
-        <div class="feature-icon">🤖</div>
-        <h3>Android</h3>
-        <p style="margin-bottom: 20px;">Android 8.0+ (API 26+). Direct APK installer for universal mobile devices.</p>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk" class="btn btn-primary" style="width: 100%; text-align: center;">
-          Download Android APK
-        </a>
-      </div>
-
-      <!-- iOS -->
-      <div class="feature-card">
-        <div class="feature-icon">📱</div>
-        <h3>iOS / iPhone (.ipa)</h3>
-        <p style="margin-bottom: 12px;">iOS 14.0 or later (any iPhone/iPad). Includes background Lock Screen playback, iPhone Files (<em>On My iPhone &rarr; MUXIS</em>) access, and AltStore / SideStore / Sideloadly / TrollStore / Xcode support.</p>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS.ipa" class="btn btn-primary" style="width: 100%; text-align: center; margin-bottom: 10px;">
-          Download iPhone IPA (.ipa)
-        </a>
-        <a href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS-Unsigned.zip" class="btn btn-secondary" style="width: 100%; text-align: center; font-size: 13px;">
-          Download Raw .app Bundle (.zip)
-        </a>
-      </div>
-
-      <!-- Build From Source / Source Code -->
-      <div class="feature-card">
-        <div class="feature-icon">💻</div>
-        <h3>Full Source Code</h3>
-        <p style="margin-bottom: 16px;">GitHub open repository with all features, themes, DSP algorithms, and multi-platform build workflows.</p>
-        <a href="https://github.com/DidarAlif/muxis" class="btn btn-secondary" style="width: 100%; text-align: center; margin-bottom: 10px;">
-          View on GitHub
-        </a>
-        <a href="documentation.html#building-from-source" class="btn btn-secondary" style="width: 100%; text-align: center; font-size: 13px;">
-          Build Instructions &rarr;
-        </a>
-      </div>
-    </div>
+  <div class="ambient-canvas" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
   </div>
 
+  <!-- Navigation -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
+        <span class="brand-icon-wrap">
+          <img src="assets/muxis_app_icon.png" alt="MUXIS Logo">
+        </span>
+        <span class="brand-text-group">
+          <span class="brand-title-row">
+            <span class="brand-name">MUXIS</span>
+          </span>
+          <span class="brand-byline">by A Leaf</span>
+        </span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="download.html" class="active">Download</a>
+        <a href="documentation.html">Docs</a>
+        <a href="privacy.html">Privacy</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="#release-notes" class="nav-version-pill">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span data-release-tag>v1.2.13</span>
+        </a>
+        <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener" class="nav-github-btn">GitHub</a>
+        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobile-nav-drawer" class="mobile-drawer">
+      <a href="index.html">Home</a>
+      <a href="download.html" class="active">Download <span data-release-tag style="color: var(--prism-mint); font-family: var(--font-mono); margin-left: 6px;">v1.2.13</span></a>
+      <a href="documentation.html">Documentation</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="terms.html">Terms of Service</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="download-hero">
+      <div class="hero-lockup reveal is-visible" style="margin-bottom: 18px;">
+        <div class="hero-app-tile" style="width: 44px; height: 44px; border-radius: 12px;">
+          <img src="assets/muxis_app_icon.png" alt="MUXIS Icon">
+        </div>
+        <div class="hero-lockup-meta">
+          <div class="hero-lockup-top">
+            <span class="hero-lockup-name" style="font-size: 14px;">MUXIS RELEASES</span>
+            <span class="aleaf-chip">by A Leaf</span>
+          </div>
+          <div class="hero-release-meta">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span class="hero-release-tag" data-release-tag>v1.2.13</span>
+            <span>&middot;</span>
+            <span data-release-source>Live via GitHub Releases</span>
+          </div>
+        </div>
+      </div>
+
+      <h1>Download MUXIS <span class="text-prism" data-release-tag>v1.2.13</span></h1>
+      <p>Every platform package stays synchronized directly with our official GitHub Releases pipeline. Your detected platform is highlighted first.</p>
+
+      <div class="hero-ctas" style="margin-bottom: 12px;">
+        <a id="primary-download-btn" href="https://github.com/DidarAlif/muxis/releases/latest" class="btn btn-primary">
+          <span data-cta-label>Download Recommended Build</span>
+        </a>
+        <a data-asset-url="checksums" href="https://github.com/DidarAlif/muxis/releases/latest/download/checksums-sha256.txt" target="_blank" rel="noopener" class="btn btn-secondary">
+          SHA-256 Checksums
+        </a>
+      </div>
+      <div class="hero-subnote"><span id="detected-os-hint">Detecting operating system...</span></div>
+    </section>
+
+    <!-- Desktop & Mobile Platform Cards -->
+    <section class="dl-grid">
+      <!-- Windows -->
+      <article class="dl-card reveal" data-platform-card="windows">
+        <div class="dl-card-head">
+          <div class="dl-os-title">
+            <div class="dl-os-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3V5.5Zm8.5-1.2L21 3v8.5h-9.5V4.3ZM3 12.5h7.5v7.1L3 18.5v-6Zm8.5 0H21V21l-9.5-1.3v-7.2Z"/></svg>
+            </div>
+            <div>
+              <h3>Windows</h3>
+              <span class="dl-arch">Windows 10 / 11 (x86_64)</span>
+            </div>
+          </div>
+          <span class="detected-pill">YOUR OS</span>
+        </div>
+        <p class="dl-card-desc">Native desktop build with hardware-accelerated DSP audio, media key controls, Start Menu installer, or zero-install portable zip.</p>
+        <div class="dl-btn-stack">
+          <a data-asset-url="windows-exe" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64-Setup.exe" class="dl-btn-row primary-asset">
+            <span>Windows Installer (.exe)</span>
+            <span class="dl-size-tag" data-asset-size="windows-exe">13.1 MB</span>
+          </a>
+          <a data-asset-url="windows-zip" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64.zip" class="dl-btn-row">
+            <span>Portable Archive (.zip)</span>
+            <span class="dl-size-tag" data-asset-size="windows-zip">15.5 MB</span>
+          </a>
+        </div>
+      </article>
+
+      <!-- Android -->
+      <article class="dl-card reveal" data-platform-card="android">
+        <div class="dl-card-head">
+          <div class="dl-os-title">
+            <div class="dl-os-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+            <div>
+              <h3>Android</h3>
+              <span class="dl-arch">Android 6.0+ Universal</span>
+            </div>
+          </div>
+          <span class="detected-pill">YOUR DEVICE</span>
+        </div>
+        <p class="dl-card-desc">Permanent deterministic release-signed APK for seamless in-place updates, whole-device storage scan, notification controls &amp; 1-click Google Sign-In.</p>
+        <div class="dl-btn-stack">
+          <a data-asset-url="android-apk" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk" class="dl-btn-row primary-asset">
+            <span>Download Signed APK (.apk)</span>
+            <span class="dl-size-tag" data-asset-size="android-apk">29.8 MB</span>
+          </a>
+          <a data-asset-url="android-aab" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.aab" class="dl-btn-row">
+            <span>Android App Bundle (.aab)</span>
+            <span class="dl-size-tag" data-asset-size="android-aab">30.6 MB</span>
+          </a>
+        </div>
+      </article>
+
+      <!-- iOS / iPhone -->
+      <article class="dl-card reveal" data-platform-card="ios">
+        <div class="dl-card-head">
+          <div class="dl-os-title">
+            <div class="dl-os-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.36 13.08c-.02-2.16 1.77-3.2 1.85-3.25-1.01-1.48-2.58-1.68-3.13-1.7-1.32-.14-2.6.79-3.28.79-.68 0-1.72-.77-2.83-.75-1.44.02-2.78.84-3.52 2.13-1.51 2.62-.38 6.49 1.07 8.6.72 1.03 1.57 2.19 2.69 2.15 1.09-.04 1.5-.7 2.81-.7 1.31 0 1.68.7 2.82.68 1.17-.02 1.91-1.05 2.62-2.09.84-1.22 1.18-2.41 1.2-2.47-.03-.02-2.29-.88-2.3-3.39Zm-2.15-6.26c.59-.72.99-1.72.88-2.72-.85.04-1.88.57-2.49 1.28-.54.63-1.02 1.65-.89 2.62.95.07 1.91-.47 2.5-1.18Z"/></svg>
+            </div>
+            <div>
+              <h3>iPhone &amp; iPad</h3>
+              <span class="dl-arch">iOS 13.0+ (arm64)</span>
+            </div>
+          </div>
+          <span class="detected-pill">YOUR DEVICE</span>
+        </div>
+        <p class="dl-card-desc">Full iOS experience with background audio, Lock Screen Now Playing controls, iPhone Files scan, and 10-band Audio Studio DSP.</p>
+        <div class="dl-btn-stack">
+          <a data-asset-url="ios-ipa" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS.ipa" class="dl-btn-row primary-asset">
+            <span>Download iPhone IPA (.ipa)</span>
+            <span class="dl-size-tag" data-asset-size="ios-ipa">13.1 MB</span>
+          </a>
+          <a data-asset-url="ios-zip" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS-Unsigned.zip" class="dl-btn-row">
+            <span>Runner.app Archive (.zip)</span>
+            <span class="dl-size-tag" data-asset-size="ios-zip">13.1 MB</span>
+          </a>
+        </div>
+      </article>
+
+      <!-- macOS -->
+      <article class="dl-card reveal" data-platform-card="macos">
+        <div class="dl-card-head">
+          <div class="dl-os-title">
+            <div class="dl-os-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+            </div>
+            <div>
+              <h3>macOS</h3>
+              <span class="dl-arch">Universal (M1/M2/M3/M4 + Intel)</span>
+            </div>
+          </div>
+          <span class="detected-pill">YOUR OS</span>
+        </div>
+        <p class="dl-card-desc">Native macOS Universal binary built cleanly for Apple Silicon and Intel Macs with CoreAudio output &amp; Now Playing menu controls.</p>
+        <div class="dl-btn-stack">
+          <a data-asset-url="macos-zip" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-macOS-Universal.zip" class="dl-btn-row primary-asset">
+            <span>Download Universal (.zip)</span>
+            <span class="dl-size-tag" data-asset-size="macos-zip">27.2 MB</span>
+          </a>
+        </div>
+      </article>
+
+      <!-- Linux -->
+      <article class="dl-card reveal" data-platform-card="linux">
+        <div class="dl-card-head">
+          <div class="dl-os-title">
+            <div class="dl-os-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </div>
+            <div>
+              <h3>Linux</h3>
+              <span class="dl-arch">GTK3 / PulseAudio / PipeWire (x64)</span>
+            </div>
+          </div>
+          <span class="detected-pill">YOUR OS</span>
+        </div>
+        <p class="dl-card-desc">Lightweight tar.gz desktop bundle tested across Ubuntu, Debian, Fedora, and Arch with native MPRIS D-Bus playback integration.</p>
+        <div class="dl-btn-stack">
+          <a data-asset-url="linux-tar" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Linux-x64.tar.gz" class="dl-btn-row primary-asset">
+            <span>Download Linux Bundle (.tar.gz)</span>
+            <span class="dl-size-tag" data-asset-size="linux-tar">12.8 MB</span>
+          </a>
+        </div>
+      </article>
+
+      <!-- Source & Checksums -->
+      <article class="dl-card reveal">
+        <div class="dl-card-head">
+          <div class="dl-os-title">
+            <div class="dl-os-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <div>
+              <h3>Source &amp; Verification</h3>
+              <span class="dl-arch">GNU GPL-3.0 &middot; DidarAlif/muxis</span>
+            </div>
+          </div>
+        </div>
+        <p class="dl-card-desc">Inspect commits, build locally with Flutter, or verify cryptographic SHA-256 digests published alongside every CI artifact.</p>
+        <div class="dl-btn-stack">
+          <a data-release-url href="https://github.com/DidarAlif/muxis/releases/latest" target="_blank" rel="noopener" class="dl-btn-row">
+            <span>Browse Release on GitHub</span>
+            <span class="dl-size-tag" data-release-tag>v1.2.13</span>
+          </a>
+          <a data-asset-url="checksums" href="https://github.com/DidarAlif/muxis/releases/latest/download/checksums-sha256.txt" target="_blank" rel="noopener" class="dl-btn-row">
+            <span>checksums-sha256.txt</span>
+            <span class="dl-size-tag" data-asset-size="checksums">SHA256</span>
+          </a>
+        </div>
+      </article>
+    </section>
+
+    <!-- Live Changelog Panel -->
+    <section id="release-notes" class="release-panel reveal" style="margin-bottom: 32px;">
+      <div class="release-status-row">
+        <span class="status-chip"><span class="live-dot" aria-hidden="true"></span><span data-release-tag>v1.2.13</span></span>
+        <span class="source-chip" data-release-source>Live via GitHub Releases</span>
+      </div>
+      <h2 data-release-title>MUXIS v1.2.13 — Prismatic Aura</h2>
+      <p class="release-date-line" data-release-date>Latest Release</p>
+      <div class="changelog-box">
+        <h4>Release Notes (Live from GitHub)</h4>
+        <ul class="changelog-list" data-release-notes>
+          <li>Permanent release signing key for seamless Android in-app updates</li>
+          <li>iPhone &amp; iPad .ipa distribution + whole-storage music discovery</li>
+          <li>1-Click Google Sign-In via Firebase &amp; Cloudflare D1 Edge Sync</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="info-callout reveal">
+      <h4>Installing MUXIS on iPhone / iPad (.ipa) &amp; Android Updates</h4>
+      <p>
+        <strong>iPhone / iPad:</strong> Install <code>Muxis-iOS.ipa</code> onto your device using <strong>AltStore</strong>, <strong>SideStore</strong>, or <strong>Sideloadly</strong> with your Apple ID. Place offline music folders into the iOS <strong>Files</strong> app under <em>On My iPhone &rarr; MUXIS &rarr; Music</em> (or scan shared folders) and tap <em>Scan Storage</em> inside the app.<br><br>
+        <strong>Android:</strong> Starting from <code>v1.2.13</code>, all GitHub release APKs use a permanent RSA-2048 signing certificate so future updates install smoothly in place. If you still have an older build from <code>v1.2.12</code> or earlier, uninstall it once before installing <code>v1.2.13+</code> (your MUXIS Cloud playlists, favorites &amp; themes restore immediately upon sign-in).
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
   <footer class="footer">
     <div class="container footer-content">
-      <p>&copy; 2026 MUXIS Project. Released under GPL-3.0.</p>
+      <div class="footer-brand">
+        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
+        <div class="footer-meta">
+          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
+          <span>&copy; 2026 MUXIS Project &middot; GNU GPL-3.0</span>
+        </div>
+      </div>
       <div class="footer-links">
         <a href="index.html">Home</a>
         <a href="documentation.html">Docs</a>
@@ -130,7 +299,5 @@
       </div>
     </div>
   </footer>
-
-  <script src="js/main.js"></script>
 </body>
 </html>

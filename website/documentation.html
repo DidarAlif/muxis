@@ -3,78 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Documentation — MUXIS Music Player</title>
+  <title>Documentation — MUXIS by A Leaf</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="assets/muxis_mark_square.png">
+  <link rel="icon" type="image/png" href="assets/muxis_app_icon.png">
   <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
+  <script defer src="js/main.js"></script>
 </head>
 <body>
+  <div class="ambient-canvas" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
 
-  <nav class="navbar">
+  <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand"><img src="assets/muxis_mark.png" alt="MUXIS" style="height: 26px; width: auto; display: block;"><span>MUXIS</span></a>
-      <div class="nav-links">
+      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
+        <span class="brand-icon-wrap"><img src="assets/muxis_app_icon.png" alt="MUXIS Logo"></span>
+        <span class="brand-text-group">
+          <span class="brand-title-row"><span class="brand-name">MUXIS</span></span>
+          <span class="brand-byline">by A Leaf</span>
+        </span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main navigation">
         <a href="index.html">Home</a>
         <a href="download.html">Download</a>
+        <a href="documentation.html" class="active">Docs</a>
         <a href="privacy.html">Privacy</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="download.html" class="nav-version-pill">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span data-release-tag>v1.2.13</span>
+        </a>
+        <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener" class="nav-github-btn">GitHub</a>
+        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
       </div>
     </div>
-  </nav>
 
-  <div class="container" style="padding: 60px 24px; max-width: 900px;">
-    <span class="badge">DEVELOPER & USER DOCUMENTATION</span>
-    <h1 style="font-size: 38px; font-weight: 800; margin-bottom: 24px;">Muxis Documentation</h1>
+    <div id="mobile-nav-drawer" class="mobile-drawer">
+      <a href="index.html">Home</a>
+      <a href="download.html">Download</a>
+      <a href="documentation.html" class="active">Documentation</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="terms.html">Terms of Service</a>
+    </div>
+  </header>
 
-    <div class="feature-card" style="margin-bottom: 32px;">
-      <h2 style="font-size: 22px; margin-bottom: 12px; color: var(--cyan);">1. Architecture & Data Boundary</h2>
-      <p style="margin-bottom: 12px;">
-        Muxis enforces a strict boundary between <strong>Local Audio Files</strong> and <strong>Cloud Metadata</strong>:
-      </p>
-      <ul style="padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
-        <li><strong>Local Files Never Uploaded:</strong> Your FLAC, MP3, WAV, and audio files reside exclusively on your local storage device. No local audio is transmitted to cloud servers.</li>
-        <li><strong>Portable Cloud References:</strong> Cloud playlists store canonical track metadata (ISRC, title, artist, album, duration) rather than absolute file paths, allowing playlists to sync across different devices without path collisions.</li>
-        <li><strong>Offline-First Resilience:</strong> All playback, library scanning, equalizer, and queue controls operate completely offline. When internet is restored, changes sync asynchronously via Supabase PostgreSQL.</li>
-      </ul>
+  <main class="container doc-shell">
+    <div class="doc-header reveal is-visible">
+      <span class="section-kicker">User Guide &amp; Architecture</span>
+      <h1>MUXIS <span class="text-prism">Documentation</span></h1>
+      <p>Complete reference for whole-storage indexing, 10-band Audio Studio DSP, MUXIS Cloud synchronization, and keyboard ergonomics.</p>
     </div>
 
-    <div class="feature-card" style="margin-bottom: 32px;">
-      <h2 style="font-size: 22px; margin-bottom: 12px; color: var(--cyan);">2. Audio Studio & DSP Engine</h2>
-      <p style="margin-bottom: 12px;">
-        Muxis features a built-in digital signal processing suite:
-      </p>
-      <ul style="padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
-        <li><strong>5-Band Master Equalizer:</strong> 60Hz (sub-bass), 230Hz (bass), 910Hz (midrange), 3.6kHz (upper mids), and 14kHz (high treble) with ±12dB parametric curve.</li>
-        <li><strong>Karaoke Vocal Isolation:</strong> Employs center-channel phase cancellation <code>(Left - Right)</code> to attenuate center-panned lead vocals while preserving ambient instrumentation.</li>
-        <li><strong>Pitch & Tempo Stretching:</strong> Real-time pitch shifting and playback speed modulation (0.5x to 2.0x) with a single-tap <em>Slowed + Reverb</em> preset.</li>
-      </ul>
-    </div>
+    <article class="doc-card reveal is-visible">
+      <h3>1. Importing Local Music &amp; Full-Storage Scan</h3>
+      <p>Click <strong>Import Music</strong> in the Library view to select individual folders or run a full-device storage sweep across supported formats (<code>.mp3</code>, <code>.flac</code>, <code>.wav</code>, <code>.aac</code>, <code>.m4a</code>, <code>.ogg</code>, <code>.opus</code>).</p>
+      <p><strong>Android:</strong> Grant media audio storage access when prompted so MUXIS recursively indexes internal memory and mounted SD card music directories automatically.</p>
+      <p><strong>iPhone / iPad:</strong> Copy offline audio folders into <em>Files &rarr; On My iPhone &rarr; MUXIS &rarr; Music</em> or pick any shared cloud/local iOS directory via the native document picker.</p>
+    </article>
 
-    <div class="feature-card" style="margin-bottom: 32px;">
-      <h2 style="font-size: 22px; margin-bottom: 12px; color: var(--cyan);">3. Desktop Keyboard Shortcuts</h2>
-      <table style="width: 100%; border-collapse: collapse; color: var(--text-secondary); font-size: 14px;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-primary);">
-            <th style="padding: 10px 0;">Shortcut</th>
-            <th style="padding: 10px 0;">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Space</td><td>Play / Pause</td></tr>
-          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Right</td><td>Next Track</td></tr>
-          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Left</td><td>Previous Track</td></tr>
-          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Up</td><td>Increase Volume (+5%)</td></tr>
-          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + Down</td><td>Decrease Volume (-5%)</td></tr>
-          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + K</td><td>Open Command Palette</td></tr>
-          <tr><td style="padding: 8px 0; font-family: var(--font-mono); color: var(--cyan);">Ctrl + L</td><td>Jump to Music Library</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <article class="doc-card reveal">
+      <h3>2. Audio Studio &amp; 10-Band Parametric DSP</h3>
+      <p>Open <strong>Audio Studio</strong> from the sidebar or player dock to sculpt frequency gain across 10 bands (<code>32Hz</code>, <code>64Hz</code>, <code>125Hz</code>, <code>250Hz</code>, <code>500Hz</code>, <code>1k</code>, <code>2k</code>, <code>4k</code>, <code>8k</code>, <code>16kHz</code>).</p>
+      <p>Select instant Studio Presets (<em>Prismatic Neon</em>, <em>Sub Bass Thump</em>, <em>Vocal Clarity</em>, <em>Electronic &amp; EDM</em>, <em>Rock &amp; Metal</em>, <em>Jazz &amp; Acoustic</em>, <em>Lo-Fi Warmth</em>, or <em>Flat</em>), balance <strong>Sub-Bass Drive</strong>, <strong>Treble Air</strong>, and <strong>Pre-Amp Gain</strong>, or toggle <strong>Master Bypass</strong> for A/B comparison.</p>
+    </article>
+
+    <article class="doc-card reveal">
+      <h3>3. MUXIS Cloud (Firebase Auth + Cloudflare D1 Sync)</h3>
+      <p>Open <strong>Cloud Sign In</strong> in the bottom left (or Settings) to authenticate with 1-Click Google Sign-In powered by Firebase Authentication or create an email/password account.</p>
+      <p>Your playlists, favorite tracks, listening history, 10-band EQ profile, and custom theme preferences synchronize across Desktop, Android, and iPhone through encrypted <strong>Cloudflare Workers &amp; Cloudflare D1</strong> edge storage. Audio files themselves never leave your device.</p>
+    </article>
+
+    <article class="doc-card reveal">
+      <h3>4. Synchronized Lyrics &amp; Stream Bridges</h3>
+      <p>Place matching <code>.lrc</code> files beside local tracks or stream connected YouTube Music, Spotify Hi-Fi Bridge, SoundCloud, and live FM Radio channels straight inside one unified player queue.</p>
+    </article>
+
+    <article class="doc-card reveal">
+      <h3>5. Desktop Keyboard Shortcuts</h3>
+      <div class="kbd-grid">
+        <div class="kbd-item"><span>Play / Pause</span> <kbd>Space</kbd></div>
+        <div class="kbd-item"><span>Next Track</span> <kbd>Right / N</kbd></div>
+        <div class="kbd-item"><span>Previous Track</span> <kbd>Left / P</kbd></div>
+        <div class="kbd-item"><span>Volume Up / Down</span> <kbd>Up / Down</kbd></div>
+        <div class="kbd-item"><span>Mute / Unmute</span> <kbd>M</kbd></div>
+        <div class="kbd-item"><span>Global Search</span> <kbd>Ctrl + K</kbd></div>
+      </div>
+    </article>
+  </main>
 
   <footer class="footer">
     <div class="container footer-content">
-      <p>&copy; 2026 MUXIS Project. Released under GPL-3.0.</p>
+      <div class="footer-brand">
+        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
+        <div class="footer-meta">
+          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
+          <span>&copy; 2026 MUXIS Project &middot; GNU GPL-3.0</span>
+        </div>
+      </div>
       <div class="footer-links">
         <a href="index.html">Home</a>
         <a href="download.html">Download</a>
@@ -83,6 +118,5 @@
       </div>
     </div>
   </footer>
-
 </body>
 </html>

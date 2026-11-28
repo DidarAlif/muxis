@@ -6,22 +6,46 @@ on:
     paths:
       - 'website/**'
       - '.github/workflows/deploy_website.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  deploy-gh-pages:
-    name: Deploy to GitHub Pages
+  deploy-website:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Sync latest-release.json from GitHub Releases API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" -o /tmp/latest-release.json; then
+            if grep -q '"tag_name"' /tmp/latest-release.json; then
+              mv /tmp/latest-release.json website/latest-release.json
+              echo "Synced website/latest-release.json to:"
+              grep '"tag_name"' website/latest-release.json | head -n 1
+            fi
+          else
+            echo "Keeping committed website/latest-release.json fallback"
+          fi
 
       - name: Deploy to GitHub Pages Branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./website
-          publish_branch: gh-pages
+          force_orphan: true
+
+      - name: Deploy to Cloudflare Pages (muxis.pages.dev)
+        if: secrets.CLOUDFLARE_API_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy website --project-name=muxis --branch=main

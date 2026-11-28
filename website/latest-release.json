@@ -1,45 +1,56 @@
 {
   "tag_name": "v1.2.13",
   "name": "MUXIS v1.2.13 — Prismatic Aura",
+  "published_at": "2026-11-28T08:13:47Z",
   "draft": false,
   "prerelease": false,
   "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.13",
-  "body": "### What's New in MUXIS v1.2.13\n- Switched Android APK & AAB builds from ephemeral runner debug keys to a permanent deterministic release signing keystore (`SHA256: 6A:AF:2B:69:...:4B:CD:76:8A`), fixing Android \"App not installed as package conflicts with an existing package\" across all future in-app updates\n- Includes mobile Google OAuth timeout/resume fixes, full Cloudflare D1 sync (favorites, playlists, history, themes, EQ), whole-storage music scan, and iPhone IPA",
+  "body": "### What's New in MUXIS v1.2.13\n- Switched Android APK & AAB builds from ephemeral runner debug keys to a permanent deterministic release signing keystore (`SHA256: 6A:AF:2B:69:...:4B:CD:76:8A`), fixing Android \"App not installed as package conflicts with an existing package\" across all future in-app updates\n- Fixed mobile Google OAuth timeout & session resume on Android and iPhone\n- Unified 1-Click Google Sign-In via Firebase + Cloudflare D1 cloud sync (playlists, favorites, history, themes, 10-band EQ presets)\n- Full-storage music discovery across Android internal/SD cards and iPhone Files (`Muxis/Music`), plus official iPhone `.ipa`",
   "assets": [
-    {
-      "name": "Muxis-Android.apk",
-      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk",
-      "size": 0
-    },
-    {
-      "name": "Muxis-iOS.ipa",
-      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS.ipa",
-      "size": 0
-    },
-    {
-      "name": "Muxis-iOS-Unsigned.zip",
-      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS-Unsigned.zip",
-      "size": 0
-    },
     {
       "name": "Muxis-Windows-x64-Setup.exe",
       "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64-Setup.exe",
-      "size": 0
+      "size": 13082490
+    },
+    {
+      "name": "Muxis-Windows-x64.zip",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64.zip",
+      "size": 15470498
     },
     {
       "name": "Muxis-macOS-Universal.zip",
       "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-macOS-Universal.zip",
-      "size": 0
+      "size": 27192084
     },
     {
       "name": "Muxis-Linux-x64.tar.gz",
       "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Linux-x64.tar.gz",
-      "size": 0
+      "size": 12842653
+    },
+    {
+      "name": "Muxis-Android.apk",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk",
+      "size": 29807121
+    },
+    {
+      "name": "Muxis-Android.aab",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.aab",
+      "size": 30594777
+    },
+    {
+      "name": "Muxis-iOS.ipa",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS.ipa",
+      "size": 13059059
+    },
+    {
+      "name": "Muxis-iOS-Unsigned.zip",
+      "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS-Unsigned.zip",
+      "size": 13055411
     },
     {
       "name": "checksums-sha256.txt",
       "browser_download_url": "https://github.com/DidarAlif/muxis/releases/latest/download/checksums-sha256.txt",
-      "size": 0
+      "size": 1464
     }
   ]
 }

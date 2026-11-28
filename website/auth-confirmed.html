@@ -3,34 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MUXIS Cloud — Email Verification</title>
+  <title>MUXIS Cloud — Email Verification | by A Leaf</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="assets/muxis_mark_square.png">
+  <link rel="icon" type="image/png" href="assets/muxis_app_icon.png">
   <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
+  <script defer src="js/main.js"></script>
 </head>
 <body>
-  <nav class="navbar">
+  <div class="ambient-canvas" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand">
-        <img src="assets/muxis_mark.png" alt="MUXIS" style="height: 26px; width: auto; display: block;">
-        <span>MUXIS</span>
+      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
+        <span class="brand-icon-wrap"><img src="assets/muxis_app_icon.png" alt="MUXIS Logo"></span>
+        <span class="brand-text-group">
+          <span class="brand-title-row"><span class="brand-name">MUXIS</span></span>
+          <span class="brand-byline">by A Leaf</span>
+        </span>
       </a>
-      <div class="nav-links">
+      <nav class="nav-links" aria-label="Main navigation">
         <a href="index.html">Home</a>
         <a href="download.html">Download</a>
         <a href="documentation.html">Docs</a>
+      </nav>
+      <div class="nav-actions">
+        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
       </div>
     </div>
-  </nav>
+    <div id="mobile-nav-drawer" class="mobile-drawer">
+      <a href="index.html">Home</a>
+      <a href="download.html">Download</a>
+      <a href="documentation.html">Documentation</a>
+    </div>
+  </header>
 
-  <main class="container" style="padding: 90px 24px; max-width: 640px; text-align: center;">
-    <div id="status-card" style="background: rgba(18, 22, 34, 0.88); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 20px; padding: 36px 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);">
-      <img src="assets/muxis_mark.png" alt="MUXIS" style="height: 36px; margin: 0 auto 18px; display: block;">
-      <span id="status-badge" class="badge" style="margin-bottom: 14px;">MUXIS CLOUD AUTH</span>
+  <main class="container" style="padding: 84px 24px; max-width: 640px; text-align: center;">
+    <div id="status-card" class="release-panel" style="padding: 36px 28px;">
+      <img src="assets/muxis_app_icon.png" alt="MUXIS" style="width: 58px; height: 58px; border-radius: 15px; margin: 0 auto 18px; display: block; box-shadow: 0 12px 28px rgba(0, 229, 255, 0.25);">
+      <span id="status-badge" class="status-chip" style="margin-bottom: 14px;">MUXIS CLOUD AUTH</span>
       <h1 id="status-title" style="font-size: 30px; font-weight: 800; margin-bottom: 12px;">Email Verified</h1>
       <p id="status-message" style="color: var(--text-secondary); font-size: 15px; line-height: 1.65; margin-bottom: 24px;">
-        Your email address has been verified for MUXIS Cloud. Return to the MUXIS app and sign in with your Gmail + Password.
+        Your email address has been verified for MUXIS Cloud. Return to the MUXIS app and sign in with your Google account or email credentials.
       </p>
       <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
         <a id="open-app-btn" href="muxis://auth-callback" class="btn btn-primary">Open MUXIS App</a>
@@ -61,14 +83,32 @@
         badge.style.color = '#fca5a5';
         title.textContent = 'Confirmation Link Expired';
         msg.textContent = errCode === 'otp_expired'
-          ? 'This confirmation link has expired (links last 1 hour) or was already opened. Open MUXIS, click "Cloud Sign In", and tap "Resend Confirmation Email" to get a fresh link.'
-          : (errDesc || 'Verification could not complete. Open MUXIS and request a fresh confirmation email.');
+          ? 'This confirmation link has expired (links last 1 hour) or was already opened. Open MUXIS, click "Cloud Sign In", and request a fresh link.'
+          : (errDesc || 'Verification could not complete. Open MUXIS and try signing in again.');
       } else {
         badge.textContent = 'VERIFIED READY TO SYNC';
         title.textContent = 'Email Confirmed!';
-        msg.textContent = 'Your MUXIS Cloud account is verified. Return to MUXIS and sign in with your Gmail and Password (or tap Open MUXIS App on Android).';
+        msg.textContent = 'Your MUXIS Cloud account is verified. Return to MUXIS and sign in with your account (or tap Open MUXIS App on mobile).';
       }
     })();
   </script>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
+        <div class="footer-meta">
+          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
+          <span>&copy; 2026 MUXIS Project &middot; GNU GPL-3.0</span>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

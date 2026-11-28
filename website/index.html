@@ -3,134 +3,384 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MUXIS — Prismatic Aura Audio | High-Fidelity Music Player</title>
-  <meta name="description" content="Experience music in pure atmospheric depth. Muxis is an advanced cross-platform music streaming and local audio player application with real-time DSP, synced lyrics, and offline-first cloud sync.">
+  <title>MUXIS by A Leaf — Liquid Aurora Music &amp; DSP Audio Player</title>
+  <meta name="description" content="MUXIS by A Leaf: Cross-platform hi-fi music player with 10-band Audio Studio DSP, whole-storage mobile scan, Studio Spectrum Stage, synchronized lyrics, and Cloudflare D1 + Google Cloud Sync across Windows, macOS, Linux, Android, and iPhone.">
+  <meta property="og:title" content="MUXIS by A Leaf — Liquid Aurora Audio Player">
+  <meta property="og:description" content="Offline-first music player &amp; streaming hub with 10-band DSP, live harmonic visualizer, and instant cloud sync across desktop and mobile.">
+  <meta property="og:image" content="assets/muxis_app_icon.png">
+  <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" type="image/png" href="assets/muxis_mark_square.png">
+  <link rel="icon" type="image/png" href="assets/muxis_app_icon.png">
   <link rel="apple-touch-icon" href="assets/muxis_app_icon.png">
+  <script defer src="js/main.js"></script>
 </head>
 <body>
+  <div class="ambient-canvas" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
 
   <!-- Navigation -->
-  <nav class="navbar">
+  <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand">
-        <img src="assets/muxis_mark.png" alt="MUXIS" style="height: 26px; width: auto; display: block;">
-        <span>MUXIS</span>
+      <a href="index.html" class="brand" aria-label="MUXIS by A Leaf Home">
+        <span class="brand-icon-wrap">
+          <img src="assets/muxis_app_icon.png" alt="MUXIS Logo">
+        </span>
+        <span class="brand-text-group">
+          <span class="brand-title-row">
+            <span class="brand-name">MUXIS</span>
+          </span>
+          <span class="brand-byline">by A Leaf</span>
+        </span>
       </a>
 
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#audio-studio">Audio Studio</a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="index.html" class="active">Home</a>
         <a href="download.html">Download</a>
         <a href="documentation.html">Docs</a>
-        <a href="download.html" class="btn btn-primary">Get Muxis</a>
+        <a href="privacy.html">Privacy</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="download.html#release-notes" class="nav-version-pill" title="Synced automatically from GitHub Releases">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span data-release-tag>v1.2.13</span>
+        </a>
+        <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener" class="nav-github-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.11.78-.25.78-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.26 5.68.42.36.79 1.07.79 2.16 0 1.56-.01 2.82-.01 3.2 0 .31.21.67.79.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+          GitHub
+        </a>
+        <button id="mobile-nav-toggle" class="mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Toggle navigation menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
       </div>
     </div>
-  </nav>
+
+    <div id="mobile-nav-drawer" class="mobile-drawer">
+      <a href="index.html" class="active">Home</a>
+      <a href="download.html">Download <span data-release-tag style="color: var(--prism-mint); font-family: var(--font-mono); margin-left: 6px;">v1.2.13</span></a>
+      <a href="documentation.html">Documentation</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="https://github.com/DidarAlif/muxis" target="_blank" rel="noopener">GitHub Repository</a>
+    </div>
+  </header>
 
   <!-- Hero Section -->
-  <header class="hero">
+  <section class="hero">
     <div class="container">
-      <span class="badge" id="hero-version-badge">SIGNED ANDROID • 1-CLICK FIREBASE GOOGLE • iPHONE IPA v1.2.13</span>
-      <h1>Pure Atmospheric Depth.<br>Infinite Audio Fidelity.</h1>
-      <p>
-        Muxis unites your local lossless library, YouTube Music, Spotify, SoundCloud, and live Global Radio in a
-        futuristic cross-platform workspace. 1-Click browser sign-in synchronizes your playlists, featured home shelves,
-        and favorites, streaming them completely ad-free.
+      <div class="hero-lockup reveal is-visible">
+        <div class="hero-app-tile">
+          <img src="assets/muxis_app_icon.png" alt="MUXIS App Icon">
+        </div>
+        <div class="hero-lockup-meta">
+          <div class="hero-lockup-top">
+            <span class="hero-lockup-name">MUXIS</span>
+            <span class="aleaf-chip">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+              by A Leaf
+            </span>
+          </div>
+          <div class="hero-release-meta">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span class="hero-release-tag" data-release-tag>v1.2.13</span>
+            <span aria-hidden="true">&middot;</span>
+            <span data-release-date>Latest GitHub Release</span>
+          </div>
+        </div>
+      </div>
+
+      <h1 class="reveal is-visible">
+        Liquid Audio Precision.<br>
+        <span class="text-prism">Built for Every Screen.</span>
+      </h1>
+
+      <p class="hero-subtitle reveal is-visible">
+        An offline-first hi-fi music engine &amp; unified streaming hub with a 10-band DSP Audio Studio, full-storage device scanning, live harmonic spectrum stage, and 1-click Google + Cloudflare D1 cloud sync.
       </p>
 
-      <div class="hero-actions">
-        <a href="download.html" class="btn btn-primary" id="primary-download-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          Get MUXIS
+      <div class="hero-ctas reveal is-visible">
+        <a id="primary-download-btn" href="download.html" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span data-cta-label>Download MUXIS (v1.2.13)</span>
         </a>
-        <a href="documentation.html" class="btn btn-secondary">
-          Explore Architecture
+        <a href="download.html" class="btn btn-secondary">
+          All Platforms &amp; iOS IPA
+        </a>
+        <a data-release-url href="https://github.com/DidarAlif/muxis/releases/latest" target="_blank" rel="noopener" class="btn btn-ghost">
+          Release Notes
         </a>
       </div>
 
-      <!-- Interactive Mockup Preview -->
-      <div class="mockup-wrapper">
-        <div class="mockup-header">
-          <div class="circle red"></div>
-          <div class="circle yellow"></div>
-          <div class="circle green"></div>
-          <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-left: 12px;">MUXIS — AURORA NOW PLAYING</span>
+      <div class="hero-subnote reveal is-visible">
+        <span id="detected-os-hint">Windows 10/11 &middot; macOS Universal &middot; Linux &middot; Android APK &middot; iPhone IPA</span>
+        <span>&bull; GNU GPL-3.0 Open Source</span>
+      </div>
+
+      <div class="waveform-ribbon" aria-hidden="true">
+        <canvas id="hero-spectrum-canvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive App Showcase Stage -->
+  <section class="showcase-section">
+    <div class="container">
+      <div class="showcase-shell reveal">
+        <div class="showcase-toolbar">
+          <div class="stage-brand-mini">
+            <img src="assets/muxis_mark.png" alt="MUXIS Mark">
+            <span><strong>MUXIS</strong> Studio Preview &middot; by A Leaf</span>
+          </div>
+
+          <div class="stage-tabs" role="tablist" aria-label="MUXIS App Screenshots">
+            <button type="button" class="stage-tab active" role="tab" aria-selected="true"
+              data-target="home"
+              data-title="Prismatic Horizons Hub"
+              data-desc="Unified launchpad connecting local libraries alongside YouTube Music, Spotify Hi-Fi Bridge, SoundCloud, and live FM Radio.">
+              Home Hub
+            </button>
+            <button type="button" class="stage-tab" role="tab" aria-selected="false"
+              data-target="spectrum"
+              data-title="Studio Spectrum Stage (32Hz – 16kHz)"
+              data-desc="Full-screen harmonic visualizer reacting smoothly across 32Hz to 16kHz bands with adaptive artwork glow.">
+              Spectrum Stage
+            </button>
+            <button type="button" class="stage-tab" role="tab" aria-selected="false"
+              data-target="dsp"
+              data-title="Audio Studio &amp; 10-Band Parametric DSP"
+              data-desc="Precision 10-band curve (32Hz to 16kHz), Studio Presets, Sub-Bass Drive, Treble Air, Pre-Amp Gain, and Master Bypass.">
+              10-Band DSP
+            </button>
+            <button type="button" class="stage-tab" role="tab" aria-selected="false"
+              data-target="library"
+              data-title="Offline-First Smart Library &amp; Full Storage Scan"
+              data-desc="Index entire folders across desktop drives, Android internal/SD storage, and iPhone Files with instant playlist filtering.">
+              Library
+            </button>
+            <button type="button" class="stage-tab" role="tab" aria-selected="false"
+              data-target="mini"
+              data-title="Floating Mini-Player Dock"
+              data-desc="Compact translucent playback dock that stays out of your way while keeping instant transport and favorites one click away.">
+              Mini-Player
+            </button>
+          </div>
         </div>
-        <div class="mockup-body">
-          <div style="display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap;">
-            <img src="assets/muxis_app_icon.png" alt="MUXIS App Icon" style="width: 210px; height: 210px; border-radius: 44px; box-shadow: 0 18px 46px rgba(127, 0, 255, 0.45); display: block;">
-            <div style="flex: 1; min-width: 280px;">
-              <span class="badge" style="margin-bottom: 8px;">NOW PLAYING • LOSSLESS 24-BIT / 96kHz</span>
-              <h2 style="font-size: 26px; font-weight: 800; margin-bottom: 4px;">Prismatic Horizons</h2>
-              <p style="color: var(--cyan); font-weight: 600; font-size: 15px; margin-bottom: 16px;">Aura Collective • Synthesized Dimensions</p>
-              <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
-                "Step into the prismatic aura<br>
-                Electric frequencies flowing through the night<br>
-                Synchronized pulses across the spectrum..."
-              </p>
-              <div style="height: 4px; background: var(--border); border-radius: 2px; width: 100%; position: relative;">
-                <div style="width: 48%; height: 100%; background: var(--gradient-prismatic); border-radius: 2px;"></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 8px;">
-                <span>01:46</span>
-                <span>03:42</span>
-              </div>
-            </div>
+
+        <div class="stage-viewport">
+          <div class="stage-slide active" data-slide="home">
+            <img src="assets/screenshots/home.jpg" alt="MUXIS Prismatic Horizons Home Screen">
+          </div>
+          <div class="stage-slide" data-slide="spectrum">
+            <img src="assets/screenshots/spectrum_stage.jpg" alt="MUXIS Live Harmonic Spectrum Visualizer">
+          </div>
+          <div class="stage-slide" data-slide="dsp">
+            <img src="assets/screenshots/audio_studio_dsp.jpg" alt="MUXIS 10-Band Audio Studio Equalizer">
+          </div>
+          <div class="stage-slide" data-slide="library">
+            <img src="assets/screenshots/library.jpg" alt="MUXIS Offline Library and Recently Played">
+          </div>
+          <div class="stage-slide is-compact" data-slide="mini">
+            <img src="assets/screenshots/mini_player.png" alt="MUXIS Compact Floating Mini-Player">
+          </div>
+        </div>
+
+        <div class="stage-caption-bar">
+          <div class="stage-caption-copy">
+            <h3 id="stage-caption-title">Prismatic Horizons Hub</h3>
+            <p id="stage-caption-desc">Unified launchpad connecting local libraries alongside YouTube Music, Spotify Hi-Fi Bridge, SoundCloud, and live FM Radio.</p>
+          </div>
+          <div class="stage-meter" aria-hidden="true">
+            <div class="meter-bar"></div>
+            <div class="meter-bar"></div>
+            <div class="meter-bar"></div>
+            <div class="meter-bar"></div>
+            <div class="meter-bar"></div>
+            <div class="meter-bar"></div>
           </div>
         </div>
       </div>
     </div>
-  </header>
+  </section>
 
-  <!-- Features Section -->
-  <section id="features" class="features">
+  <!-- Live GitHub Release Panel -->
+  <section class="section" style="padding-top: 20px;">
     <div class="container">
-      <div class="section-title">
-        <h2>Engineered for Audiophiles</h2>
-        <p>Combining modern cloud capability with uncompromising offline performance.</p>
+      <div class="release-panel reveal">
+        <div class="release-grid">
+          <div>
+            <div class="release-status-row">
+              <span class="status-chip">
+                <span class="live-dot" aria-hidden="true"></span>
+                <span data-release-tag>v1.2.13</span>
+              </span>
+              <span class="source-chip" data-release-source>Synced live with GitHub Releases</span>
+            </div>
+            <h2 data-release-title>MUXIS v1.2.13 — Prismatic Aura</h2>
+            <p class="release-date-line" data-release-date>Latest GitHub Release</p>
+
+            <div class="changelog-box">
+              <h4>Latest Changelog</h4>
+              <ul class="changelog-list" data-release-notes>
+                <li>Permanent deterministic release-signed Android APK &amp; AAB builds for smooth seamless updates</li>
+                <li>Official iPhone &amp; iPad <code>Muxis-iOS.ipa</code> build with iOS Lock Screen and Files app support</li>
+                <li>Full-storage audio scanning across Android internal/SD cards and iPhone Files</li>
+                <li>1-Click Google Sign-In via Firebase + Cloudflare D1 sync for playlists, history, themes &amp; 10-band EQ</li>
+              </ul>
+            </div>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px;">
+              <a href="download.html" class="btn btn-primary" style="padding: 11px 20px; font-size: 13.5px;">Open Full Download Center</a>
+              <a data-asset-url="checksums" href="https://github.com/DidarAlif/muxis/releases/latest/download/checksums-sha256.txt" target="_blank" rel="noopener" class="btn btn-ghost">Verify SHA-256 Checksums</a>
+            </div>
+          </div>
+
+          <div class="quick-matrix">
+            <a data-asset-url="windows-exe" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64-Setup.exe" class="quick-asset-btn">
+              <span class="quick-asset-top">
+                <span class="quick-asset-title">Windows x64</span>
+                <span class="quick-asset-ext">.EXE</span>
+              </span>
+              <span class="quick-asset-meta">Installer &middot; <span data-asset-size="windows-exe">13.1 MB</span></span>
+            </a>
+
+            <a data-asset-url="android-apk" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Android.apk" class="quick-asset-btn">
+              <span class="quick-asset-top">
+                <span class="quick-asset-title">Android Mobile</span>
+                <span class="quick-asset-ext">.APK</span>
+              </span>
+              <span class="quick-asset-meta">Signed APK &middot; <span data-asset-size="android-apk">29.8 MB</span></span>
+            </a>
+
+            <a data-asset-url="ios-ipa" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS.ipa" class="quick-asset-btn">
+              <span class="quick-asset-top">
+                <span class="quick-asset-title">iPhone / iPad</span>
+                <span class="quick-asset-ext">.IPA</span>
+              </span>
+              <span class="quick-asset-meta">iOS 13+ &middot; <span data-asset-size="ios-ipa">13.1 MB</span></span>
+            </a>
+
+            <a data-asset-url="macos-zip" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-macOS-Universal.zip" class="quick-asset-btn">
+              <span class="quick-asset-top">
+                <span class="quick-asset-title">macOS Universal</span>
+                <span class="quick-asset-ext">.ZIP</span>
+              </span>
+              <span class="quick-asset-meta">ARM64 + x64 &middot; <span data-asset-size="macos-zip">27.2 MB</span></span>
+            </a>
+
+            <a data-asset-url="linux-tar" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Linux-x64.tar.gz" class="quick-asset-btn">
+              <span class="quick-asset-top">
+                <span class="quick-asset-title">Linux x86_64</span>
+                <span class="quick-asset-ext">.TAR.GZ</span>
+              </span>
+              <span class="quick-asset-meta">Desktop Bundle &middot; <span data-asset-size="linux-tar">12.8 MB</span></span>
+            </a>
+
+            <a data-asset-url="windows-zip" href="https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-Windows-x64.zip" class="quick-asset-btn">
+              <span class="quick-asset-top">
+                <span class="quick-asset-title">Windows Portable</span>
+                <span class="quick-asset-ext">.ZIP</span>
+              </span>
+              <span class="quick-asset-meta">No Install &middot; <span data-asset-size="windows-zip">15.5 MB</span></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core Architecture Features -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-kicker">Engine Architecture</span>
+        <h2>Designed Without Compromise</h2>
+        <p>Every component of MUXIS by A Leaf balances ultra-low overhead offline playback with real-time DSP shaping and edge-replicated sync.</p>
       </div>
 
-      <div class="grid-3">
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
-          <h3>PRISMATIC AURA Interface</h3>
-          <p>Obsidian dark surfaces illuminated by electric cyan and velvet violet radial light pools that react dynamically to album artwork.</p>
-        </div>
+      <div class="bento-grid">
+        <article class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg>
+          </div>
+          <h3>10-Band Audio Studio DSP</h3>
+          <p>Carve your exact signature from 32Hz to 16kHz with instant Studio Presets, Sub-Bass Drive, Treble Air excitation, Pre-Amp Gain, and one-tap Master Bypass.</p>
+          <div class="feature-tag-row">
+            <span class="micro-pill">32Hz–16kHz</span>
+            <span class="micro-pill">8 Presets</span>
+            <span class="micro-pill">Cloud Synced</span>
+          </div>
+        </article>
 
-        <div class="feature-card">
-          <div class="feature-icon">📁</div>
-          <h3>Complete Local Library</h3>
-          <p>Instant recursive scanning for FLAC, WAV, MP3, AAC, and OGG with metadata extraction, tag grouping, and zero cloud dependency.</p>
-        </div>
+        <article class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+          </div>
+          <h3>Whole-Device Storage Scan</h3>
+          <p>Automatically discovers MP3, FLAC, WAV, AAC, M4A, OGG &amp; Opus across internal storage, SD cards on Android, and iPhone Files folders without manual picking.</p>
+          <div class="feature-tag-row">
+            <span class="micro-pill">Android</span>
+            <span class="micro-pill">iPhone Files</span>
+            <span class="micro-pill">Desktop Folders</span>
+          </div>
+        </article>
 
-        <div class="feature-card">
-          <div class="feature-icon">🎛️</div>
-          <h3>Audio Studio & DSP</h3>
-          <p>5-band master parametric equalizer, real-time karaoke vocal isolation (center-channel extraction), and pitch/speed stretching.</p>
-        </div>
+        <article class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+          </div>
+          <h3>1-Click Google &amp; Cloudflare D1 Sync</h3>
+          <p>Sign in instantly using Firebase Google Auth and synchronize playlists, favorites, listening history, 10-band EQ curves, and studio themes via Cloudflare edge D1.</p>
+          <div class="feature-tag-row">
+            <span class="micro-pill">Firebase Auth</span>
+            <span class="micro-pill">Cloudflare D1</span>
+            <span class="micro-pill">Zero Tracking</span>
+          </div>
+        </article>
 
-        <div class="feature-card">
-          <div class="feature-icon">☁️</div>
-          <h3>Offline-First Cloud Sync</h3>
-          <p>Playlists, favorites, and custom themes synchronize instantly via Cloudflare Workers + D1 SQL with conflict resolution and offline queuing. Your local music files stay safely on your device.</p>
-        </div>
+        <article class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+          </div>
+          <h3>Stream Bridges &amp; Global Radio</h3>
+          <p>Link YouTube Music, Spotify Bridge, and SoundCloud libraries or tune straight into curated and regional live FM streams in one unified queue.</p>
+          <div class="feature-tag-row">
+            <span class="micro-pill">YT Music</span>
+            <span class="micro-pill">Spotify Bridge</span>
+            <span class="micro-pill">FM Radio</span>
+          </div>
+        </article>
 
-        <div class="feature-card">
-          <div class="feature-icon">📝</div>
-          <h3>Immersive Synced Lyrics</h3>
-          <p>Multi-source cascaded lookup (LRCLIB, LyricsOVH, and local .lrc files) with line-by-line smooth scrolling and translation toggling.</p>
-        </div>
+        <article class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          </div>
+          <h3>Spectrum Stage &amp; Synced Lyrics</h3>
+          <p>Switch into distraction-free Studio Spectrum Stage with live prismatic bars alongside synchronized LRC lyric cards and sleek ambient album glow.</p>
+          <div class="feature-tag-row">
+            <span class="micro-pill">LRC Support</span>
+            <span class="micro-pill">Mini-Player</span>
+            <span class="micro-pill">Themes</span>
+          </div>
+        </article>
 
-        <div class="feature-card">
-          <div class="feature-icon">⌨️</div>
-          <h3>Command Palette (Ctrl + K)</h3>
-          <p>Desktop-grade ergonomics with instantaneous fuzzy navigation, media key controls, queue reordering, and system tray integration.</p>
-        </div>
+        <article class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M10 18v3"/><path d="M14 18v3"/><path d="M7 21h10"/></svg>
+          </div>
+          <h3>Desktop &amp; Mobile Ergonomics</h3>
+          <p>Responsive adaptive layout scales from Windows, macOS, and Linux multi-pane desktops down to signed Android APKs and native iPhone media controls.</p>
+          <div class="feature-tag-row">
+            <span class="micro-pill">Media Keys</span>
+            <span class="micro-pill">Lock Screen</span>
+            <span class="micro-pill">5 Platforms</span>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -138,19 +388,22 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container footer-content">
-      <div>
-        <p>&copy; 2026 MUXIS Project. Released under the GNU General Public License v3.0.</p>
-        <p style="font-size: 11px; margin-top: 4px;">Local audio playback operates independently of any online service.</p>
+      <div class="footer-brand">
+        <img src="assets/muxis_mark.png" alt="MUXIS Mark">
+        <div class="footer-meta">
+          <strong>MUXIS <span style="color: var(--prism-cyan); font-weight: 700;">by A Leaf</span></strong>
+          <span>&copy; 2026 MUXIS Project &middot; Released under GNU GPL-3.0</span>
+        </div>
       </div>
+
       <div class="footer-links">
         <a href="download.html">Download</a>
-        <a href="documentation.html">Documentation</a>
-        <a href="privacy.html">Privacy Policy</a>
-        <a href="terms.html">Terms of Service</a>
+        <a href="documentation.html">Docs</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="https://github.com/DidarAlif/muxis/releases" target="_blank" rel="noopener">GitHub Releases</a>
       </div>
     </div>
   </footer>
-
-  <script src="js/main.js"></script>
 </body>
 </html>
