@@ -162,11 +162,12 @@ function isValidEmail(email: string): boolean {
 
 function htmlPage(title: string, heading: string, body: string, color = '#00FF88', redirectScript = ''): Response {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
-<body style="margin:0;background:#060910;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;">
-  <div style="max-width:440px;width:100%;background:#0b111c;border:1px solid #233046;border-radius:20px;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-    <div style="font-size:12px;letter-spacing:2.4px;font-weight:700;color:${color};margin-bottom:10px;">MUXIS CLOUD</div>
-    <h1 style="margin:0 0 12px;font-size:24px;">${heading}</h1>
-    <p style="margin:0;color:#cbd5e1;line-height:1.55;font-size:14px;">${body}</p>
+<body style="margin:0;background:#060910;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;">
+  <div style="max-width:440px;width:100%;background:#0b111c;border:1px solid #233046;border-radius:20px;padding:34px 28px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.55);">
+    <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:${color}18;border:1px solid ${color}45;margin-bottom:14px;color:${color};font-weight:800;font-size:18px;">M</div>
+    <div style="font-size:11.5px;letter-spacing:2.2px;font-weight:700;color:${color};margin-bottom:8px;">MUXIS CLOUD</div>
+    <h1 style="margin:0 0 12px;font-size:23px;font-weight:800;letter-spacing:-0.4px;">${heading}</h1>
+    <p style="margin:0;color:#cbd5e1;line-height:1.6;font-size:14px;">${body}</p>
   </div>
   ${redirectScript}
 </body></html>`;
@@ -200,7 +201,8 @@ export async function handleCloudRoute(
       instant_signup: true,
       recovery_key_reset: true,
       google_oauth_enabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-      worker_version: '1.2.8',
+      google_callback_url: `${url.origin}/api/auth/google/callback`,
+      worker_version: '1.2.10',
     });
   }
 

@@ -158,15 +158,16 @@ function handleVersionCheck(env: Env): Response {
       },
       ios: {
         version: latestVersion,
-        download_url: 'https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS-Unsigned.zip',
+        download_url: 'https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS.ipa',
+        unsigned_zip_url: 'https://github.com/DidarAlif/muxis/releases/latest/download/Muxis-iOS-Unsigned.zip',
         app_store_url: 'https://apps.apple.com/app/muxis-player/id0000000000',
       },
     },
     changelog: [
-      'Production release with PRISMATIC AURA visual identity',
-      'High-performance offline local library scanner and SQLite indexing',
-      'Real-time Supabase cloud synchronization for playlists, favorites and settings',
-      'Hardware-accelerated gapless audio playback and 10-band equalizer',
+      'Official iOS / iPhone IPA build (`Muxis-iOS.ipa`) with Lock Screen & Files integration',
+      'Whole-device storage music scan across Android internal/SD cards and iPhone Files',
+      'Instant MUXIS Cloud authentication & D1 sync across Windows, macOS, Linux, Android, and iOS',
+      '10-theme Studio with customizable accent tastes and per-track 10-band EQ',
       'Unified responsive shell for desktop and mobile form factors',
     ],
   };

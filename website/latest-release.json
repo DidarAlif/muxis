@@ -1,10 +1,10 @@
 {
-  "tag_name": "v1.2.9",
-  "name": "MUXIS v1.2.9 — Prismatic Aura",
+  "tag_name": "v1.2.10",
+  "name": "MUXIS v1.2.10 — Prismatic Aura",
   "draft": false,
   "prerelease": false,
-  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.9",
-  "body": "### What's New in MUXIS v1.2.9\n- Official iOS / iPhone build (`Muxis-iOS.ipa` + `Muxis-iOS-Unsigned.zip`) with opaque AppIcon assets, background audio (`UIBackgroundModes: [audio]`), Control Center/Lock Screen Now Playing, SafeArea iPhone UI polish, and iPhone Files integration (`On My iPhone -> MUXIS`)\n- Whole-Device Storage Music Scan in Library Import for both Android phones (`/storage/emulated/0` + external SD cards with runtime `READ_MEDIA_AUDIO`/`READ_EXTERNAL_STORAGE` permissions and resilient restricted-folder skipping) and iPhone (deep scan of MUXIS Files container, Inbox, imported vault, and remembered folders, plus persistent offline copy when picking from iCloud Drive / On My iPhone)",
+  "html_url": "https://github.com/DidarAlif/muxis/releases/tag/v1.2.10",
+  "body": "### What's New in MUXIS v1.2.10\n- Redesigned MUXIS Cloud Sign-In & Create Account modal with split desktop showcase, tactile segmented mode switcher, official vector multi-color 1-Click Google Sign-In button, live password strength meter, Google avatar display in Account dialog, iOS `muxis://auth-callback` OAuth handoff, and interactive Worker Google OAuth setup drawer\n- Includes official iPhone / iOS IPA release (`Muxis-iOS.ipa`), Android/iPhone Whole-Device Storage Music Scan, and Cloudflare D1 Cloud Sync",
   "assets": [
     {
       "name": "Muxis-Android.apk",

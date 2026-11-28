@@ -45,7 +45,7 @@ class AppUpdateState {
   const AppUpdateState({
     this.phase = UpdatePhase.idle,
     this.currentVersion = AppUpdateNotifier.fallbackAppVersion,
-    this.currentBuild = '29',
+    this.currentBuild = '30',
     this.availableUpdate,
     this.progress = 0.0,
     this.receivedBytes = 0,
@@ -115,7 +115,7 @@ final appUpdateProvider =
 class AppUpdateNotifier extends StateNotifier<AppUpdateState> {
   static const String githubOwner = 'DidarAlif';
   static const String githubRepo = 'muxis';
-  static const String fallbackAppVersion = '1.2.9';
+  static const String fallbackAppVersion = '1.2.10';
 
   final PreferencesService _prefs;
   final Dio _dio = Dio(

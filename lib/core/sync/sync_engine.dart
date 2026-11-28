@@ -37,7 +37,7 @@ class SyncEngine extends StateNotifier<SyncStatus> {
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'MUXIS/1.2.9 (CloudSync)',
+        'User-Agent': 'MUXIS/1.2.10 (CloudSync)',
       },
       validateStatus: (s) => s != null && s < 600,
     ),
@@ -173,7 +173,7 @@ class SyncEngine extends StateNotifier<SyncStatus> {
           'device': {
             'name': hostName,
             'platform': _getPlatformString(),
-            'client_version': '1.2.9',
+            'client_version': '1.2.10',
           },
           'mutations': mutations,
           'favorites': localFavPayload,

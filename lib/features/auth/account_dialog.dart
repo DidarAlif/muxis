@@ -79,17 +79,38 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
                       shape: BoxShape.circle,
                       gradient: MuxisGradients.activePrimary(isDark),
                     ),
-                    child: Center(
-                      child: Text(
-                        (user?.displayName.isNotEmpty ?? false)
-                            ? user!.displayName[0].toUpperCase()
-                            : 'M',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: MuxisColors.onAccent(isDark),
-                        ),
-                      ),
+                    child: ClipOval(
+                      child:
+                          user?.avatarUrl != null &&
+                              user!.avatarUrl!.startsWith('http')
+                          ? Image.network(
+                              user.avatarUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(
+                                  user.displayName.isNotEmpty
+                                      ? user.displayName[0].toUpperCase()
+                                      : 'M',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: MuxisColors.onAccent(isDark),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                (user?.displayName.isNotEmpty ?? false)
+                                    ? user!.displayName[0].toUpperCase()
+                                    : 'M',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: MuxisColors.onAccent(isDark),
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 16),

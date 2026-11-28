@@ -36,7 +36,7 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'MUXIS/1.2.9 (CloudAuth)',
+        'User-Agent': 'MUXIS/1.2.10 (CloudAuth)',
       },
       validateStatus: (s) => s != null && s < 600,
     ),
@@ -497,7 +497,7 @@ class SupabaseAuthService extends StateNotifier<AuthState> {
         '$_baseUrl/api/auth/google/start',
         queryParameters: {
           'poll_secret': pollSecret,
-          if (!kIsWeb && Platform.isAndroid)
+          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
             'app_redirect': 'muxis://auth-callback',
         },
       );
