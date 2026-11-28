@@ -24,6 +24,7 @@
     "MIN_SUPPORTED_VERSION": "1.0.0",
     "FIREBASE_PROJECT_ID": "muxis-cloud",
     "FIREBASE_WEB_API_KEY": "AIzaSyD2LtscFC3xX8TlC1jdpOk7DoPLSbTxFcg",
-    "FIREBASE_AUTH_BRIDGE_URL": "https://muxis-cloud.firebaseapp.com"
+    "FIREBASE_AUTH_BRIDGE_URL": "https://muxis-cloud.firebaseapp.com",
+    "ADMIN_EMAILS": "fbalif123@gmail.com,a.leaf.organization@gmail.com"
   }
 }

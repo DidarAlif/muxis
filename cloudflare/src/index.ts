@@ -32,7 +32,7 @@ const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB max for artwork
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Muxis-Client',
   'Access-Control-Max-Age': '86400',
 };
 

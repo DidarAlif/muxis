@@ -13,6 +13,7 @@ export interface CloudEnv {
   FIREBASE_PROJECT_ID?: string;
   FIREBASE_WEB_API_KEY?: string;
   FIREBASE_AUTH_BRIDGE_URL?: string;
+  ADMIN_EMAILS?: string;
 }
 
 interface UserRow {
@@ -26,6 +27,39 @@ interface UserRow {
   password_salt: string | null;
   recovery_code_hash: string | null;
   subscription_tier: string;
+  pwa_approval_status?: string | null;
+  is_admin?: number | null;
+  pwa_approved_at?: string | null;
+  pwa_approved_by?: string | null;
+  pwa_note?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function getOwnerAdminSet(env: CloudEnv): Set<string> {
+  const raw = env.ADMIN_EMAILS ?? 'fbalif123@gmail.com,a.leaf.organization@gmail.com';
+  return new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function isOwnerAdmin(email: string, env: CloudEnv): boolean {
+  return getOwnerAdminSet(env).has(email.trim().toLowerCase());
+}
+
+async function isApprovalRequired(db: D1Database): Promise<boolean> {
+  try {
+    const row = await db
+      .prepare(`SELECT value FROM app_config_flags WHERE key = 'require_pwa_approval'`)
+      .first<{ value: string }>();
+    if (!row) return true;
+    return row.value !== 'false';
+  } catch {
+    return true;
+  }
 }
 
 const enc = new TextEncoder();
@@ -148,7 +182,10 @@ async function verifyJwt(token: string, secret: string): Promise<Record<string, 
   }
 }
 
-function serializeUser(u: UserRow) {
+function serializeUser(u: UserRow, env?: CloudEnv) {
+  const owner = env ? isOwnerAdmin(u.email, env) : false;
+  const isAdmin = owner || Number(u.is_admin ?? 0) === 1;
+  const approval = isAdmin ? 'approved' : (u.pwa_approval_status || 'pending');
   return {
     id: u.id,
     email: u.email,
@@ -156,6 +193,9 @@ function serializeUser(u: UserRow) {
     avatar_url: u.avatar_url,
     subscription_tier: u.subscription_tier || 'free',
     auth_provider: u.auth_provider || 'email',
+    is_admin: isAdmin,
+    pwa_approval_status: approval,
+    pwa_note: u.pwa_note ?? null,
   };
 }
 
@@ -186,7 +226,7 @@ export async function handleCloudRoute(
   const url = new URL(request.url);
   const path = url.pathname;
 
-  if (!path.startsWith('/api/auth/') && !path.startsWith('/api/sync/')) {
+  if (!path.startsWith('/api/auth/') && !path.startsWith('/api/sync/') && !path.startsWith('/api/admin/')) {
     return null;
   }
 
@@ -246,14 +286,18 @@ export async function handleCloudRoute(
     const recoveryKey = generateRecoveryKey();
     const recoveryHash = await sha256Hex(normalizeRecoveryKey(recoveryKey));
     const now = new Date().toISOString();
+    const ownerAdmin = isOwnerAdmin(email, env);
+    const needApproval = ownerAdmin ? false : await isApprovalRequired(db);
+    const approvalStatus = ownerAdmin || !needApproval ? 'approved' : 'pending';
+    const adminFlag = ownerAdmin ? 1 : 0;
 
     await db.batch([
       db
         .prepare(
-          `INSERT INTO users (id, email, display_name, auth_provider, password_hash, password_salt, recovery_code_hash, email_verified, subscription_tier, created_at, updated_at)
-           VALUES (?, ?, ?, 'email', ?, ?, ?, 1, 'free', ?, ?)`
+          `INSERT INTO users (id, email, display_name, auth_provider, password_hash, password_salt, recovery_code_hash, email_verified, subscription_tier, pwa_approval_status, is_admin, created_at, updated_at)
+           VALUES (?, ?, ?, 'email', ?, ?, ?, 1, 'free', ?, ?, ?, ?)`
         )
-        .bind(userId, email, displayName, hashHex, saltHex, recoveryHash, now, now),
+        .bind(userId, email, displayName, hashHex, saltHex, recoveryHash, approvalStatus, adminFlag, now, now),
       db.prepare('INSERT OR IGNORE INTO user_settings (user_id, updated_at) VALUES (?, ?)').bind(userId, now),
     ]);
 
@@ -264,6 +308,9 @@ export async function handleCloudRoute(
       avatar_url: null,
       subscription_tier: 'free',
       auth_provider: 'email',
+      is_admin: ownerAdmin,
+      pwa_approval_status: approvalStatus,
+      pwa_note: null,
     };
     const token = await signJwt({ sub: userId, email }, jwtSecret);
     return json({ access_token: token, user: userObj, recovery_key: recoveryKey }, 201);
@@ -298,7 +345,7 @@ export async function handleCloudRoute(
     }
 
     const token = await signJwt({ sub: row.id, email: row.email }, jwtSecret);
-    return json({ access_token: token, user: serializeUser(row) }, 200);
+    return json({ access_token: token, user: serializeUser(row, env) }, 200);
   }
 
   // 4. Instant Recovery-Key Password Reset (works offline-from-SMTP cleanly on any OS)
@@ -341,7 +388,7 @@ export async function handleCloudRoute(
       .run();
 
     const token = await signJwt({ sub: row.id, email: row.email }, jwtSecret);
-    return json({ access_token: token, user: serializeUser(row), recovery_key: nextRecovery }, 200);
+    return json({ access_token: token, user: serializeUser(row, env), recovery_key: nextRecovery }, 200);
   }
 
   // 5. Google OAuth Browser Start (Direct Google OR Firebase Auth Client + Cloudflare D1 State Ticket)
@@ -480,7 +527,7 @@ export async function handleCloudRoute(
       return err('Verified Google identity identifier missing.', 401);
     }
 
-    const userObj = await upsertGoogleUser(db, {
+    const userObj = await upsertGoogleUser(db, env, {
       googleSub,
       email: fbUser.email.toLowerCase(),
       displayName: googleInfo?.displayName || fbUser.displayName || fbUser.email.split('@')[0],
@@ -572,7 +619,7 @@ export async function handleCloudRoute(
       return htmlPage('Unverified Google Email', 'Verification Needed', 'Your Google account must have a verified email address.', '#EF4444');
     }
 
-    const userObj = await upsertGoogleUser(db, {
+    const userObj = await upsertGoogleUser(db, env, {
       googleSub: profile.sub,
       email: profile.email.toLowerCase(),
       displayName: profile.name || profile.email.split('@')[0],
@@ -703,7 +750,7 @@ export async function handleCloudRoute(
       return err('Provide Google id_token or access_token.', 400);
     }
 
-    const userObj = await upsertGoogleUser(db, {
+    const userObj = await upsertGoogleUser(db, env, {
       googleSub,
       email,
       displayName: name,
@@ -726,14 +773,184 @@ export async function handleCloudRoute(
   if (path === '/api/auth/me' && request.method === 'GET') {
     const row = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
     if (!row) return err('User account not found.', 404);
-    return json({ user: serializeUser(row) }, 200);
+    return json({ user: serializeUser(row, env) }, 200);
+  }
+
+  if (path === '/api/auth/pwa/status' && request.method === 'GET') {
+    const row = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
+    if (!row) return err('User account not found.', 404);
+    const user = serializeUser(row, env);
+    const requireApproval = await isApprovalRequired(db);
+    return json(
+      {
+        ok: true,
+        approval_status: requireApproval ? user.pwa_approval_status : 'approved',
+        raw_approval_status: user.pwa_approval_status,
+        is_admin: user.is_admin,
+        require_approval: requireApproval,
+        note: user.pwa_note,
+        user,
+      },
+      200
+    );
   }
 
   if (path === '/api/auth/refresh' && request.method === 'POST') {
     const row = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
     if (!row) return err('User account not found.', 404);
     const token = await signJwt({ sub: row.id, email: row.email }, jwtSecret);
-    return json({ access_token: token, user: serializeUser(row) }, 200);
+    return json({ access_token: token, user: serializeUser(row, env) }, 200);
+  }
+
+  // --- ADMIN PANEL API (Owner / Co-Admin Only) ---
+  if (path.startsWith('/api/admin/')) {
+    const adminRow = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
+    if (!adminRow) return err('Admin user not found.', 404);
+    const serializedAdmin = serializeUser(adminRow, env);
+    if (!serializedAdmin.is_admin) {
+      return err('Administrator approval privileges required.', 403);
+    }
+
+    if (path === '/api/admin/overview' && request.method === 'GET') {
+      const usersRes = await db
+        .prepare(
+          `SELECT id, email, display_name, avatar_url, auth_provider, subscription_tier,
+                  pwa_approval_status, is_admin, pwa_approved_at, pwa_approved_by, pwa_note,
+                  created_at, updated_at
+           FROM users
+           ORDER BY CASE pwa_approval_status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 ELSE 2 END, created_at DESC
+           LIMIT 250`
+        )
+        .all<UserRow>();
+      const users = (usersRes.results ?? []).map((u) => ({
+        ...serializeUser(u, env),
+        pwa_approved_at: u.pwa_approved_at ?? null,
+        pwa_approved_by: u.pwa_approved_by ?? null,
+        created_at: u.created_at ?? null,
+        updated_at: u.updated_at ?? null,
+      }));
+      const requireApproval = await isApprovalRequired(db);
+      const stats = {
+        total: users.length,
+        pending: users.filter((u) => u.pwa_approval_status === 'pending').length,
+        approved: users.filter((u) => u.pwa_approval_status === 'approved').length,
+        rejected: users.filter((u) => u.pwa_approval_status === 'rejected').length,
+        admins: users.filter((u) => u.is_admin).length,
+      };
+      return json({ ok: true, require_pwa_approval: requireApproval, stats, users, admin: serializedAdmin }, 200);
+    }
+
+    if (path === '/api/admin/settings' && request.method === 'POST') {
+      let body: { require_pwa_approval?: boolean };
+      try {
+        body = await request.json();
+      } catch {
+        return err('Invalid JSON request body.', 400);
+      }
+      const val = body.require_pwa_approval === false ? 'false' : 'true';
+      const now = new Date().toISOString();
+      await db
+        .prepare(
+          `INSERT INTO app_config_flags (key, value, updated_at) VALUES ('require_pwa_approval', ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .bind(val, now)
+        .run();
+      return json({ ok: true, require_pwa_approval: val === 'true', updated_at: now }, 200);
+    }
+
+    const statusMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/status$/);
+    if (statusMatch && request.method === 'POST') {
+      const targetId = decodeURIComponent(statusMatch[1]);
+      let body: { status?: string; note?: string };
+      try {
+        body = await request.json();
+      } catch {
+        return err('Invalid JSON request body.', 400);
+      }
+      const nextStatus = (body.status ?? '').trim().toLowerCase();
+      if (!['pending', 'approved', 'rejected'].includes(nextStatus)) {
+        return err('Status must be pending, approved, or rejected.', 400);
+      }
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?').bind(targetId).first<UserRow>();
+      if (!target) return err('Target user not found.', 404);
+      if (isOwnerAdmin(target.email, env) && nextStatus !== 'approved') {
+        return err('Owner admin accounts cannot be unapproved.', 400);
+      }
+      const now = new Date().toISOString();
+      const note = typeof body.note === 'string' ? body.note.trim().slice(0, 240) : (target.pwa_note ?? null);
+      await db
+        .prepare(
+          `UPDATE users
+           SET pwa_approval_status = ?, pwa_approved_at = ?, pwa_approved_by = ?, pwa_note = ?, updated_at = ?
+           WHERE id = ?`
+        )
+        .bind(nextStatus, nextStatus === 'approved' ? now : null, serializedAdmin.email, note, now, targetId)
+        .run();
+      const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(targetId).first<UserRow>();
+      return json({ ok: true, user: updated ? serializeUser(updated, env) : null }, 200);
+    }
+
+    const adminToggleMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/admin$/);
+    if (adminToggleMatch && request.method === 'POST') {
+      const targetId = decodeURIComponent(adminToggleMatch[1]);
+      let body: { is_admin?: boolean };
+      try {
+        body = await request.json();
+      } catch {
+        return err('Invalid JSON request body.', 400);
+      }
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?').bind(targetId).first<UserRow>();
+      if (!target) return err('Target user not found.', 404);
+      const nextAdmin = Boolean(body.is_admin);
+      if (!nextAdmin && (targetId === userId || isOwnerAdmin(target.email, env))) {
+        return err('Cannot remove admin privileges from yourself or system owner.', 400);
+      }
+      const now = new Date().toISOString();
+      await db
+        .prepare(
+          `UPDATE users
+           SET is_admin = ?, pwa_approval_status = CASE WHEN ? = 1 THEN 'approved' ELSE pwa_approval_status END, updated_at = ?
+           WHERE id = ?`
+        )
+        .bind(nextAdmin ? 1 : 0, nextAdmin ? 1 : 0, now, targetId)
+        .run();
+      const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(targetId).first<UserRow>();
+      return json({ ok: true, user: updated ? serializeUser(updated, env) : null }, 200);
+    }
+
+    const deleteMatch = path.match(/^\/api\/admin\/users\/([^/]+)$/);
+    if (deleteMatch && request.method === 'DELETE') {
+      const targetId = decodeURIComponent(deleteMatch[1]);
+      if (targetId === userId) return err('Cannot delete your own active admin account here.', 400);
+      const target = await db.prepare('SELECT email FROM users WHERE id = ?').bind(targetId).first<{ email: string }>();
+      if (!target) return err('Target user not found.', 404);
+      if (isOwnerAdmin(target.email, env)) return err('System owner accounts cannot be deleted.', 400);
+      await db.prepare('DELETE FROM users WHERE id = ?').bind(targetId).run();
+      return json({ ok: true, deleted: true, id: targetId }, 200);
+    }
+
+    return err('Unsupported admin route.', 404);
+  }
+
+  // Enforce server-side PWA approval on D1 sync calls from web/iOS PWA client
+  if (path.startsWith('/api/sync/') && (request.headers.get('X-Muxis-Client') ?? '').toLowerCase() === 'pwa') {
+    const needApproval = await isApprovalRequired(db);
+    if (needApproval) {
+      const syncRow = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<UserRow>();
+      if (!syncRow) return err('User account not found.', 404);
+      const serialized = serializeUser(syncRow, env);
+      if (!serialized.is_admin && serialized.pwa_approval_status !== 'approved') {
+        return json(
+          {
+            error: 'Your PWA account is awaiting admin approval.',
+            code: 'PWA_APPROVAL_REQUIRED',
+            approval_status: serialized.pwa_approval_status,
+          },
+          403
+        );
+      }
+    }
   }
 
   if (path === '/api/auth/regenerate-recovery' && request.method === 'POST') {
@@ -1002,40 +1219,63 @@ export async function handleCloudRoute(
 
 async function upsertGoogleUser(
   db: D1Database,
+  env: CloudEnv,
   input: { googleSub: string; email: string; displayName: string; avatarUrl: string | null }
 ) {
   const now = new Date().toISOString();
+  const ownerAdmin = isOwnerAdmin(input.email, env);
   const bySub = await db.prepare('SELECT * FROM users WHERE google_sub = ?').bind(input.googleSub).first<UserRow>();
   if (bySub) {
     await db
-      .prepare('UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?')
-      .bind(input.displayName, input.avatarUrl ?? bySub.avatar_url, now, bySub.id)
+      .prepare(
+        `UPDATE users
+         SET display_name = ?, avatar_url = ?,
+             is_admin = CASE WHEN ? = 1 THEN 1 ELSE is_admin END,
+             pwa_approval_status = CASE WHEN ? = 1 THEN 'approved' ELSE pwa_approval_status END,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(input.displayName, input.avatarUrl ?? bySub.avatar_url, ownerAdmin ? 1 : 0, ownerAdmin ? 1 : 0, now, bySub.id)
       .run();
-    return serializeUser({ ...bySub, display_name: input.displayName, avatar_url: input.avatarUrl ?? bySub.avatar_url });
+    const fresh = await db.prepare('SELECT * FROM users WHERE id = ?').bind(bySub.id).first<UserRow>();
+    return serializeUser(fresh ?? { ...bySub, display_name: input.displayName, avatar_url: input.avatarUrl ?? bySub.avatar_url }, env);
   }
 
   const byEmail = await db.prepare('SELECT * FROM users WHERE email = ?').bind(input.email).first<UserRow>();
   if (byEmail) {
     await db
-      .prepare(`UPDATE users SET google_sub = ?, avatar_url = COALESCE(?, avatar_url), auth_provider = 'google', email_verified = 1, updated_at = ? WHERE id = ?`)
-      .bind(input.googleSub, input.avatarUrl, now, byEmail.id)
+      .prepare(
+        `UPDATE users
+         SET google_sub = ?, avatar_url = COALESCE(?, avatar_url), auth_provider = 'google', email_verified = 1,
+             is_admin = CASE WHEN ? = 1 THEN 1 ELSE is_admin END,
+             pwa_approval_status = CASE WHEN ? = 1 THEN 'approved' ELSE pwa_approval_status END,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(input.googleSub, input.avatarUrl, ownerAdmin ? 1 : 0, ownerAdmin ? 1 : 0, now, byEmail.id)
       .run();
-    return serializeUser({
-      ...byEmail,
-      google_sub: input.googleSub,
-      avatar_url: input.avatarUrl ?? byEmail.avatar_url,
-      auth_provider: 'google',
-    });
+    const fresh = await db.prepare('SELECT * FROM users WHERE id = ?').bind(byEmail.id).first<UserRow>();
+    return serializeUser(
+      fresh ?? {
+        ...byEmail,
+        google_sub: input.googleSub,
+        avatar_url: input.avatarUrl ?? byEmail.avatar_url,
+        auth_provider: 'google',
+      },
+      env
+    );
   }
 
+  const needApproval = ownerAdmin ? false : await isApprovalRequired(db);
+  const approvalStatus = ownerAdmin || !needApproval ? 'approved' : 'pending';
   const newId = crypto.randomUUID();
   await db.batch([
     db
       .prepare(
-        `INSERT INTO users (id, email, display_name, avatar_url, auth_provider, google_sub, email_verified, subscription_tier, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'google', ?, 1, 'free', ?, ?)`
+        `INSERT INTO users (id, email, display_name, avatar_url, auth_provider, google_sub, email_verified, subscription_tier, pwa_approval_status, is_admin, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'google', ?, 1, 'free', ?, ?, ?, ?)`
       )
-      .bind(newId, input.email, input.displayName, input.avatarUrl, input.googleSub, now, now),
+      .bind(newId, input.email, input.displayName, input.avatarUrl, input.googleSub, approvalStatus, ownerAdmin ? 1 : 0, now, now),
     db.prepare('INSERT OR IGNORE INTO user_settings (user_id, updated_at) VALUES (?, ?)').bind(newId, now),
   ]);
 
@@ -1046,5 +1286,8 @@ async function upsertGoogleUser(
     avatar_url: input.avatarUrl,
     subscription_tier: 'free',
     auth_provider: 'google',
+    is_admin: ownerAdmin,
+    pwa_approval_status: approvalStatus,
+    pwa_note: null,
   };
 }

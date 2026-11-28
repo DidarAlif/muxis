@@ -1,4 +1,4 @@
-const CACHE_NAME = 'muxis-pwa-v1';
+const CACHE_NAME = 'muxis-pwa-v2';
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
@@ -8,9 +8,11 @@ const APP_SHELL_ASSETS = [
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  '../assets/muxis_mark.png',
+  '../assets/muxis_mark_square.png',
+  '../assets/muxis_app_icon.png',
   '../assets/a_leaf_mark.svg',
-  '../assets/a_leaf_org_logo.svg',
-  '../assets/muxis_mark.png'
+  '../assets/a_leaf_org_logo.svg'
 ];
 
 self.addEventListener('install', (event) => {

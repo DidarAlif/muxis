@@ -1,5 +1,4 @@
-// MUXIS Installable PWA Engine — Offline IndexedDB Audio, Web Audio 10-Band EQ,
-// Global FM Radio, Cloudflare D1 Cloud Sync & 1-Click Firebase Google Auth
+// MUXIS iPhone Installable PWA — Android Mobile UI + Owner Approval Gate + D1 Sync
 
 (function () {
   'use strict';
@@ -12,59 +11,34 @@
   ];
 
   const FEATURED_TRACKS = [
-    {
-      id: 'cc-1',
-      title: 'Neon Odyssey',
-      artist: 'Aura Synthesis',
-      album: 'Prismatic Dreams (CC-BY 4.0)',
-      badge: 'OPEN HI-FI',
-      url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Tours/Enthusiast/Tours_-_01_-_Enthusiast.mp3'
-    },
-    {
-      id: 'cc-2',
-      title: 'Obsidian Reflections',
-      artist: 'Kroma Soundworks',
-      album: 'Atmospheres Vol. 1',
-      badge: '320KBPS',
-      url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Broke_For_Free/Directionless_EP/Broke_For_Free_-_01_-_Night_Owl.mp3'
-    },
-    {
-      id: 'cc-3',
-      title: 'Velvet Aurora',
-      artist: 'Lunar Pulse',
-      album: 'Celestial Echoes',
-      badge: 'OPEN STREAM',
-      url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/WFMU/Lame_Drivers/Frozen_Air/Lame_Drivers_-_01_-_Frozen_Air.mp3'
-    },
-    {
-      id: 'cc-4',
-      title: 'Midnight Frequency',
-      artist: 'Subtle Wave',
-      album: 'Deep Space Oscillations',
-      badge: 'OPEN STREAM',
-      url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Doctor_Turtle/The_Double-Down_Two-Step/Doctor_Turtle_-_01_-_The_Double-Down_Two-Step.mp3'
-    }
+    { id: 'cc-1', title: 'Neon Odyssey', artist: 'Aura Synthesis', album: 'Prismatic Dreams', badge: 'OPEN HI-FI', url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Tours/Enthusiast/Tours_-_01_-_Enthusiast.mp3' },
+    { id: 'cc-2', title: 'Obsidian Reflections', artist: 'Kroma Soundworks', album: 'Atmospheres', badge: '320KBPS', url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Broke_For_Free/Directionless_EP/Broke_For_Free_-_01_-_Night_Owl.mp3' },
+    { id: 'cc-3', title: 'Velvet Aurora', artist: 'Lunar Pulse', album: 'Celestial Echoes', badge: 'HI-FI', url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/WFMU/Lame_Drivers/Frozen_Air/Lame_Drivers_-_01_-_Frozen_Air.mp3' },
+    { id: 'cc-4', title: 'Midnight Frequency', artist: 'Subtle Wave', album: 'Deep Space', badge: 'HI-FI', url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Doctor_Turtle/The_Double-Down_Two-Step/Doctor_Turtle_-_01_-_The_Double-Down_Two-Step.mp3' }
   ];
 
   const EQ_BANDS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
   const EQ_LABELS = ['32Hz', '64Hz', '125', '250', '500', '1kHz', '2kHz', '4kHz', '8kHz', '16k'];
   const EQ_PRESETS = {
     'Prismatic Neon': [4.5, 4.0, 2.0, -0.5, 0.5, 1.5, 3.0, 4.5, 5.5, 6.0],
-    'Sub Bass Thump': [7.5, 6.5, 4.5, 1.5, 0.0, 0.0, 1.0, 1.5, 2.0, 2.0],
+    'Sub-Bass Thump': [7.5, 6.5, 4.5, 1.5, 0.0, 0.0, 1.0, 1.5, 2.0, 2.0],
     'Vocal Clarity': [-1.5, -1.0, 0.5, 2.5, 4.5, 5.5, 4.0, 2.0, 1.0, 0.5],
     'Electronic & EDM': [6.0, 5.0, 2.5, -1.0, 0.5, 2.0, 3.5, 4.5, 6.0, 6.5],
+    'Rock & Metal': [5.0, 3.5, 1.0, -1.5, 0.0, 2.5, 4.5, 5.0, 4.0, 3.0],
+    'Jazz & Acoustic': [2.0, 1.5, 1.0, 2.0, 1.5, 1.0, 2.5, 3.0, 2.5, 1.5],
+    'Lo-Fi Warmth': [4.0, 4.5, 3.0, 1.5, -0.5, -1.5, -2.0, -3.0, -4.0, -5.0],
     'Flat': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   };
 
   const THEMES = {
-    obsidian_aurora: { accent: '#00FF88', accentRgb: '0, 255, 136', secondary: '#00E5FF', secondaryRgb: '0, 229, 255', tertiary: '#9D6BFF', tertiaryRgb: '157, 107, 255', bgDeep: '#060910', bgSecondary: '#0B111C' },
-    midnight_sapphire: { accent: '#38BDF8', accentRgb: '56, 189, 248', secondary: '#22D3EE', secondaryRgb: '34, 211, 238', tertiary: '#818CF8', tertiaryRgb: '129, 140, 248', bgDeep: '#050B16', bgSecondary: '#091426' },
-    botanical_jade: { accent: '#10B981', accentRgb: '16, 185, 129', secondary: '#2DD4BF', secondaryRgb: '45, 212, 191', tertiary: '#6EE7B7', tertiaryRgb: '110, 231, 183', bgDeep: '#040F0B', bgSecondary: '#081A14' },
-    ultraviolet_synth: { accent: '#C084FC', accentRgb: '192, 132, 252', secondary: '#22D3EE', secondaryRgb: '34, 211, 238', tertiary: '#F472B6', tertiaryRgb: '244, 114, 182', bgDeep: '#080514', bgSecondary: '#100A24' },
-    crimson_velvet: { accent: '#FF4D8D', accentRgb: '255, 77, 141', secondary: '#FB7185', secondaryRgb: '251, 113, 133', tertiary: '#C084FC', tertiaryRgb: '192, 132, 252', bgDeep: '#0F060A', bgSecondary: '#180A11' }
+    obsidian_aurora: { accent: '#00FF88', accentRgb: '0, 255, 136', secondary: '#00E5FF', secondaryRgb: '0, 229, 255', tertiary: '#9D6BFF', tertiaryRgb: '157, 107, 255', bgDeep: '#060910', bgSpace: '#0B111C' },
+    midnight_sapphire: { accent: '#38BDF8', accentRgb: '56, 189, 248', secondary: '#22D3EE', secondaryRgb: '34, 211, 238', tertiary: '#818CF8', tertiaryRgb: '129, 140, 248', bgDeep: '#050B16', bgSpace: '#091426' },
+    botanical_jade: { accent: '#10B981', accentRgb: '16, 185, 129', secondary: '#2DD4BF', secondaryRgb: '45, 212, 191', tertiary: '#6EE7B7', tertiaryRgb: '110, 231, 183', bgDeep: '#040F0B', bgSpace: '#081A14' },
+    crimson_velvet: { accent: '#FF4D8D', accentRgb: '255, 77, 141', secondary: '#FB7185', secondaryRgb: '251, 113, 133', tertiary: '#C084FC', tertiaryRgb: '192, 132, 252', bgDeep: '#0F060A', bgSpace: '#180A11' },
+    ultraviolet_synth: { accent: '#C084FC', accentRgb: '192, 132, 252', secondary: '#22D3EE', secondaryRgb: '34, 211, 238', tertiary: '#F472B6', tertiaryRgb: '244, 114, 182', bgDeep: '#080514', bgSpace: '#100A24' }
   };
 
-  // Playback & App State (Separate elements so WebAudio CORS never mutes remote FM streams)
+  // Separate local vs remote audio elements so WebAudio CORS never mutes FM streams
   const localAudio = new Audio();
   localAudio.preload = 'metadata';
   const streamAudio = new Audio();
@@ -74,6 +48,7 @@
   let audioCtx = null;
   let eqFilters = [];
   let analyser = null;
+  let eqEnabled = true;
   let eqGains = [...EQ_PRESETS['Prismatic Neon']];
   let activePresetName = 'Prismatic Neon';
   let activeThemeId = localStorage.getItem('muxis_pwa_theme') || 'obsidian_aurora';
@@ -85,99 +60,329 @@
   let radioStations = [];
   let favorites = loadJson('muxis_pwa_favorites', []);
   let history = loadJson('muxis_pwa_history', []);
+  let libFilter = 'all';
+
   let authToken = localStorage.getItem('muxis_cloud_token') || '';
   let authUser = loadJson('muxis_cloud_user', null);
-  let isCreateMode = false;
+  let isSignupMode = false;
+  let approvalTimer = null;
   let deferredInstallPrompt = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
     registerServiceWorker();
-    initInstallUI();
+    initInstallBanner();
     initTheme(activeThemeId);
-    initNavigation();
-    initEqStudio();
-    initSpectrumLoop();
+    initGateHandlers();
+    initShellHandlers();
     initLiquidRipples();
+    initEqStudio();
     initAudioControls();
-    initAuthUI();
-
-    renderFeatured();
-    renderHistory();
-    renderFavorites();
-    await loadLocalTracksFromDb();
-    loadRadioStations('');
+    initSpectrumLoop();
 
     if (authToken) {
-      await verifySessionAndSync();
+      await verifyApprovalAndRoute();
+    } else {
+      showGateAuth();
     }
-    renderCloudView();
   });
 
-  // -------------------------------------------------------------------------
-  // Service Worker & Native/iOS Install Banner
-  // -------------------------------------------------------------------------
   function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   }
 
-  function initInstallUI() {
+  function initInstallBanner() {
     const installBtn = document.getElementById('install-pwa-btn');
     const banner = document.getElementById('ios-install-banner');
     const instr = document.getElementById('install-instructions');
     const dismiss = document.getElementById('dismiss-install-btn');
-
-    const isStandalone = window.navigator.standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches;
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
       (/Macintosh/i.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);
 
-    if (!isStandalone && localStorage.getItem('muxis_hide_install_banner') !== '1') {
-      if (isIOS) {
-        banner.classList.add('visible');
-      }
+    if (!isStandalone && localStorage.getItem('muxis_hide_install_banner') !== '1' && isIOS) {
+      banner.classList.add('visible');
     }
-
-    if (dismiss) {
-      dismiss.addEventListener('click', () => {
-        banner.classList.remove('visible');
-        localStorage.setItem('muxis_hide_install_banner', '1');
-      });
-    }
+    dismiss.addEventListener('click', () => {
+      banner.classList.remove('visible');
+      localStorage.setItem('muxis_hide_install_banner', '1');
+    });
 
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      if (installBtn) {
-        installBtn.style.display = 'inline-flex';
-        installBtn.addEventListener('click', async () => {
-          if (!deferredInstallPrompt) return;
-          deferredInstallPrompt.prompt();
-          await deferredInstallPrompt.userChoice;
-          deferredInstallPrompt = null;
-          installBtn.style.display = 'none';
-          banner.classList.remove('visible');
-        });
-      }
+      installBtn.style.display = 'inline-flex';
+      installBtn.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        banner.classList.remove('visible');
+      });
       if (!isStandalone && !isIOS) {
-        instr.textContent = 'Install MUXIS as a standalone offline-ready app directly onto your device in one click.';
+        instr.textContent = 'Install MUXIS straight onto your device Home Screen in 1 tap.';
         banner.classList.add('visible');
       }
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Navigation, Themes & Liquid Ripples
-  // -------------------------------------------------------------------------
-  function initNavigation() {
-    document.querySelectorAll('[data-nav]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.nav;
-        document.querySelectorAll('.pwa-view').forEach((v) => v.classList.toggle('active', v.id === `view-${target}`));
-        document.querySelectorAll('.tab-btn[data-nav]').forEach((t) => t.classList.toggle('active', t.dataset.nav === target));
+  // =========================================================================
+  // GATE & APPROVAL WORKFLOW (Server-Verified Cloudflare D1)
+  // =========================================================================
+  function initGateHandlers() {
+    const tabIn = document.getElementById('tab-signin');
+    const tabUp = document.getElementById('tab-signup');
+    const nameField = document.getElementById('gate-name');
+    const submitBtn = document.getElementById('gate-submit-btn');
+
+    tabIn.addEventListener('click', () => {
+      isSignupMode = false;
+      tabIn.classList.add('active');
+      tabUp.classList.remove('active');
+      nameField.style.display = 'none';
+      submitBtn.textContent = 'Sign In to MUXIS Cloud';
+    });
+    tabUp.addEventListener('click', () => {
+      isSignupMode = true;
+      tabUp.classList.add('active');
+      tabIn.classList.remove('active');
+      nameField.style.display = 'block';
+      submitBtn.textContent = 'Create Account & Request Approval';
+    });
+
+    submitBtn.addEventListener('click', submitEmailAuth);
+    document.getElementById('gate-google-btn').addEventListener('click', startGoogleOAuth);
+    document.getElementById('check-approval-btn').addEventListener('click', verifyApprovalAndRoute);
+    document.getElementById('gate-signout-btn').addEventListener('click', signOutAll);
+  }
+
+  function showGateAuth() {
+    stopApprovalPolling();
+    document.getElementById('gate-shell').style.display = 'flex';
+    document.getElementById('gate-auth-card').style.display = 'block';
+    document.getElementById('gate-approval-card').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'none';
+  }
+
+  function showGatePending(status, note, email) {
+    document.getElementById('gate-shell').style.display = 'flex';
+    document.getElementById('gate-auth-card').style.display = 'none';
+    document.getElementById('gate-approval-card').style.display = 'block';
+    document.getElementById('app-shell').style.display = 'none';
+
+    const badge = document.getElementById('approval-badge');
+    const title = document.getElementById('approval-title');
+    const desc = document.getElementById('approval-desc');
+    document.getElementById('approval-email-line').textContent = email || '';
+
+    if (status === 'rejected') {
+      badge.className = 'status-badge rejected';
+      badge.textContent = 'ACCESS NOT APPROVED';
+      title.textContent = 'Access Revoked / Rejected';
+      desc.textContent = note || 'Your account is currently not approved for PWA access. Contact A Leaf ORG administrator.';
+      stopApprovalPolling();
+    } else {
+      badge.className = 'status-badge pending';
+      badge.textContent = 'PENDING OWNER APPROVAL';
+      title.textContent = 'Waiting for Admin Approval';
+      desc.textContent = 'Your MUXIS Cloud request is queued in Cloudflare D1. Once approved by the owner in the Admin Panel, this app unlocks automatically.';
+      startApprovalPolling();
+    }
+  }
+
+  function unlockApprovedApp() {
+    stopApprovalPolling();
+    document.getElementById('gate-shell').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'flex';
+    hydrateAppData();
+  }
+
+  function startApprovalPolling() {
+    if (approvalTimer) return;
+    approvalTimer = setInterval(() => {
+      if (authToken && !document.hidden) verifyApprovalAndRoute(true);
+    }, 6000);
+  }
+  function stopApprovalPolling() {
+    if (approvalTimer) { clearInterval(approvalTimer); approvalTimer = null; }
+  }
+
+  async function verifyApprovalAndRoute(silent = false) {
+    if (!authToken) { showGateAuth(); return; }
+    try {
+      const res = await fetch(`${WORKER_URL}/api/auth/pwa/status`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if (res.status === 401) {
+        signOutAll();
+        return;
+      }
+      if (!res.ok) {
+        if (authUser && (authUser.is_admin || authUser.pwa_approval_status === 'approved')) {
+          unlockApprovedApp();
+        }
+        return;
+      }
+      const data = await res.json();
+      if (data.user) {
+        authUser = data.user;
+        saveJson('muxis_cloud_user', authUser);
+      }
+      if (data.is_admin || data.approval_status === 'approved') {
+        unlockApprovedApp();
+      } else {
+        showGatePending(data.approval_status || 'pending', data.note, data.user?.email || authUser?.email);
+        if (!silent) showToast('Still awaiting owner approval');
+      }
+    } catch (_) {
+      if (authUser && (authUser.is_admin || authUser.pwa_approval_status === 'approved')) {
+        unlockApprovedApp();
+      }
+    }
+  }
+
+  async function submitEmailAuth() {
+    const email = document.getElementById('gate-email').value.trim();
+    const password = document.getElementById('gate-pass').value;
+    const displayName = document.getElementById('gate-name').value.trim();
+    const errEl = document.getElementById('gate-error-box');
+    errEl.style.display = 'none';
+
+    const path = isSignupMode ? '/api/auth/register' : '/api/auth/login';
+    try {
+      const res = await fetch(`${WORKER_URL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, display_name: displayName })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.access_token) {
+        errEl.textContent = data.error || 'Authentication failed.';
+        errEl.style.display = 'block';
+        return;
+      }
+      authToken = data.access_token;
+      authUser = data.user;
+      localStorage.setItem('muxis_cloud_token', authToken);
+      saveJson('muxis_cloud_user', authUser);
+      await verifyApprovalAndRoute();
+    } catch (_) {
+      errEl.textContent = 'Network timeout contacting MUXIS Cloud.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function startGoogleOAuth() {
+    const errEl = document.getElementById('gate-error-box');
+    errEl.style.display = 'none';
+    const rand = new Uint8Array(24);
+    crypto.getRandomValues(rand);
+    const pollSecret = Array.from(rand, (b) => b.toString(16).padStart(2, '0')).join('');
+    const appRedirect = window.location.href.split('#')[0];
+
+    try {
+      const res = await fetch(
+        `${WORKER_URL}/api/auth/google/start?poll_secret=${encodeURIComponent(pollSecret)}&app_redirect=${encodeURIComponent(appRedirect)}`
+      );
+      const start = await res.json();
+      if (!res.ok || !start.auth_url) {
+        errEl.textContent = start.error || 'Google Sign-In unavailable.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      const popup = window.open(start.auth_url, '_blank', 'width=480,height=640');
+      const deadline = Date.now() + 3 * 60 * 1000;
+      const timer = setInterval(async () => {
+        if (Date.now() > deadline) { clearInterval(timer); return; }
+        try {
+          const poll = await fetch(`${WORKER_URL}/api/auth/google/poll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state: start.state, poll_secret: pollSecret })
+          });
+          if (!poll.ok) return;
+          const pData = await poll.json();
+          if (pData.status === 'complete' && pData.access_token) {
+            clearInterval(timer);
+            try { if (popup && !popup.closed) popup.close(); } catch (_) {}
+            authToken = pData.access_token;
+            authUser = pData.user;
+            localStorage.setItem('muxis_cloud_token', authToken);
+            saveJson('muxis_cloud_user', authUser);
+            await verifyApprovalAndRoute();
+          } else if (pData.status === 'error' || pData.status === 'expired') {
+            clearInterval(timer);
+            errEl.textContent = pData.error || 'Google Sign-In expired.';
+            errEl.style.display = 'block';
+          }
+        } catch (_) {}
+      }, 1300);
+    } catch (_) {
+      errEl.textContent = 'Could not reach MUXIS Cloud OAuth.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  function signOutAll() {
+    authToken = '';
+    authUser = null;
+    localStorage.removeItem('muxis_cloud_token');
+    localStorage.removeItem('muxis_cloud_user');
+    showGateAuth();
+  }
+
+  // =========================================================================
+  // ANDROID MOBILE SHELL & NAVIGATION
+  // =========================================================================
+  function switchTab(name) {
+    document.querySelectorAll('.tab-view').forEach((v) => v.classList.toggle('active', v.id === `tab-${name}`));
+    document.querySelectorAll('.bnav-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  }
+
+  function initShellHandlers() {
+    document.querySelectorAll('.bnav-btn').forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+    document.querySelectorAll('[data-go-tab]').forEach((el) => {
+      el.addEventListener('click', () => switchTab(el.dataset.goTab));
+    });
+    document.getElementById('brand-home-btn').addEventListener('click', () => switchTab('home'));
+    document.getElementById('top-radio-btn').addEventListener('click', () => switchTab('explore'));
+    document.getElementById('top-cloud-pill').addEventListener('click', () => switchTab('settings'));
+
+    const studioSheet = document.getElementById('studio-sheet-backdrop');
+    const openDsp = () => studioSheet.classList.add('open');
+    document.getElementById('top-dsp-btn').addEventListener('click', openDsp);
+    document.getElementById('settings-open-dsp').addEventListener('click', openDsp);
+    document.getElementById('np-open-dsp').addEventListener('click', openDsp);
+    document.getElementById('close-studio-btn').addEventListener('click', () => studioSheet.classList.remove('open'));
+    studioSheet.addEventListener('click', (e) => { if (e.target === studioSheet) studioSheet.classList.remove('open'); });
+
+    const npOverlay = document.getElementById('aurora-now-playing');
+    const openNp = () => npOverlay.classList.add('open');
+    document.getElementById('pb-expand-area').addEventListener('click', openNp);
+    document.getElementById('top-queue-btn').addEventListener('click', openNp);
+    document.getElementById('np-close-btn').addEventListener('click', () => npOverlay.classList.remove('open'));
+
+    document.querySelectorAll('#lib-filter-chips .filter-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        libFilter = chip.dataset.libFilter;
+        document.querySelectorAll('#lib-filter-chips .filter-chip').forEach((c) => c.classList.toggle('active', c === chip));
+        renderLibraryList();
       });
     });
+
+    document.querySelectorAll('#radio-genre-chips .filter-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#radio-genre-chips .filter-chip').forEach((c) => c.classList.toggle('active', c === chip));
+        loadRadioStations(chip.dataset.genre || '', 'explore-radio-list');
+      });
+    });
+
+    document.getElementById('global-search-btn').addEventListener('click', runSearch);
+    document.getElementById('global-search-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
 
     document.querySelectorAll('[data-theme]').forEach((dot) => {
       dot.addEventListener('click', () => {
@@ -186,6 +391,29 @@
         if (authToken) pushCloudSync({ settings: { dark_preset: dot.dataset.theme, eq_preset: activePresetName } });
       });
     });
+
+    document.getElementById('settings-sync-btn').addEventListener('click', async () => {
+      await pullCloudSync();
+      showToast('Cloudflare D1 synced!');
+    });
+    document.getElementById('settings-signout-btn').addEventListener('click', signOutAll);
+  }
+
+  async function hydrateAppData() {
+    const first = (authUser?.display_name || authUser?.email || 'Cloud').split(' ')[0];
+    document.getElementById('top-cloud-name').textContent = first;
+    document.getElementById('settings-user-meta').textContent = `${authUser?.email || ''} • Cloudflare D1 Sync`;
+
+    const isAdm = Boolean(authUser?.is_admin);
+    document.getElementById('top-admin-pill').style.display = isAdm ? 'inline-flex' : 'none';
+    document.getElementById('settings-admin-link').style.display = isAdm ? 'inline-flex' : 'none';
+
+    renderHomeCards();
+    await loadLocalTracksFromDb();
+    await pullCloudSync();
+    renderHomeRecent();
+    renderLibraryList();
+    loadRadioStations('', 'explore-radio-list');
   }
 
   function initTheme(id) {
@@ -199,7 +427,7 @@
     s.setProperty('--tertiary', t.tertiary);
     s.setProperty('--tertiary-rgb', t.tertiaryRgb);
     s.setProperty('--bg-deep', t.bgDeep);
-    s.setProperty('--bg-secondary', t.bgSecondary);
+    s.setProperty('--bg-deep-space', t.bgSpace);
     document.querySelectorAll('[data-theme]').forEach((d) => d.classList.toggle('active', d.dataset.theme === id));
   }
 
@@ -247,17 +475,15 @@
     }, { passive: true });
   }
 
-  // -------------------------------------------------------------------------
-  // IndexedDB Local Offline Audio Store (iPhone Files / Android / Desktop)
-  // -------------------------------------------------------------------------
+  // =========================================================================
+  // INDEXEDDB LOCAL FILES + AUDIO ENGINE + EQ DSP
+  // =========================================================================
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open('muxis_pwa_db', 1);
       req.onupgradeneeded = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains('tracks')) {
-          db.createObjectStore('tracks', { keyPath: 'id' });
-        }
+        if (!db.objectStoreNames.contains('tracks')) db.createObjectStore('tracks', { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -266,59 +492,28 @@
 
   async function saveLocalTrackToDb(item) {
     const db = await openDb();
-    return new Promise((resolve, reject) => {
+    await new Promise((res, rej) => {
       const tx = db.transaction('tracks', 'readwrite');
       tx.objectStore('tracks').put(item);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
     });
   }
 
   async function loadLocalTracksFromDb() {
     try {
       const db = await openDb();
-      const rows = await new Promise((resolve, reject) => {
+      const rows = await new Promise((res, rej) => {
         const tx = db.transaction('tracks', 'readonly');
         const req = tx.objectStore('tracks').getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = () => rej(req.error);
       });
       localTracks = rows.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-      renderLocalTracks();
-    } catch (_) {
-      localTracks = [];
-      renderLocalTracks();
-    }
+    } catch (_) { localTracks = []; }
+    updateLibrarySummary();
   }
 
-  async function deleteLocalTrackFromDb(id) {
-    const db = await openDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction('tracks', 'readwrite');
-      tx.objectStore('tracks').delete(id);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-    localTracks = localTracks.filter((t) => t.id !== id);
-    renderLocalTracks();
-  }
-
-  function parseFileTitle(filename) {
-    const base = filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim();
-    const parts = base.split(/\s+-\s+/);
-    if (parts.length >= 2) {
-      return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
-    }
-    return { artist: 'Local File', title: base || 'Untitled Track' };
-  }
-
-  function triggerImportPicker() {
-    document.getElementById('local-file-input').click();
-  }
-
-  // -------------------------------------------------------------------------
-  // Audio Engine + Real 10-Band Web Audio BiquadFilter EQ + MediaSession
-  // -------------------------------------------------------------------------
   function ensureWebAudioGraphForLocal() {
     if (!audioCtx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -326,41 +521,29 @@
       audioCtx = new Ctx();
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 128;
-
       eqFilters = EQ_BANDS.map((freq, idx) => {
         const f = audioCtx.createBiquadFilter();
         f.type = idx === 0 ? 'lowshelf' : (idx === EQ_BANDS.length - 1 ? 'highshelf' : 'peaking');
         f.frequency.value = freq;
         f.Q.value = 1.25;
-        f.gain.value = eqGains[idx];
+        f.gain.value = eqEnabled ? eqGains[idx] : 0;
         return f;
       });
-
       const src = audioCtx.createMediaElementSource(localAudio);
       let node = src;
-      eqFilters.forEach((f) => {
-        node.connect(f);
-        node = f;
-      });
+      eqFilters.forEach((f) => { node.connect(f); node = f; });
       node.connect(analyser);
       analyser.connect(audioCtx.destination);
     }
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {});
-    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   }
 
   async function playTrack(track, trackQueue) {
     if (trackQueue && trackQueue.length) queue = trackQueue;
     currentTrack = track;
-
     localAudio.pause();
     streamAudio.pause();
-
-    if (activeObjectUrl) {
-      URL.revokeObjectURL(activeObjectUrl);
-      activeObjectUrl = null;
-    }
+    if (activeObjectUrl) { URL.revokeObjectURL(activeObjectUrl); activeObjectUrl = null; }
 
     let playUrl = track.url;
     if (track.blob) {
@@ -373,23 +556,29 @@
     }
 
     activeAudio.src = playUrl;
-    document.getElementById('np-title').textContent = track.title;
-    document.getElementById('np-artist').textContent = track.artist || 'MUXIS';
-    document.getElementById('np-art').src = track.artwork || 'icons/icon-192.png';
+    document.getElementById('pb-title').textContent = track.title;
+    document.getElementById('pb-artist').textContent = track.artist || 'MUXIS';
+    document.getElementById('pb-art').src = track.artwork || '../assets/muxis_app_icon.png';
+    document.getElementById('np-big-title').textContent = track.title;
+    document.getElementById('np-big-artist').textContent = track.artist || 'MUXIS';
+    document.getElementById('np-big-art').src = track.artwork || '../assets/muxis_app_icon.png';
+    updateFavButtonState();
 
     try {
       await activeAudio.play();
-      updatePlayButton(true);
+      updatePlayButtons(true);
       updateMediaSession(track);
       recordHistory(track);
       highlightCurrentTrack();
     } catch (_) {
-      showToast('Tap play again or check audio stream permissions');
+      showToast('Tap play to start audio');
     }
   }
 
-  function updatePlayButton(isPlaying) {
-    document.getElementById('play-pause-btn').innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9654;';
+  function updatePlayButtons(isPlaying) {
+    const sym = isPlaying ? '&#10074;&#10074;' : '&#9654;';
+    document.getElementById('pb-play-btn').innerHTML = sym;
+    document.getElementById('np-play-btn').innerHTML = sym;
   }
 
   function updateMediaSession(track) {
@@ -421,48 +610,51 @@
   }
 
   function initAudioControls() {
-    document.getElementById('play-pause-btn').addEventListener('click', () => {
-      if (!currentTrack && queue.length) {
-        playTrack(queue[0]);
-        return;
-      }
+    const toggle = () => {
+      if (!currentTrack && queue.length) { playTrack(queue[0]); return; }
       if (activeAudio.paused) activeAudio.play().catch(() => {});
       else activeAudio.pause();
+    };
+    document.getElementById('pb-play-btn').addEventListener('click', toggle);
+    document.getElementById('np-play-btn').addEventListener('click', toggle);
+    document.getElementById('pb-next-btn').addEventListener('click', playNext);
+    document.getElementById('np-next-btn').addEventListener('click', playNext);
+    document.getElementById('np-prev-btn').addEventListener('click', playPrev);
+    document.getElementById('pb-fav-btn').addEventListener('click', () => {
+      if (currentTrack) toggleFavorite(currentTrack);
     });
 
-    document.getElementById('next-btn').addEventListener('click', playNext);
-    document.getElementById('prev-btn').addEventListener('click', playPrev);
-
     [localAudio, streamAudio].forEach((el) => {
-      el.addEventListener('play', () => { if (el === activeAudio) updatePlayButton(true); });
-      el.addEventListener('pause', () => { if (el === activeAudio) updatePlayButton(false); });
+      el.addEventListener('play', () => { if (el === activeAudio) updatePlayButtons(true); });
+      el.addEventListener('pause', () => { if (el === activeAudio) updatePlayButtons(false); });
       el.addEventListener('ended', () => { if (el === activeAudio) playNext(); });
       el.addEventListener('timeupdate', () => {
         if (el !== activeAudio) return;
         const pct = el.duration && Number.isFinite(el.duration) ? (el.currentTime / el.duration) * 100 : 0;
-        document.getElementById('seek-fill').style.width = `${pct.toFixed(1)}%`;
+        document.getElementById('mini-progress-fill').style.width = `${pct.toFixed(1)}%`;
+        document.getElementById('np-seek-range').value = String(Math.round(pct));
       });
     });
 
-    document.getElementById('seek-bar').addEventListener('click', (e) => {
+    document.getElementById('np-seek-range').addEventListener('input', (e) => {
       if (!activeAudio.duration || !Number.isFinite(activeAudio.duration)) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-      activeAudio.currentTime = ratio * activeAudio.duration;
+      activeAudio.currentTime = (Number(e.target.value) / 100) * activeAudio.duration;
     });
 
-    document.getElementById('import-files-btn').addEventListener('click', triggerImportPicker);
-    document.getElementById('import-files-cta').addEventListener('click', triggerImportPicker);
+    document.getElementById('home-spotlight-play').addEventListener('click', () => playTrack(FEATURED_TRACKS[0], FEATURED_TRACKS));
+    document.getElementById('home-import-btn').addEventListener('click', () => document.getElementById('local-file-input').click());
+    document.getElementById('lib-import-btn').addEventListener('click', () => document.getElementById('local-file-input').click());
 
     document.getElementById('local-file-input').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files || []);
       if (!files.length) return;
       for (const file of files) {
-        const meta = parseFileTitle(file.name);
+        const base = file.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim();
+        const parts = base.split(/\s+-\s+/);
         await saveLocalTrackToDb({
           id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          title: meta.title,
-          artist: meta.artist,
+          title: parts.length >= 2 ? parts.slice(1).join(' - ') : base,
+          artist: parts.length >= 2 ? parts[0] : 'Local Device File',
           album: 'Imported Files',
           badge: file.name.split('.').pop().toUpperCase(),
           blob: file,
@@ -471,21 +663,13 @@
       }
       e.target.value = '';
       await loadLocalTracksFromDb();
-      showToast(`Saved ${files.length} audio file(s) offline`);
-      document.querySelector('[data-nav="library"]').click();
-    });
-
-    document.getElementById('radio-search-btn').addEventListener('click', () => {
-      loadRadioStations(document.getElementById('radio-search-input').value.trim());
-    });
-    document.getElementById('radio-search-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') loadRadioStations(e.target.value.trim());
+      libFilter = 'all';
+      renderLibraryList();
+      switchTab('library');
+      showToast(`Imported ${files.length} audio file(s)`);
     });
   }
 
-  // -------------------------------------------------------------------------
-  // 10-Band EQ UI + Live FFT / Reactive Canvas
-  // -------------------------------------------------------------------------
   function initEqStudio() {
     const container = document.getElementById('eq-sliders-container');
     container.innerHTML = '';
@@ -496,17 +680,14 @@
       val.className = 'eq-db';
       val.textContent = `${eqGains[i] >= 0 ? '+' : ''}${eqGains[i].toFixed(1)}`;
       const range = document.createElement('input');
-      range.type = 'range';
-      range.min = '-12';
-      range.max = '12';
-      range.step = '0.5';
+      range.type = 'range'; range.min = '-12'; range.max = '12'; range.step = '0.5';
       range.value = String(eqGains[i]);
       range.className = 'eq-range';
       range.addEventListener('input', () => {
         const g = parseFloat(range.value);
         eqGains[i] = g;
         val.textContent = `${g >= 0 ? '+' : ''}${g.toFixed(1)}`;
-        if (eqFilters[i]) eqFilters[i].gain.value = g;
+        if (eqFilters[i]) eqFilters[i].gain.value = eqEnabled ? g : 0;
       });
       const hz = document.createElement('span');
       hz.className = 'eq-hz';
@@ -515,26 +696,30 @@
       container.appendChild(col);
     });
 
-    document.querySelectorAll('#eq-presets-row .preset-chip').forEach((chip) => {
+    document.getElementById('eq-bypass-toggle').addEventListener('change', (e) => {
+      eqEnabled = e.target.checked;
+      eqFilters.forEach((f, idx) => { f.gain.value = eqEnabled ? eqGains[idx] : 0; });
+    });
+
+    document.querySelectorAll('#studio-preset-chips .filter-chip').forEach((chip) => {
       chip.addEventListener('click', () => {
         const name = chip.dataset.preset;
-        const vals = EQ_PRESETS[name];
-        if (!vals) return;
+        if (!EQ_PRESETS[name]) return;
         activePresetName = name;
-        eqGains = [...vals];
+        eqGains = [...EQ_PRESETS[name]];
         initEqStudio();
-        eqFilters.forEach((f, idx) => { f.gain.value = eqGains[idx]; });
-        document.querySelectorAll('#eq-presets-row .preset-chip').forEach((c) => c.classList.toggle('active', c === chip));
+        eqFilters.forEach((f, idx) => { f.gain.value = eqEnabled ? eqGains[idx] : 0; });
+        document.querySelectorAll('#studio-preset-chips .filter-chip').forEach((c) => c.classList.toggle('active', c === chip));
         if (authToken) pushCloudSync({ settings: { dark_preset: activeThemeId, eq_preset: name } });
       });
     });
   }
 
   function initSpectrumLoop() {
-    const canvas = document.getElementById('pwa-spectrum-canvas');
+    const canvas = document.getElementById('np-spectrum-canvas');
     if (!canvas) return;
     const freqData = new Uint8Array(64);
-    const levels = new Float32Array(36).fill(0.08);
+    const levels = new Float32Array(32).fill(0.1);
     let tick = 0;
 
     function frame() {
@@ -548,127 +733,83 @@
         const ctx = canvas.getContext('2d');
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, rect.width, rect.height);
-
         const playing = !activeAudio.paused && !!activeAudio.src;
-        const useRealFft = playing && analyser && currentTrack && currentTrack.blob;
-        if (useRealFft) analyser.getByteFrequencyData(freqData);
-
+        const useFft = playing && analyser && currentTrack && currentTrack.blob;
+        if (useFft) analyser.getByteFrequencyData(freqData);
         const t = THEMES[activeThemeId] || THEMES.obsidian_aurora;
         const grad = ctx.createLinearGradient(0, 0, rect.width, 0);
-        grad.addColorStop(0, t.accent);
-        grad.addColorStop(0.5, t.secondary);
-        grad.addColorStop(1, t.tertiary);
+        grad.addColorStop(0, t.accent); grad.addColorStop(0.5, t.secondary); grad.addColorStop(1, t.tertiary);
         ctx.fillStyle = grad;
-
         tick++;
-        const phase = tick * 0.05;
-        const count = levels.length;
-        const gap = rect.width / count;
+        const gap = rect.width / levels.length;
         const bw = Math.max(3, gap * 0.62);
-        const base = rect.height * 0.78;
-        const maxH = rect.height * 0.7;
-
-        for (let i = 0; i < count; i++) {
-          let target;
-          if (useRealFft) {
-            target = Math.max(0.08, freqData[Math.min(60, i)] / 255);
-          } else if (playing) {
-            const u = i / (count - 1);
-            const eqIdx = Math.min(9, Math.floor(u * 10));
-            const boost = 1 + eqGains[eqIdx] * 0.04;
-            target = Math.min(1, Math.max(0.1, (0.45 + 0.45 * Math.sin(phase * 2.2 + i * 0.4)) * boost));
-          } else {
-            target = 0.08 + 0.05 * Math.sin(phase * 0.8 + i * 0.35);
-          }
+        for (let i = 0; i < levels.length; i++) {
+          const target = useFft ? Math.max(0.08, freqData[i] / 255) : (playing ? 0.3 + 0.55 * Math.abs(Math.sin(tick * 0.08 + i * 0.45)) : 0.1);
           levels[i] += (target - levels[i]) * 0.28;
-          const h = levels[i] * maxH;
-          const x = i * gap + (gap - bw) * 0.5;
-          ctx.globalAlpha = 0.92;
-          if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, base - h, bw, h, bw * 0.4); ctx.fill(); }
-          else ctx.fillRect(x, base - h, bw, h);
-          ctx.globalAlpha = 0.22;
-          ctx.fillRect(x, base + 3, bw, h * 0.25);
+          const h = levels[i] * (rect.height - 8);
+          ctx.fillRect(i * gap + (gap - bw) * 0.5, rect.height - h, bw, h);
         }
-        ctx.globalAlpha = 1;
       }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   }
 
-  // -------------------------------------------------------------------------
-  // Render Lists, Favorites, History & Radio Browser API
-  // -------------------------------------------------------------------------
-  function renderTrackRows(container, list, allowDeleteLocal = false) {
+  // =========================================================================
+  // RENDERERS & CLOUD SYNC
+  // =========================================================================
+  function renderHomeCards() {
+    const wrap = document.getElementById('home-cards-carousel');
+    wrap.innerHTML = '';
+    FEATURED_TRACKS.forEach((tr) => {
+      const c = document.createElement('div');
+      c.className = 'muxis-sq-card liquid-card';
+      c.innerHTML = `<div class="sq-art"><span>&#9835;</span></div><strong></strong><small></small>`;
+      c.querySelector('strong').textContent = tr.title;
+      c.querySelector('small').textContent = tr.artist;
+      c.addEventListener('click', () => playTrack(tr, FEATURED_TRACKS));
+      wrap.appendChild(c);
+    });
+  }
+
+  function renderTrackRows(container, list) {
     container.innerHTML = '';
     if (!list.length) {
       const empty = document.createElement('div');
-      empty.style.cssText = 'padding: 18px; text-align: center; color: var(--text-muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 14px;';
+      empty.style.cssText = 'padding:18px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);border-radius:14px;';
       empty.textContent = 'No tracks yet.';
       container.appendChild(empty);
       return;
     }
-
-    list.forEach((track) => {
+    list.forEach((t) => {
       const row = document.createElement('div');
-      row.className = 'track-row liquid-card' + (currentTrack && currentTrack.id === track.id ? ' playing' : '');
-      row.dataset.trackId = track.id;
-
+      row.className = 'track-row liquid-card' + (currentTrack && currentTrack.id === t.id ? ' playing' : '');
+      row.dataset.trackId = t.id;
       const art = document.createElement('div');
       art.className = 'track-art';
-      if (track.artwork) {
+      if (t.artwork) {
         const img = document.createElement('img');
-        img.src = track.artwork;
+        img.src = t.artwork;
         img.alt = '';
-        img.onerror = () => {
-          art.innerHTML = '<span style="color:var(--accent);font-weight:900;">&#9835;</span>';
-        };
+        img.onerror = () => { art.innerHTML = '<span style="color:var(--accent);font-weight:900;">&#9835;</span>'; };
         art.appendChild(img);
       } else {
         art.innerHTML = '<span style="color:var(--accent);font-weight:900;">&#9835;</span>';
       }
-
       const info = document.createElement('div');
       info.className = 'track-info';
-      const title = document.createElement('strong');
-      title.textContent = track.title;
-      const artist = document.createElement('span');
-      artist.textContent = track.artist || 'Unknown Artist';
-      info.append(title, artist);
-
-      const meta = document.createElement('div');
-      meta.className = 'track-meta';
-      if (track.badge) {
-        const b = document.createElement('span');
-        b.className = 'badge-tag';
-        b.textContent = track.badge;
-        meta.appendChild(b);
-      }
-
-      const favBtn = document.createElement('button');
-      favBtn.type = 'button';
-      favBtn.className = 'icon-btn' + (isFavorite(track.id) ? ' fav-active' : '');
-      favBtn.innerHTML = '&#10084;';
-      favBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleFavorite(track);
-      });
-      meta.appendChild(favBtn);
-
-      if (allowDeleteLocal) {
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'icon-btn';
-        del.textContent = '×';
-        del.addEventListener('click', (e) => {
-          e.stopPropagation();
-          deleteLocalTrackFromDb(track.id);
-        });
-        meta.appendChild(del);
-      }
-
-      row.append(art, info, meta);
-      row.addEventListener('click', () => playTrack(track, list));
+      const title = document.createElement('strong'); title.textContent = t.title;
+      const artLine = document.createElement('span'); artLine.textContent = t.artist || 'MUXIS';
+      info.append(title, artLine);
+      const pill = document.createElement('span');
+      pill.className = 'fmt-pill'; pill.textContent = t.badge || 'AUDIO';
+      const fav = document.createElement('button');
+      fav.type = 'button';
+      fav.className = 'pb-icon-btn' + (isFavorite(t.id) ? ' fav' : '');
+      fav.innerHTML = isFavorite(t.id) ? '&#9829;' : '&#9825;';
+      fav.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(t); });
+      row.append(art, info, pill, fav);
+      row.addEventListener('click', () => playTrack(t, list));
       container.appendChild(row);
     });
   }
@@ -679,257 +820,116 @@
     });
   }
 
-  function renderFeatured() {
-    renderTrackRows(document.getElementById('featured-list'), FEATURED_TRACKS);
+  function renderHomeRecent() {
+    renderTrackRows(document.getElementById('home-recent-list'), history.slice(0, 6));
   }
 
-  function renderLocalTracks() {
-    document.getElementById('local-count').textContent = String(localTracks.length);
-    renderTrackRows(document.getElementById('local-list'), localTracks, true);
+  function renderLibraryList() {
+    const el = document.getElementById('library-track-list');
+    if (libFilter === 'favorites') renderTrackRows(el, favorites);
+    else if (libFilter === 'history') renderTrackRows(el, history);
+    else renderTrackRows(el, localTracks);
+    updateLibrarySummary();
   }
 
-  function isFavorite(id) {
-    return favorites.some((f) => f.id === id || f.track_uri === id);
+  function updateLibrarySummary() {
+    document.getElementById('lib-summary-line').textContent = `${localTracks.length} Local Tracks · ${favorites.length} Favorites`;
+  }
+
+  function isFavorite(id) { return favorites.some((f) => f.id === id || f.track_uri === id); }
+  function updateFavButtonState() {
+    const btn = document.getElementById('pb-fav-btn');
+    const fav = currentTrack && isFavorite(currentTrack.id);
+    btn.classList.toggle('fav', Boolean(fav));
+    btn.innerHTML = fav ? '&#9829;' : '&#9825;';
   }
 
   function toggleFavorite(track) {
     const uri = track.url || track.id;
-    const exists = favorites.findIndex((f) => f.id === track.id || f.track_uri === uri);
-    if (exists >= 0) {
-      const removed = favorites.splice(exists, 1)[0];
-      if (authToken) pushCloudSync({ mutations: [{ entityType: 'favorite', action: 'delete', data: { track_uri: removed.track_uri || uri } }] });
+    const idx = favorites.findIndex((f) => f.id === track.id || f.track_uri === uri);
+    if (idx >= 0) {
+      favorites.splice(idx, 1);
+      if (authToken) pushCloudSync({ mutations: [{ entityType: 'favorite', action: 'delete', data: { track_uri: uri } }] });
     } else {
-      favorites.unshift({ id: track.id, track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', album: track.album || '', badge: 'FAV', url: track.url });
+      favorites.unshift({ id: track.id, track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', url: track.url, badge: 'FAV' });
       if (authToken) pushCloudSync({ favorites: [{ track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', album: track.album || '' }] });
     }
     saveJson('muxis_pwa_favorites', favorites);
-    renderFavorites();
-    renderFeatured();
-    renderLocalTracks();
-    renderRadio();
-  }
-
-  function renderFavorites() {
-    document.getElementById('fav-count').textContent = String(favorites.length);
-    renderTrackRows(document.getElementById('fav-list'), favorites);
+    updateFavButtonState();
+    renderLibraryList();
+    renderHomeRecent();
   }
 
   function recordHistory(track) {
     const uri = track.url || track.id;
-    history = [{ id: track.id, track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', url: track.url, badge: 'PLAYED' }, ...history.filter((h) => h.id !== track.id)].slice(0, 20);
+    history = [{ id: track.id, track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', url: track.url, badge: 'PLAYED' }, ...history.filter((h) => h.id !== track.id)].slice(0, 25);
     saveJson('muxis_pwa_history', history);
-    renderHistory();
-    if (authToken) {
-      pushCloudSync({ history: [{ track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', album: track.album || '', played_at: new Date().toISOString() }] });
-    }
+    renderHomeRecent();
+    if (authToken) pushCloudSync({ history: [{ track_uri: uri, title: track.title, artist: track.artist || 'MUXIS', played_at: new Date().toISOString() }] });
   }
 
-  function renderHistory() {
-    renderTrackRows(document.getElementById('history-list'), history);
-  }
-
-  async function loadRadioStations(query) {
-    const listEl = document.getElementById('radio-list');
-    listEl.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:13px;">Loading live FM stations...</div>';
+  async function loadRadioStations(query, targetId) {
+    const el = document.getElementById(targetId);
+    el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:13px;">Loading live FM stations...</div>';
     const path = query
-      ? `/json/stations/search?name=${encodeURIComponent(query)}&limit=25&hidebroken=true&order=votes&reverse=true`
+      ? `/json/stations/search?name=${encodeURIComponent(query)}&limit=24&hidebroken=true&order=votes&reverse=true`
       : `/json/stations/topvote/24`;
-
     for (const mirror of RADIO_MIRRORS) {
       try {
         const res = await fetch(`${mirror}${path}`);
         if (!res.ok) continue;
         const rows = await res.json();
-        radioStations = rows
-          .filter((s) => s.url_resolved && s.url_resolved.startsWith('https://'))
-          .map((s) => ({
-            id: `radio-${s.stationuuid}`,
-            title: (s.name || 'Live FM').trim(),
-            artist: `${s.country || 'Global'} · ${s.bitrate ? s.bitrate + 'kbps' : 'Live'}`,
-            album: s.tags || 'Radio',
-            badge: 'LIVE FM',
-            artwork: s.favicon && s.favicon.startsWith('https://') ? s.favicon : '',
-            url: s.url_resolved
-          }));
-        renderRadio();
+        radioStations = rows.filter((s) => s.url_resolved && s.url_resolved.startsWith('https://')).map((s) => ({
+          id: `radio-${s.stationuuid}`,
+          title: (s.name || 'FM Radio').trim(),
+          artist: `${s.country || 'Global'} · ${s.bitrate || 128}kbps`,
+          badge: 'FM LIVE',
+          artwork: s.favicon && s.favicon.startsWith('https://') ? s.favicon : '',
+          url: s.url_resolved
+        }));
+        renderTrackRows(el, radioStations);
         return;
       } catch (_) {}
     }
-    listEl.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:13px;">Could not load radio mirrors right now.</div>';
+    el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:13px;">Radio unavailable right now.</div>';
   }
 
-  function renderRadio() {
-    renderTrackRows(document.getElementById('radio-list'), radioStations);
-  }
-
-  // -------------------------------------------------------------------------
-  // MUXIS Cloud Auth + Cloudflare D1 Sync + Firebase Google OAuth
-  // -------------------------------------------------------------------------
-  function initAuthUI() {
-    const modal = document.getElementById('auth-modal');
-    const openBtn = document.getElementById('open-cloud-btn');
-    const viewSignInBtn = document.getElementById('cloud-view-signin-btn');
-    const closeBtn = document.getElementById('close-auth-btn');
-    const toggleBtn = document.getElementById('auth-mode-toggle');
-    const submitBtn = document.getElementById('auth-submit-btn');
-    const googleBtn = document.getElementById('google-oauth-btn');
-    const nameField = document.getElementById('auth-name');
-
-    const openModal = () => {
-      if (authToken) {
-        document.querySelector('[data-nav="cloud"]').click();
-        return;
-      }
-      modal.classList.add('open');
-    };
-    openBtn.addEventListener('click', openModal);
-    if (viewSignInBtn) viewSignInBtn.addEventListener('click', () => modal.classList.add('open'));
-    closeBtn.addEventListener('click', () => modal.classList.remove('open'));
-
-    toggleBtn.addEventListener('click', () => {
-      isCreateMode = !isCreateMode;
-      nameField.style.display = isCreateMode ? 'block' : 'none';
-      submitBtn.textContent = isCreateMode ? 'Create Account' : 'Sign In';
-      toggleBtn.textContent = isCreateMode ? 'Have an Account?' : 'Create Account';
-    });
-
-    submitBtn.addEventListener('click', async () => {
-      const email = document.getElementById('auth-email').value.trim();
-      const password = document.getElementById('auth-password').value;
-      const displayName = nameField.value.trim();
-      const errBox = document.getElementById('auth-error-msg');
-      errBox.style.display = 'none';
-
-      const endpoint = isCreateMode ? '/api/auth/register' : '/api/auth/login';
-      try {
-        const res = await fetch(`${WORKER_URL}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, display_name: displayName })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.access_token) {
-          errBox.textContent = data.error || 'Authentication failed.';
-          errBox.style.display = 'block';
-          return;
-        }
-        await completeCloudSession(data.access_token, data.user);
-        modal.classList.remove('open');
-      } catch (_) {
-        errBox.textContent = 'Network timeout contacting MUXIS Cloud.';
-        errBox.style.display = 'block';
-      }
-    });
-
-    googleBtn.addEventListener('click', startGoogleOAuth);
-  }
-
-  async function startGoogleOAuth() {
-    const errBox = document.getElementById('auth-error-msg');
-    errBox.style.display = 'none';
-    const rand = new Uint8Array(24);
-    crypto.getRandomValues(rand);
-    const pollSecret = Array.from(rand, (b) => b.toString(16).padStart(2, '0')).join('');
-    const appRedirect = window.location.href.split('#')[0];
-
-    try {
-      const startRes = await fetch(
-        `${WORKER_URL}/api/auth/google/start?poll_secret=${encodeURIComponent(pollSecret)}&app_redirect=${encodeURIComponent(appRedirect)}`
-      );
-      const startData = await startRes.json();
-      if (!startRes.ok || !startData.auth_url) {
-        errBox.textContent = startData.error || 'Google Sign-In unavailable right now.';
-        errBox.style.display = 'block';
-        return;
-      }
-
-      const popup = window.open(startData.auth_url, '_blank', 'width=480,height=640');
-      const deadline = Date.now() + 3 * 60 * 1000;
-
-      const timer = setInterval(async () => {
-        if (Date.now() > deadline) {
-          clearInterval(timer);
-          return;
-        }
-        try {
-          const pollRes = await fetch(`${WORKER_URL}/api/auth/google/poll`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ state: startData.state, poll_secret: pollSecret })
-          });
-          if (!pollRes.ok) return;
-          const pData = await pollRes.json();
-          if (pData.status === 'complete' && pData.access_token) {
-            clearInterval(timer);
-            try { if (popup && !popup.closed) popup.close(); } catch (_) {}
-            await completeCloudSession(pData.access_token, pData.user);
-            document.getElementById('auth-modal').classList.remove('open');
-          } else if (pData.status === 'error' || pData.status === 'expired') {
-            clearInterval(timer);
-            errBox.textContent = pData.error || 'Google Sign-In expired.';
-            errBox.style.display = 'block';
-          }
-        } catch (_) {}
-      }, 1400);
-    } catch (_) {
-      errBox.textContent = 'Could not reach MUXIS Cloud OAuth.';
-      errBox.style.display = 'block';
-    }
-  }
-
-  async function completeCloudSession(token, user) {
-    authToken = token;
-    authUser = user;
-    localStorage.setItem('muxis_cloud_token', token);
-    saveJson('muxis_cloud_user', user);
-    await pullCloudSync();
-    renderCloudView();
-    showToast(`Signed in as ${user?.display_name || user?.email || 'MUXIS Cloud'}`);
-  }
-
-  async function verifySessionAndSync() {
-    try {
-      const res = await fetch(`${WORKER_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      if (res.status === 401) {
-        signOutCloud();
-        return;
-      }
-      if (res.ok) {
-        const d = await res.json();
-        if (d.user) {
-          authUser = d.user;
-          saveJson('muxis_cloud_user', authUser);
-          await pullCloudSync();
-        }
-      }
-    } catch (_) {}
+  async function runSearch() {
+    const q = document.getElementById('global-search-input').value.trim().toLowerCase();
+    const listEl = document.getElementById('search-results-list');
+    if (!q) { renderTrackRows(listEl, FEATURED_TRACKS); return; }
+    const localHits = [...localTracks, ...FEATURED_TRACKS].filter((t) => `${t.title} ${t.artist}`.toLowerCase().includes(q));
+    await loadRadioStations(q, 'search-results-list');
+    renderTrackRows(listEl, [...localHits, ...radioStations]);
   }
 
   async function pullCloudSync() {
     if (!authToken) return;
     try {
       const res = await fetch(`${WORKER_URL}/api/sync/pull`, {
-        headers: { Authorization: `Bearer ${authToken}` }
+        headers: { Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' }
       });
+      if (res.status === 403) {
+        const err = await res.json().catch(() => ({}));
+        if (err.code === 'PWA_APPROVAL_REQUIRED') showGatePending(err.approval_status || 'pending', null, authUser?.email);
+        return;
+      }
       if (!res.ok) return;
       const d = await res.json();
       if (Array.isArray(d.favorites)) {
-        const merged = [...favorites];
         d.favorites.forEach((rf) => {
-          if (!merged.some((lf) => lf.track_uri === rf.track_uri)) {
-            merged.push({ id: `cloud-${rf.track_uri}`, track_uri: rf.track_uri, title: rf.title, artist: rf.artist, album: rf.album || '', url: rf.track_uri.startsWith('http') ? rf.track_uri : '', badge: 'SYNCED' });
+          if (!favorites.some((f) => f.track_uri === rf.track_uri)) {
+            favorites.push({ id: `cloud-${rf.track_uri}`, track_uri: rf.track_uri, title: rf.title, artist: rf.artist, url: rf.track_uri.startsWith('http') ? rf.track_uri : '', badge: 'SYNCED' });
           }
         });
-        favorites = merged;
         saveJson('muxis_pwa_favorites', favorites);
-        renderFavorites();
       }
-      if (d.settings && d.settings.dark_preset && THEMES[d.settings.dark_preset]) {
-        initTheme(d.settings.dark_preset);
+      if (d.settings?.dark_preset && THEMES[d.settings.dark_preset]) initTheme(d.settings.dark_preset);
+      if (d.settings?.eq_preset && EQ_PRESETS[d.settings.eq_preset]) {
+        activePresetName = d.settings.eq_preset;
+        eqGains = [...EQ_PRESETS[activePresetName]];
+        initEqStudio();
       }
-      renderCloudView();
     } catch (_) {}
   }
 
@@ -938,7 +938,7 @@
     try {
       await fetch(`${WORKER_URL}/api/sync/push`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}`, 'X-Muxis-Client': 'pwa' },
         body: JSON.stringify(Object.assign({
           device: { name: /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone PWA' : 'Web PWA', platform: 'pwa', client_version: '1.2.13' }
         }, payload))
@@ -946,62 +946,13 @@
     } catch (_) {}
   }
 
-  function signOutCloud() {
-    authToken = '';
-    authUser = null;
-    localStorage.removeItem('muxis_cloud_token');
-    localStorage.removeItem('muxis_cloud_user');
-    renderCloudView();
-    showToast('Signed out of MUXIS Cloud');
-  }
-
-  function renderCloudView() {
-    const topBtn = document.getElementById('open-cloud-btn');
-    const box = document.getElementById('cloud-account-box');
-    if (authToken && authUser) {
-      topBtn.textContent = authUser.display_name || 'Cloud';
-      box.innerHTML = '';
-      const h = document.createElement('h3');
-      h.style.cssText = 'font-size:18px;font-weight:800;margin-bottom:4px;';
-      h.textContent = authUser.display_name || 'MUXIS Listener';
-      const p = document.createElement('p');
-      p.style.cssText = 'font-size:12.5px;color:var(--text-muted);margin-bottom:14px;';
-      p.textContent = `${authUser.email} • Synced via Cloudflare D1`;
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;';
-      const syncBtn = document.createElement('button');
-      syncBtn.type = 'button';
-      syncBtn.className = 'pill-btn accent';
-      syncBtn.textContent = 'Sync Now';
-      syncBtn.addEventListener('click', async () => { await pullCloudSync(); showToast('Cloudflare D1 synced!'); });
-      const outBtn = document.createElement('button');
-      outBtn.type = 'button';
-      outBtn.className = 'pill-btn';
-      outBtn.textContent = 'Sign Out';
-      outBtn.addEventListener('click', signOutCloud);
-      row.append(syncBtn, outBtn);
-      box.append(h, p, row);
-    } else {
-      topBtn.textContent = 'Cloud Sign In';
-    }
-  }
-
-  function loadJson(key, fallback) {
-    try {
-      const v = localStorage.getItem(key);
-      return v ? JSON.parse(v) : fallback;
-    } catch (_) { return fallback; }
-  }
-
-  function saveJson(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch (_) {}
-  }
-
+  function loadJson(k, fb) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch (_) { return fb; } }
+  function saveJson(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
   function showToast(msg) {
     const el = document.getElementById('toast');
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(el._t);
-    el._t = setTimeout(() => el.classList.remove('show'), 2600);
+    el._t = setTimeout(() => el.classList.remove('show'), 2500);
   }
 })();
